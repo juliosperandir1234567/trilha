@@ -5,7 +5,14 @@ import { createClient } from "@/lib/supabase/server";
 import { requireStaff } from "@/lib/supabase/dal";
 
 export type EnviarAvaliacaoState =
-  | { error?: string; success?: boolean; enviadoPara?: string }
+  | {
+      error?: string;
+      success?: boolean;
+      enviadoPara?: string;
+      link?: string;
+      emailEnviado?: boolean;
+      aviso?: string;
+    }
   | undefined;
 
 export async function enviarAvaliacaoAgora(
@@ -46,5 +53,11 @@ export async function enviarAvaliacaoAgora(
 
   revalidatePath(`/admin/colaboradores/${colaboradorId}`);
   revalidatePath("/admin");
-  return { success: true, enviadoPara: json.enviado_para };
+  return {
+    success: true,
+    enviadoPara: json.enviado_para,
+    link: json.link,
+    emailEnviado: json.email_enviado,
+    aviso: json.aviso,
+  };
 }
