@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { EnviarAgoraButton } from "./enviar-agora-button";
 
 const MARCOS = [30, 60, 90] as const;
 
@@ -75,9 +76,14 @@ export default async function ColaboradorDetalhePage({
           <div key={marco} className="rounded-lg border border-primary-border p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-medium">{marco} dias</h2>
-              <span className="text-sm text-zinc-500">
-                {avaliacao ? STATUS_LABEL[avaliacao.status] ?? avaliacao.status : "Ainda não atingiu este marco"}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-zinc-500">
+                  {avaliacao ? STATUS_LABEL[avaliacao.status] ?? avaliacao.status : "Ainda não atingiu este marco"}
+                </span>
+                {avaliacao?.status !== "respondida" && (
+                  <EnviarAgoraButton colaboradorId={colaborador.id} marco={marco} />
+                )}
+              </div>
             </div>
 
             {avaliacao?.status === "respondida" && (
