@@ -53,75 +53,85 @@ export default async function ColaboradoresPage() {
         <ImportForm />
       </div>
 
-      <table className="w-full max-w-4xl text-left text-sm">
-        <thead>
-          <tr className="border-b-2 border-primary-border text-primary">
-            <th className="py-2">Matrícula</th>
-            <th className="py-2">Nome</th>
-            <th className="py-2">Tipo</th>
-            <th className="py-2">Admissão</th>
-            <th className="py-2">Gestor</th>
-            <th className="py-2">Status</th>
-            <th className="py-2">Avaliação</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(colaboradores ?? []).map((colaborador) => {
-            const statusPorMarco = avaliacoesPorColaborador.get(colaborador.id) ?? new Map();
-            const marcoPendente = MARCOS.find((m) => statusPorMarco.get(m) !== "respondida");
+      <div className="overflow-x-auto rounded-lg border border-primary-border">
+        <table className="w-full min-w-[900px] text-left text-sm">
+          <thead>
+            <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
+              <th className="whitespace-nowrap px-4 py-3">Matrícula</th>
+              <th className="whitespace-nowrap px-4 py-3">Nome</th>
+              <th className="whitespace-nowrap px-4 py-3">Tipo</th>
+              <th className="whitespace-nowrap px-4 py-3">Admissão</th>
+              <th className="px-4 py-3">Gestor</th>
+              <th className="whitespace-nowrap px-4 py-3">Status</th>
+              <th className="px-4 py-3">Avaliação</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(colaboradores ?? []).map((colaborador) => {
+              const statusPorMarco = avaliacoesPorColaborador.get(colaborador.id) ?? new Map();
+              const marcoPendente = MARCOS.find((m) => statusPorMarco.get(m) !== "respondida");
 
-            return (
-              <tr key={colaborador.id} className="border-b border-primary-border/40">
-                <td className="py-2 text-zinc-500">{colaborador.matricula}</td>
-                <td className="py-2">
-                  <Link
-                    href={`/admin/colaboradores/${colaborador.id}`}
-                    className="inline-flex items-center gap-1 text-primary underline underline-offset-2"
-                  >
-                    {colaborador.nome}
-                  </Link>
-                  {colaboradoresComNotaCritica.has(colaborador.id) && (
-                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-400">
-                      <AlertTriangle className="h-3 w-3" />
-                      Atenção
-                    </span>
-                  )}
-                </td>
-                <td className="py-2 text-zinc-500">
-                  {colaborador.tipo === "capacitacao" ? "Em capacitação" : "Novato"}
-                </td>
-                <td className="py-2">
-                  {new Date(colaborador.data_admissao + "T00:00:00").toLocaleDateString("pt-BR")}
-                </td>
-                <td className="py-2 text-zinc-500">
-                  {colaborador.gestor_nome} ({colaborador.gestor_email})
-                </td>
-                <td className="py-2">{colaborador.ativo ? "Ativo" : "Inativo"}</td>
-                <td className="py-2">
-                  {marcoPendente ? (
-                    <div className="flex flex-col items-start gap-1">
-                      <span className="text-xs text-zinc-500">
-                        {marcoPendente} dias —{" "}
-                        {STATUS_LABEL[statusPorMarco.get(marcoPendente) ?? ""] ?? "Não enviada"}
+              return (
+                <tr
+                  key={colaborador.id}
+                  className="border-b border-primary-border/40 align-top last:border-b-0 hover:bg-primary-soft/20"
+                >
+                  <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{colaborador.matricula}</td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/admin/colaboradores/${colaborador.id}`}
+                      className="inline-flex items-center gap-1 text-primary underline underline-offset-2"
+                    >
+                      {colaborador.nome}
+                    </Link>
+                    {colaboradoresComNotaCritica.has(colaborador.id) && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-400">
+                        <AlertTriangle className="h-3 w-3" />
+                        Atenção
                       </span>
-                      <EnviarAgoraButton colaboradorId={colaborador.id} marco={marcoPendente} />
+                    )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
+                    {colaborador.tipo === "capacitacao" ? "Em capacitação" : "Novato"}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {new Date(colaborador.data_admissao + "T00:00:00").toLocaleDateString("pt-BR")}
+                  </td>
+                  <td className="px-4 py-3 text-zinc-500">
+                    <div className="flex flex-col">
+                      <span>{colaborador.gestor_nome}</span>
+                      <span className="text-xs text-zinc-400">{colaborador.gestor_email}</span>
                     </div>
-                  ) : (
-                    <span className="text-xs text-zinc-500">Completo</span>
-                  )}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {colaborador.ativo ? "Ativo" : "Inativo"}
+                  </td>
+                  <td className="px-4 py-3">
+                    {marcoPendente ? (
+                      <div className="flex flex-col items-start gap-2">
+                        <span className="text-xs text-zinc-500">
+                          {marcoPendente} dias —{" "}
+                          {STATUS_LABEL[statusPorMarco.get(marcoPendente) ?? ""] ?? "Não enviada"}
+                        </span>
+                        <EnviarAgoraButton colaboradorId={colaborador.id} marco={marcoPendente} />
+                      </div>
+                    ) : (
+                      <span className="text-xs text-zinc-500">Completo</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+            {(colaboradores ?? []).length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
+                  Nenhum colaborador importado ainda.
                 </td>
               </tr>
-            );
-          })}
-          {(colaboradores ?? []).length === 0 && (
-            <tr>
-              <td colSpan={7} className="py-4 text-center text-zinc-500">
-                Nenhum colaborador importado ainda.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
