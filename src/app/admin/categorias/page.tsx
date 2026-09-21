@@ -15,41 +15,48 @@ export default async function CategoriasPage() {
 
       <CategoriaForm />
 
-      <table className="w-full max-w-2xl text-left text-sm">
-        <thead>
-          <tr className="border-b-2 border-primary-border text-primary">
-            <th className="py-2">Nome</th>
-            <th className="py-2">Descrição</th>
-            <th className="py-2">Status</th>
-            <th className="py-2" />
-          </tr>
-        </thead>
-        <tbody>
-          {(categorias ?? []).map((categoria) => (
-            <tr key={categoria.id} className="border-b border-primary-border/40">
-              <td className="py-2">{categoria.nome}</td>
-              <td className="py-2 text-zinc-500">{categoria.descricao}</td>
-              <td className="py-2">{categoria.ativo ? "Ativa" : "Inativa"}</td>
-              <td className="py-2 text-right">
-                <form action={toggleCategoriaAtiva}>
-                  <input type="hidden" name="id" value={categoria.id} />
-                  <input type="hidden" name="ativo" value={String(categoria.ativo)} />
-                  <button type="submit" className="text-sm text-primary underline underline-offset-2">
-                    {categoria.ativo ? "Desativar" : "Ativar"}
-                  </button>
-                </form>
-              </td>
+      <div className="overflow-x-auto rounded-lg border border-primary-border">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead>
+            <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
+              <th className="px-4 py-3">Nome</th>
+              <th className="px-4 py-3">Descrição</th>
+              <th className="whitespace-nowrap px-4 py-3">Status</th>
+              <th className="px-4 py-3" />
             </tr>
-          ))}
-          {(categorias ?? []).length === 0 && (
-            <tr>
-              <td colSpan={4} className="py-4 text-center text-zinc-500">
-                Nenhuma categoria cadastrada.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(categorias ?? []).map((categoria) => (
+              <tr
+                key={categoria.id}
+                className="border-b border-primary-border/40 align-top last:border-b-0 hover:bg-primary-soft/20"
+              >
+                <td className="px-4 py-3 font-medium">{categoria.nome}</td>
+                <td className="px-4 py-3 text-zinc-500">{categoria.descricao}</td>
+                <td className="whitespace-nowrap px-4 py-3">
+                  {categoria.ativo ? "Ativa" : "Inativa"}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <form action={toggleCategoriaAtiva}>
+                    <input type="hidden" name="id" value={categoria.id} />
+                    <input type="hidden" name="ativo" value={String(categoria.ativo)} />
+                    <button type="submit" className="text-sm text-primary underline underline-offset-2">
+                      {categoria.ativo ? "Desativar" : "Ativar"}
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            ))}
+            {(categorias ?? []).length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">
+                  Nenhuma categoria cadastrada.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -22,26 +22,33 @@ export default async function UsuariosPage() {
         </p>
       )}
 
-      <table className="w-full max-w-2xl text-left text-sm">
-        <thead>
-          <tr className="border-b-2 border-primary-border text-primary">
-            <th className="py-2">Nome</th>
-            <th className="py-2">E-mail</th>
-            <th className="py-2">Papel</th>
-            <th className="py-2">Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(usuarios ?? []).map((usuario) => (
-            <tr key={usuario.id} className="border-b border-primary-border/40">
-              <td className="py-2">{usuario.nome}</td>
-              <td className="py-2 text-zinc-500">{usuario.email}</td>
-              <td className="py-2">{usuario.papel}</td>
-              <td className="py-2">{usuario.ativo ? "Ativo" : "Inativo"}</td>
+      <div className="overflow-x-auto rounded-lg border border-primary-border">
+        <table className="w-full min-w-[560px] text-left text-sm">
+          <thead>
+            <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
+              <th className="px-4 py-3">Nome</th>
+              <th className="px-4 py-3">E-mail</th>
+              <th className="whitespace-nowrap px-4 py-3">Papel</th>
+              <th className="whitespace-nowrap px-4 py-3">Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(usuarios ?? []).map((usuario) => (
+              <tr
+                key={usuario.id}
+                className="border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20"
+              >
+                <td className="px-4 py-3">{usuario.nome}</td>
+                <td className="px-4 py-3 text-zinc-500">{usuario.email}</td>
+                <td className="whitespace-nowrap px-4 py-3">{usuario.papel}</td>
+                <td className="whitespace-nowrap px-4 py-3">
+                  {usuario.ativo ? "Ativo" : "Inativo"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

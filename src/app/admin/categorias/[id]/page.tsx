@@ -84,56 +84,61 @@ export default async function CategoriaDetalhePage({
         })}
       </div>
 
-      <table className="w-full max-w-3xl text-left text-sm">
-        <thead>
-          <tr className="border-b-2 border-primary-border text-primary">
-            <th className="py-2">Matrícula</th>
-            <th className="py-2">Colaborador</th>
-            <th className="py-2">Marco</th>
-            <th className="py-2">Nota</th>
-            <th className="py-2">Gestor</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(respostas ?? []).map((resposta) => {
-            const avaliacao = resposta.avaliacoes as unknown as {
-              marco: number;
-              colaboradores: {
-                id: string;
-                nome: string;
-                matricula: string | null;
-                gestor_nome: string;
-                gestor_email: string;
-              } | null;
-            } | null;
-            const colaborador = avaliacao?.colaboradores;
-
-            return (
-              <tr key={resposta.id} className="border-b border-primary-border/40">
-                <td className="py-2 text-zinc-500">{colaborador?.matricula}</td>
-                <td className="py-2">
-                  <Link
-                    href={`/admin/colaboradores/${colaborador?.id}`}
-                    className="text-primary underline underline-offset-2"
-                  >
-                    {colaborador?.nome}
-                  </Link>
-                </td>
-                <td className="py-2">{avaliacao?.marco} dias</td>
-                <td className="py-2">{resposta.nota}</td>
-                <td className="py-2 text-zinc-500">{colaborador?.gestor_nome}</td>
-              </tr>
-            );
-          })}
-          {(respostas ?? []).length === 0 && (
-            <tr>
-              <td colSpan={5} className="py-4 text-center text-zinc-500">
-                Nenhum colaborador indicado para este treinamento ainda.
-              </td>
+      <div className="overflow-x-auto rounded-lg border border-primary-border">
+        <table className="w-full min-w-[640px] text-left text-sm">
+          <thead>
+            <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
+              <th className="whitespace-nowrap px-4 py-3">Matrícula</th>
+              <th className="px-4 py-3">Colaborador</th>
+              <th className="whitespace-nowrap px-4 py-3">Marco</th>
+              <th className="whitespace-nowrap px-4 py-3">Nota</th>
+              <th className="px-4 py-3">Gestor</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(respostas ?? []).map((resposta) => {
+              const avaliacao = resposta.avaliacoes as unknown as {
+                marco: number;
+                colaboradores: {
+                  id: string;
+                  nome: string;
+                  matricula: string | null;
+                  gestor_nome: string;
+                  gestor_email: string;
+                } | null;
+              } | null;
+              const colaborador = avaliacao?.colaboradores;
+
+              return (
+                <tr
+                  key={resposta.id}
+                  className="border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20"
+                >
+                  <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{colaborador?.matricula}</td>
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/admin/colaboradores/${colaborador?.id}`}
+                      className="text-primary underline underline-offset-2"
+                    >
+                      {colaborador?.nome}
+                    </Link>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">{avaliacao?.marco} dias</td>
+                  <td className="whitespace-nowrap px-4 py-3">{resposta.nota}</td>
+                  <td className="px-4 py-3 text-zinc-500">{colaborador?.gestor_nome}</td>
+                </tr>
+              );
+            })}
+            {(respostas ?? []).length === 0 && (
+              <tr>
+                <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
+                  Nenhum colaborador indicado para este treinamento ainda.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

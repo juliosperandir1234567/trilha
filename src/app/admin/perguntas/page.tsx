@@ -26,44 +26,51 @@ export default async function PerguntasPage() {
       {MARCOS.map((marco) => (
         <div key={marco} className="flex flex-col gap-2">
           <h2 className="font-medium">{marco} dias</h2>
-          <table className="w-full max-w-3xl text-left text-sm">
-            <thead>
-              <tr className="border-b-2 border-primary-border text-primary">
-                <th className="py-2">Pergunta</th>
-                <th className="py-2">Categoria sugerida</th>
-                <th className="py-2">Status</th>
-                <th className="py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {(perguntas ?? [])
-                .filter((pergunta) => pergunta.marco === marco)
-                .map((pergunta) => (
-                  <tr key={pergunta.id} className="border-b border-primary-border/40">
-                    <td className="py-2">{pergunta.texto}</td>
-                    <td className="py-2 text-zinc-500">
-                      {(pergunta.categorias_treinamento as unknown as { nome: string } | null)
-                        ?.nome ?? "-"}
-                    </td>
-                    <td className="py-2">{pergunta.ativo ? "Ativa" : "Inativa"}</td>
-                    <td className="py-2 text-right">
-                      <PerguntaRowActions
-                        id={pergunta.id}
-                        ativo={pergunta.ativo}
-                        podeExcluir={perfil?.papel === "admin"}
-                      />
+          <div className="overflow-x-auto rounded-lg border border-primary-border">
+            <table className="w-full min-w-[700px] text-left text-sm">
+              <thead>
+                <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
+                  <th className="px-4 py-3">Pergunta</th>
+                  <th className="px-4 py-3">Categoria sugerida</th>
+                  <th className="whitespace-nowrap px-4 py-3">Status</th>
+                  <th className="px-4 py-3" />
+                </tr>
+              </thead>
+              <tbody>
+                {(perguntas ?? [])
+                  .filter((pergunta) => pergunta.marco === marco)
+                  .map((pergunta) => (
+                    <tr
+                      key={pergunta.id}
+                      className="border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20"
+                    >
+                      <td className="px-4 py-3">{pergunta.texto}</td>
+                      <td className="px-4 py-3 text-zinc-500">
+                        {(pergunta.categorias_treinamento as unknown as { nome: string } | null)
+                          ?.nome ?? "-"}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        {pergunta.ativo ? "Ativa" : "Inativa"}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <PerguntaRowActions
+                          id={pergunta.id}
+                          ativo={pergunta.ativo}
+                          podeExcluir={perfil?.papel === "admin"}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                {(perguntas ?? []).filter((pergunta) => pergunta.marco === marco).length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-4 text-center text-zinc-500">
+                      Nenhuma pergunta cadastrada para este marco.
                     </td>
                   </tr>
-                ))}
-              {(perguntas ?? []).filter((pergunta) => pergunta.marco === marco).length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-3 text-center text-zinc-500">
-                    Nenhuma pergunta cadastrada para este marco.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       ))}
     </div>

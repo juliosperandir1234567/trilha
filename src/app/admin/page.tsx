@@ -202,40 +202,42 @@ export default async function AdminOverviewPage({
 
       <div>
         <h2 className="mb-3 font-medium">Progresso por marco</h2>
-        <table className="w-full max-w-2xl text-left text-sm">
-          <thead>
-            <tr className="border-b-2 border-primary-border text-primary">
-              <th className="py-2">Marco</th>
-              <th className="py-2">Total</th>
-              <th className="py-2">Respondidas</th>
-              <th className="py-2">Aguardando</th>
-              <th className="py-2">Expiradas</th>
-            </tr>
-          </thead>
-          <tbody>
-            {progressoPorMarco.map((linha) => (
-              <tr
-                key={linha.marco}
-                className={`border-b border-primary-border/40 ${
-                  linha.marco === marcoNum ? "bg-primary-soft/60" : ""
-                }`}
-              >
-                <td className="py-2">
-                  <Link
-                    href={`/admin?marco=${linha.marco}`}
-                    className="text-primary underline underline-offset-2"
-                  >
-                    {linha.marco} dias
-                  </Link>
-                </td>
-                <td className="py-2">{linha.total}</td>
-                <td className="py-2">{linha.respondidas}</td>
-                <td className="py-2">{linha.aguardando}</td>
-                <td className="py-2">{linha.expiradas}</td>
+        <div className="overflow-x-auto rounded-lg border border-primary-border">
+          <table className="w-full min-w-[480px] text-left text-sm">
+            <thead>
+              <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
+                <th className="px-4 py-3">Marco</th>
+                <th className="px-4 py-3">Total</th>
+                <th className="px-4 py-3">Respondidas</th>
+                <th className="px-4 py-3">Aguardando</th>
+                <th className="px-4 py-3">Expiradas</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {progressoPorMarco.map((linha) => (
+                <tr
+                  key={linha.marco}
+                  className={`border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20 ${
+                    linha.marco === marcoNum ? "bg-primary-soft/60" : ""
+                  }`}
+                >
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/admin?marco=${linha.marco}`}
+                      className="text-primary underline underline-offset-2"
+                    >
+                      {linha.marco} dias
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3">{linha.total}</td>
+                  <td className="px-4 py-3">{linha.respondidas}</td>
+                  <td className="px-4 py-3">{linha.aguardando}</td>
+                  <td className="px-4 py-3">{linha.expiradas}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <div>
@@ -276,78 +278,80 @@ export default async function AdminOverviewPage({
           {critico ? " — Notas críticas" : ""}
         </h2>
 
-        <table className="w-full max-w-4xl text-left text-sm">
-          <thead>
-            <tr className="border-b-2 border-primary-border text-primary">
-              <th className="py-2">Matrícula</th>
-              <th className="py-2">Colaborador</th>
-              <th className="py-2">Marco</th>
-              <th className="py-2">Gestor</th>
-              <th className="py-2">Status</th>
-              <th className="py-2">Expira / respondida em</th>
-            </tr>
-          </thead>
-          <tbody>
-            {avaliacoesFiltradas.map((avaliacao) => {
-              const colaborador = avaliacao.colaboradores as unknown as {
-                id: string;
-                nome: string;
-                matricula: string | null;
-                gestor_nome: string;
-                gestor_email: string;
-              } | null;
-              const link = (avaliacao.links_avaliacao as unknown as { expira_em: string }[])[0];
+        <div className="overflow-x-auto rounded-lg border border-primary-border">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead>
+              <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
+                <th className="whitespace-nowrap px-4 py-3">Matrícula</th>
+                <th className="px-4 py-3">Colaborador</th>
+                <th className="whitespace-nowrap px-4 py-3">Marco</th>
+                <th className="px-4 py-3">Gestor</th>
+                <th className="whitespace-nowrap px-4 py-3">Status</th>
+                <th className="whitespace-nowrap px-4 py-3">Expira / respondida em</th>
+              </tr>
+            </thead>
+            <tbody>
+              {avaliacoesFiltradas.map((avaliacao) => {
+                const colaborador = avaliacao.colaboradores as unknown as {
+                  id: string;
+                  nome: string;
+                  matricula: string | null;
+                  gestor_nome: string;
+                  gestor_email: string;
+                } | null;
+                const link = (avaliacao.links_avaliacao as unknown as { expira_em: string }[])[0];
 
-              const notaCritica = avaliacoesComNotaCritica.has(avaliacao.id);
+                const notaCritica = avaliacoesComNotaCritica.has(avaliacao.id);
 
-              return (
-                <tr
-                  key={avaliacao.id}
-                  className={`border-b border-primary-border/40 ${notaCritica ? "bg-red-50 dark:bg-red-950/30" : ""}`}
-                >
-                  <td className="py-2 text-zinc-500">{colaborador?.matricula}</td>
-                  <td className="py-2">
-                    <Link
-                      href={`/admin/colaboradores/${colaborador?.id}`}
-                      className="text-primary underline underline-offset-2"
-                    >
-                      {colaborador?.nome}
-                    </Link>
-                    {notaCritica && (
-                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-400">
-                        <AlertTriangle className="h-3 w-3" />
-                        Atenção
+                return (
+                  <tr
+                    key={avaliacao.id}
+                    className={`border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20 ${notaCritica ? "bg-red-50 dark:bg-red-950/30" : ""}`}
+                  >
+                    <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{colaborador?.matricula}</td>
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/admin/colaboradores/${colaborador?.id}`}
+                        className="text-primary underline underline-offset-2"
+                      >
+                        {colaborador?.nome}
+                      </Link>
+                      {notaCritica && (
+                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-400">
+                          <AlertTriangle className="h-3 w-3" />
+                          Atenção
+                        </span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">{avaliacao.marco} dias</td>
+                    <td className="px-4 py-3 text-zinc-500">{colaborador?.gestor_nome}</td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span className={avaliacao.status === "expirada" ? "text-red-600" : ""}>
+                        {STATUS_LABEL[avaliacao.status] ?? avaliacao.status}
                       </span>
-                    )}
-                  </td>
-                  <td className="py-2">{avaliacao.marco} dias</td>
-                  <td className="py-2 text-zinc-500">{colaborador?.gestor_nome}</td>
-                  <td className="py-2">
-                    <span className={avaliacao.status === "expirada" ? "text-red-600" : ""}>
-                      {STATUS_LABEL[avaliacao.status] ?? avaliacao.status}
-                    </span>
-                  </td>
-                  <td className="py-2 text-zinc-500">
-                    {avaliacao.status === "respondida"
-                      ? avaliacao.data_resposta
-                        ? new Date(avaliacao.data_resposta).toLocaleString("pt-BR")
-                        : "-"
-                      : link
-                        ? new Date(link.expira_em).toLocaleString("pt-BR")
-                        : "-"}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
+                      {avaliacao.status === "respondida"
+                        ? avaliacao.data_resposta
+                          ? new Date(avaliacao.data_resposta).toLocaleString("pt-BR")
+                          : "-"
+                        : link
+                          ? new Date(link.expira_em).toLocaleString("pt-BR")
+                          : "-"}
+                    </td>
+                  </tr>
+                );
+              })}
+              {avaliacoesFiltradas.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-zinc-500">
+                    Nenhuma avaliação encontrada.
                   </td>
                 </tr>
-              );
-            })}
-            {avaliacoesFiltradas.length === 0 && (
-              <tr>
-                <td colSpan={6} className="py-4 text-center text-zinc-500">
-                  Nenhuma avaliação encontrada.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <Link href="/admin/colaboradores" className="w-fit text-sm text-primary underline underline-offset-2">
