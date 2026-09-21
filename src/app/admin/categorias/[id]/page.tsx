@@ -1,0 +1,139 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Download } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+
+const MARCOS_FILTRO = [
+  { label: "Todos", valor: "" },
+  { label: "30 dias", valor: "30" },
+  { label: "60 dias", valor: "60" },
+  { label: "90 dias", valor: "90" },
+];
+
+export default async function CategoriaDetalhePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ marco?: string }>;
+}) {
+  const { id } = await params;
+  const { marco } = await searchParams;
+  const supabase = await createClient();
+
+  const { data: categoria } = await supabase
+    .from("categorias_treinamento")
+    .select("id, nome")
+    .eq("id", id)
+    .single();
+
+  if (!categoria) notFound();
+
+  let query = supabase
+    .from("respostas")
+    .select(
+      "id, nota, created_at, avaliacoes!inner(marco, colaboradores(id, nome, matricula, gestor_nome, gestor_email))"
+    )
+    .eq("categoria_final_id", id)
+    .order("created_at", { ascending: false });
+
+  if (marco) query = query.eq("avaliacoes.marco", Number(marco));
+
+  const { data: respostas } = await query;
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <Link href="/admin/categorias" className="text-sm text-primary underline underline-offset-2">
+            ← Voltar
+          </Link>
+          <h1 className="mt-2 text-xl font-semibold">
+            Indicados: {categoria.nome}
+            {marco ? ` — ${marco} dias` : ""}
+          </h1>
+        </div>
+        <a
+          href={`/admin/categorias/${id}/export${marco ? `?marco=${marco}` : ""}`}
+          className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary-hover"
+        >
+          <Download className="h-4 w-4" />
+          Exportar CSV
+        </a>
+      </div>
+
+      <div className="flex gap-2">
+        {MARCOS_FILTRO.map((opcao) => {
+          const ativo = (marco ?? "") === opcao.valor;
+          const href = opcao.valor
+            ? `/admin/categorias/${id}?marco=${opcao.valor}`
+            : `/admin/categorias/${id}`;
+          return (
+            <Link
+              key={opcao.label}
+              href={href}
+              className={`rounded-full px-3 py-1 text-sm ${
+                ativo
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-primary-border text-primary hover:bg-primary-soft"
+              }`}
+            >
+              {opcao.label}
+            </Link>
+          );
+        })}
+      </div>
+
+      <table className="w-full max-w-3xl text-left text-sm">
+        <thead>
+          <tr className="border-b-2 border-primary-border text-primary">
+            <th className="py-2">Matrícula</th>
+            <th className="py-2">Colaborador</th>
+            <th className="py-2">Marco</th>
+            <th className="py-2">Nota</th>
+            <th className="py-2">Gestor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(respostas ?? []).map((resposta) => {
+            const avaliacao = resposta.avaliacoes as unknown as {
+              marco: number;
+              colaboradores: {
+                id: string;
+                nome: string;
+                matricula: string | null;
+                gestor_nome: string;
+                gestor_email: string;
+              } | null;
+            } | null;
+            const colaborador = avaliacao?.colaboradores;
+
+            return (
+              <tr key={resposta.id} className="border-b border-primary-border/40">
+                <td className="py-2 text-zinc-500">{colaborador?.matricula}</td>
+                <td className="py-2">
+                  <Link
+                    href={`/admin/colaboradores/${colaborador?.id}`}
+                    className="text-primary underline underline-offset-2"
+                  >
+                    {colaborador?.nome}
+                  </Link>
+                </td>
+                <td className="py-2">{avaliacao?.marco} dias</td>
+                <td className="py-2">{resposta.nota}</td>
+                <td className="py-2 text-zinc-500">{colaborador?.gestor_nome}</td>
+              </tr>
+            );
+          })}
+          {(respostas ?? []).length === 0 && (
+            <tr>
+              <td colSpan={5} className="py-4 text-center text-zinc-500">
+                Nenhum colaborador indicado para este treinamento ainda.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
