@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Send } from "lucide-react";
 
-type Pergunta = { id: string; texto: string };
+type Pergunta = { id: string; texto: string; categoria_sugerida_id: string | null };
 type Categoria = { id: string; nome: string };
 type DadosAvaliacao = {
   colaborador_nome: string;
@@ -38,7 +38,11 @@ export function AvaliacaoClient({ token }: { token: string }) {
         setDados(json);
         const inicial: Record<string, RespostaEstado> = {};
         for (const pergunta of json.perguntas as Pergunta[]) {
-          inicial[pergunta.id] = { nota: null, categoria_final_id: "", comentario: "" };
+          inicial[pergunta.id] = {
+            nota: null,
+            categoria_final_id: pergunta.categoria_sugerida_id ?? "",
+            comentario: "",
+          };
         }
         setRespostas(inicial);
       } catch {
