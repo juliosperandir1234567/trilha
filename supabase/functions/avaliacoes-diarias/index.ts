@@ -4,6 +4,7 @@ import { SMTPClient } from "https://deno.land/x/denomailer/mod.ts";
 
 const MARCOS = [30, 60, 90] as const;
 const DIAS_RETENTATIVA = 3;
+const DIAS_CATCHUP = 30;
 
 function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -62,6 +63,7 @@ Deno.serve(async (req: Request) => {
   const nomeRemetente = config?.nome_remetente ?? "Trilha 30-60-90";
 
   const hoje = hojeISO();
+  const dataLimiteCatchup = somarDias(hoje, -DIAS_CATCHUP);
 
   const { data: colaboradores, error: erroColaboradores } = await supabase
     .from("colaboradores")
@@ -102,7 +104,12 @@ Deno.serve(async (req: Request) => {
   for (const colaborador of colaboradores ?? []) {
     for (const marco of MARCOS) {
       const dataAlvo = somarDias(colaborador.data_admissao, marco);
-      if (dataAlvo !== hoje) continue;
+      // Não é só "bateu hoje": também cobre marco (colaborador cadastrado
+      // depois que a data já tinha passado, ex: importação tardia). O
+      // "if (existente) continue" logo abaixo evita duplicar quem já foi
+      // criado antes. Data muito antiga (> DIAS_CATCHUP) é ignorada — é
+      // mais provável erro de cadastro do que um marco de fato pendente.
+      if (dataAlvo > hoje || dataAlvo < dataLimiteCatchup) continue;
 
       const { data: existente } = await supabase
         .from("avaliacoes")
