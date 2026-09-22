@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* O app não tem alternância de tema (sem classe .dark em lugar nenhum),
+   então as variantes dark: nunca devem seguir o prefers-color-scheme do
+   sistema — senão texto/bordas pensados pra fundo escuro caem sobre o
+   fundo branco fixo do app. */
+@custom-variant dark (&:is(.dark *));
+
 :root {
   --background: #ffffff;
   --foreground: #14211a;
