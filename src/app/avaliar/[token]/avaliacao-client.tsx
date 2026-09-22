@@ -5,13 +5,20 @@ import { Send } from "lucide-react";
 
 type Pergunta = { id: string; texto: string; categoria_sugerida_id: string | null };
 type Categoria = { id: string; nome: string };
+type Treinamento = { id: string; categoria_id: string; nome: string };
 type DadosAvaliacao = {
   colaborador_nome: string;
   marco: number;
   perguntas: Pergunta[];
   categorias: Categoria[];
+  treinamentos: Treinamento[];
 };
-type RespostaEstado = { nota: number | null; categoria_final_id: string; comentario: string };
+type RespostaEstado = {
+  nota: number | null;
+  categoria_final_id: string;
+  treinamento_final_id: string;
+  comentario: string;
+};
 
 const FUNCTIONS_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/avaliacao-token`;
 const API_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
@@ -41,6 +48,7 @@ export function AvaliacaoClient({ token }: { token: string }) {
           inicial[pergunta.id] = {
             nota: null,
             categoria_final_id: pergunta.categoria_sugerida_id ?? "",
+            treinamento_final_id: "",
             comentario: "",
           };
         }
@@ -87,6 +95,7 @@ export function AvaliacaoClient({ token }: { token: string }) {
             pergunta_id: p.id,
             nota: respostas[p.id].nota,
             categoria_final_id: respostas[p.id].categoria_final_id || null,
+            treinamento_final_id: respostas[p.id].treinamento_final_id || null,
             comentario: respostas[p.id].comentario || undefined,
           })),
         }),
@@ -156,22 +165,57 @@ export function AvaliacaoClient({ token }: { token: string }) {
             </div>
 
             {notaBaixa && (
-              <div className="flex flex-col gap-1">
-                <label className="text-xs text-zinc-500">
-                  Categoria de treinamento sugerida (pode alterar)
-                </label>
-                <select
-                  value={resposta.categoria_final_id}
-                  onChange={(e) => atualizarResposta(pergunta.id, "categoria_final_id", e.target.value)}
-                  className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
-                >
-                  <option value="">Nenhuma</option>
-                  {dados.categorias.map((categoria) => (
-                    <option key={categoria.id} value={categoria.id}>
-                      {categoria.nome}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs text-zinc-500">
+                    Categoria de treinamento sugerida (pode alterar)
+                  </label>
+                  <select
+                    value={resposta.categoria_final_id}
+                    onChange={(e) => {
+                      atualizarResposta(pergunta.id, "categoria_final_id", e.target.value);
+                      atualizarResposta(pergunta.id, "treinamento_final_id", "");
+                    }}
+                    className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+                  >
+                    <option value="">Nenhuma</option>
+                    {dados.categorias.map((categoria) => (
+                      <option key={categoria.id} value={categoria.id}>
+                        {categoria.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {resposta.categoria_final_id &&
+                  (() => {
+                    const treinamentosDaCategoria = dados.treinamentos.filter(
+                      (t) => t.categoria_id === resposta.categoria_final_id
+                    );
+                    if (treinamentosDaCategoria.length === 0) return null;
+
+                    return (
+                      <div className="flex flex-col gap-1">
+                        <label className="text-xs text-zinc-500">
+                          Treinamento específico (opcional)
+                        </label>
+                        <select
+                          value={resposta.treinamento_final_id}
+                          onChange={(e) =>
+                            atualizarResposta(pergunta.id, "treinamento_final_id", e.target.value)
+                          }
+                          className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+                        >
+                          <option value="">Nenhum específico</option>
+                          {treinamentosDaCategoria.map((treinamento) => (
+                            <option key={treinamento.id} value={treinamento.id}>
+                              {treinamento.nome}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })()}
               </div>
             )}
 

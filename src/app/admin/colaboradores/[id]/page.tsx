@@ -34,7 +34,7 @@ export default async function ColaboradorDetalhePage({
   const { data: avaliacoes } = await supabase
     .from("avaliacoes")
     .select(
-      "id, marco, status, data_referencia, data_envio, data_resposta, respostas(nota, comentario, perguntas(texto), categorias_treinamento:categoria_final_id(nome))"
+      "id, marco, status, data_referencia, data_envio, data_resposta, respostas(nota, comentario, perguntas(texto), categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome))"
     )
     .eq("colaborador_id", id)
     .order("marco");
@@ -93,6 +93,7 @@ export default async function ColaboradorDetalhePage({
                   comentario: string | null;
                   perguntas: { texto: string } | null;
                   categorias_treinamento: { nome: string } | null;
+                  treinamentos: { nome: string } | null;
                 }[]).map((resposta, i) => (
                   <li
                     key={i}
@@ -110,8 +111,12 @@ export default async function ColaboradorDetalhePage({
                     </p>
                     <p className={resposta.nota === 1 ? "text-red-700 dark:text-red-400" : "text-zinc-500"}>
                       Nota: <strong>{resposta.nota}</strong>
-                      {resposta.categorias_treinamento && (
-                        <> · Treinamento sugerido: {resposta.categorias_treinamento.nome}</>
+                      {resposta.treinamentos ? (
+                        <> · Treinamento indicado: {resposta.treinamentos.nome}</>
+                      ) : (
+                        resposta.categorias_treinamento && (
+                          <> · Categoria sugerida: {resposta.categorias_treinamento.nome}</>
+                        )
                       )}
                     </p>
                     {resposta.comentario && (
