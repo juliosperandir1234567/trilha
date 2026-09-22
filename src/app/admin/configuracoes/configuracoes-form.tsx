@@ -29,7 +29,13 @@ export function ConfiguracoesForm({ config }: { config: Config }) {
             className="h-20 w-20 rounded-md border border-primary-border object-contain"
           />
         )}
-        <input id="logo_usina" name="logo_usina" type="file" accept="image/*" className="text-sm" />
+        <input
+          id="logo_usina"
+          name="logo_usina"
+          type="file"
+          accept="image/*"
+          className="block text-sm text-zinc-500 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary-hover"
+        />
         <p className="text-xs text-zinc-500">Aparece no menu do painel admin e na tela de login.</p>
       </div>
 
@@ -50,7 +56,7 @@ export function ConfiguracoesForm({ config }: { config: Config }) {
           name="imagem_login"
           type="file"
           accept="image/*"
-          className="text-sm"
+          className="block text-sm text-zinc-500 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary-hover"
         />
       </div>
 
