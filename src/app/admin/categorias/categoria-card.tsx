@@ -1,12 +1,13 @@
 "use client";
 
 import { useActionState, useState, type ReactNode } from "react";
-import { MoreVertical, Pencil, Power, Trash2 } from "lucide-react";
+import { Pencil, Power, Trash2 } from "lucide-react";
 import {
   toggleCategoriaAtiva,
   updateCategoria,
   deleteCategoria,
 } from "@/lib/actions/categorias";
+import { AcoesMenu } from "@/components/acoes-menu";
 
 type Categoria = { id: string; nome: string; descricao: string | null; ativo: boolean };
 
@@ -19,7 +20,6 @@ export function CategoriaCard({
   podeExcluir: boolean;
   children: ReactNode;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [editando, setEditando] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
 
@@ -30,11 +30,6 @@ export function CategoriaCard({
   if (editState !== editStateVisto) {
     setEditStateVisto(editState);
     if (editState?.success) setEditando(false);
-  }
-
-  function fecharMenu() {
-    setMenuOpen(false);
-    setConfirmandoExclusao(false);
   }
 
   return (
@@ -89,98 +84,79 @@ export function CategoriaCard({
           <div className="flex items-center gap-3">
             <span className="text-sm text-zinc-500">{categoria.ativo ? "Ativa" : "Inativa"}</span>
 
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setMenuOpen((v) => !v)}
-                className="rounded p-1.5 hover:bg-primary/10"
-                aria-label="Ações da categoria"
-              >
-                <MoreVertical className="h-4 w-4" />
-              </button>
-
-              {menuOpen && (
-                <>
-                  <button
-                    type="button"
-                    aria-label="Fechar menu"
-                    onClick={fecharMenu}
-                    className="fixed inset-0 z-10 cursor-default"
-                  />
-                  <div className="absolute right-0 z-20 mt-1 w-64 rounded-md border border-black/10 bg-white p-1 shadow-lg dark:border-white/10 dark:bg-zinc-900">
-                    {!confirmandoExclusao ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditando(true);
-                            fecharMenu();
-                          }}
-                          className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-primary/10"
-                        >
-                          <Pencil className="h-4 w-4" />
-                          Editar
-                        </button>
-                        <form action={toggleCategoriaAtiva} onSubmit={fecharMenu}>
-                          <input type="hidden" name="id" value={categoria.id} />
-                          <input type="hidden" name="ativo" value={String(categoria.ativo)} />
-                          <button
-                            type="submit"
-                            className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-primary/10"
-                          >
-                            <Power className="h-4 w-4" />
-                            {categoria.ativo ? "Desativar" : "Ativar"}
-                          </button>
-                        </form>
-                        {podeExcluir && (
-                          <button
-                            type="button"
-                            onClick={() => setConfirmandoExclusao(true)}
-                            className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            Excluir
-                          </button>
-                        )}
-                      </>
-                    ) : (
-                      <form action={deleteAction} className="flex flex-col gap-2 p-2">
-                        <input type="hidden" name="id" value={categoria.id} />
-                        <label className="text-xs text-zinc-500">
-                          Confirme sua senha de admin para excluir
-                        </label>
-                        <input
-                          type="password"
-                          name="senha"
-                          required
-                          autoFocus
-                          className="rounded border border-black/15 px-2 py-1 text-sm dark:border-white/20"
-                        />
-                        {deleteState?.error && (
-                          <p className="text-xs text-red-600">{deleteState.error}</p>
-                        )}
-                        <div className="flex gap-2">
-                          <button
-                            type="submit"
-                            disabled={deletePending}
-                            className="flex-1 rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
-                          >
-                            {deletePending ? "Excluindo..." : "Confirmar"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setConfirmandoExclusao(false)}
-                            className="flex-1 rounded border border-black/15 px-2 py-1 text-xs dark:border-white/20"
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      </form>
+            <AcoesMenu label="Ações da categoria" onClose={() => setConfirmandoExclusao(false)}>
+              {(fechar) =>
+                !confirmandoExclusao ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditando(true);
+                        fechar();
+                      }}
+                      className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-primary/10"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      Editar
+                    </button>
+                    <form action={toggleCategoriaAtiva} onSubmit={fechar}>
+                      <input type="hidden" name="id" value={categoria.id} />
+                      <input type="hidden" name="ativo" value={String(categoria.ativo)} />
+                      <button
+                        type="submit"
+                        className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-primary/10"
+                      >
+                        <Power className="h-4 w-4" />
+                        {categoria.ativo ? "Desativar" : "Ativar"}
+                      </button>
+                    </form>
+                    {podeExcluir && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmandoExclusao(true)}
+                        className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Excluir
+                      </button>
                     )}
-                  </div>
-                </>
-              )}
-            </div>
+                  </>
+                ) : (
+                  <form action={deleteAction} className="flex flex-col gap-2 p-2">
+                    <input type="hidden" name="id" value={categoria.id} />
+                    <label className="text-xs text-zinc-500">
+                      Confirme sua senha de admin para excluir
+                    </label>
+                    <input
+                      type="password"
+                      name="senha"
+                      required
+                      autoFocus
+                      className="rounded border border-black/15 px-2 py-1 text-sm dark:border-white/20"
+                    />
+                    {deleteState?.error && (
+                      <p className="text-xs text-red-600">{deleteState.error}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={deletePending}
+                        className="flex-1 rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
+                      >
+                        {deletePending ? "Excluindo..." : "Confirmar"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmandoExclusao(false)}
+                        className="flex-1 rounded border border-black/15 px-2 py-1 text-xs dark:border-white/20"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </form>
+                )
+              }
+            </AcoesMenu>
           </div>
         </div>
       )}
