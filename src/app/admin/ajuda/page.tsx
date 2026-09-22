@@ -45,7 +45,8 @@ const SECOES = [
         </li>
         <li>
           Para cada colaborador que bateu um marco, o sistema cria a avaliação, gera um
-          link único com prazo de validade, e envia um e-mail (via Resend) para o gestor.
+          link único com prazo de validade, e envia um e-mail (via Gmail, SMTP) para o
+          gestor.
         </li>
         <li>O gestor responde as perguntas daquele marco direto pelo link, sem login.</li>
         <li>
@@ -56,6 +57,40 @@ const SECOES = [
           As respostas alimentam o histórico do colaborador e o dashboard consolidado.
         </li>
       </ol>
+    ),
+  },
+  {
+    titulo: "Status de uma avaliação e envio manual",
+    conteudo: (
+      <>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>
+            <strong>Pendente</strong>: a avaliação foi criada (bateu o marco), mas o
+            sistema ainda não confirmou o envio do e-mail.
+          </li>
+          <li>
+            <strong>Aguardando resposta</strong>: o e-mail foi enviado ao gestor e o link
+            está esperando a resposta dele.
+          </li>
+          <li>
+            <strong>Respondida</strong>: o gestor já enviou as respostas daquele marco.
+          </li>
+          <li>
+            <strong>Expirada</strong>: passou do prazo configurado em{" "}
+            <strong>Configurações → Validade do link de avaliação</strong> sem resposta.
+          </li>
+        </ul>
+        <p className="mt-2">
+          Em <strong>Colaboradores</strong> (na listagem ou na página de cada colaborador),
+          toda avaliação que ainda não foi respondida tem um botão{" "}
+          <strong>&quot;Forçar envio do e-mail&quot;</strong>: ele gera (ou renova) o link e
+          tenta mandar o e-mail na hora — útil se o gestor não recebeu o automático ou se o
+          link expirou. Se o envio por e-mail falhar por qualquer motivo, o link ainda é
+          gerado normalmente e fica disponível no botão{" "}
+          <strong>&quot;Copiar link (WhatsApp/e-mail manual)&quot;</strong>, pra mandar por
+          fora do sistema.
+        </p>
+      </>
     ),
   },
   {
@@ -154,31 +189,50 @@ const SECOES = [
   {
     titulo: "Onde encontrar cada coisa no painel",
     conteudo: (
-      <ul className="list-disc space-y-1 pl-5">
+      <ul className="list-disc space-y-2 pl-5">
         <li>
-          <strong>Visão geral</strong>: contadores, progresso por marco (clique num marco
-          pra ver a lista de colaboradores) e pendências/atrasos.
+          <strong>Visão geral</strong>: cinco cards no topo (Colaboradores ativos,
+          Aguardando resposta, Respondidas, Expiradas, Notas críticas) — cada um é também
+          um filtro, clique pra aplicar. Abaixo: a tabela <strong>Progresso por marco</strong>{" "}
+          (clique em &quot;30/60/90 dias&quot; pra filtrar só aquele marco),{" "}
+          <strong>Treinamentos indicados</strong> (um card por categoria, com a contagem de
+          respostas que apontaram pra ela — clique pra ver quem são e exportar em CSV), e a
+          tabela de <strong>Avaliações</strong> com os filtros aplicados, mais o botão{" "}
+          <strong>Exportar tudo</strong>.
         </li>
         <li>
-          <strong>Configurações</strong>: logo da usina, imagem da tela de login, e-mail
-          remetente e validade do link de avaliação.
+          <strong>Configurações</strong>: logo da usina e imagem da tela de login (upload de
+          até 10&nbsp;MB cada), nome e e-mail do remetente dos e-mails de avaliação, e a
+          validade do link de avaliação em dias (depois desse prazo sem resposta, a
+          avaliação passa pra &quot;Expirada&quot;).
         </li>
         <li>
-          <strong>Perguntas</strong>: as perguntas de cada marco (30/60/90) e a categoria
-          de treinamento sugerida para nota baixa.
+          <strong>Perguntas</strong>: cadastro das perguntas de cada marco (30/60/90), cada
+          uma podendo ter uma categoria de treinamento sugerida pra quando a nota vier baixa.
+          Dá pra ativar/desativar uma pergunta (ela some do formulário do gestor, mas o
+          histórico de quem já respondeu fica intacto) e, só o admin, excluir.
         </li>
         <li>
-          <strong>Categorias de treinamento</strong>: cada card mostra quantos
-          colaboradores foram indicados para aquele treinamento — clique para ver quem
-          são e exportar a lista em CSV.
+          <strong>Categorias de treinamento</strong>: um formulário pra criar categoria
+          (nome + descrição) e outro pra criar um treinamento específico dentro de uma
+          categoria já existente. Cada categoria aparece como um card com os treinamentos
+          cadastrados dentro dela, e dá pra editar/ativar-desativar/excluir tanto a
+          categoria quanto cada treinamento.
         </li>
         <li>
-          <strong>Colaboradores</strong>: cadastro individual, importação em planilha, e
-          o histórico completo de cada um (clique no nome).
+          <strong>Colaboradores</strong>: formulário de cadastro individual e outro pra
+          importar uma planilha CSV em lote. A listagem mostra matrícula, tipo (novato ou em
+          capacitação), data de admissão, gestor responsável, status (ativo/inativo) e o
+          próximo marco pendente daquele colaborador, com o botão de forçar envio do
+          e-mail. Clicar no nome abre o histórico completo dos 3 marcos.
         </li>
         <li>
-          <strong>Usuários</strong>: lista de quem tem acesso ao sistema (só o admin cria
-          novos).
+          <strong>Usuários</strong>: lista de quem tem login no sistema (nome, e-mail,
+          papel, status). O formulário pra criar um novo usuário só aparece pra quem é
+          admin.
+        </li>
+        <li>
+          <strong>Ajuda</strong>: esta página.
         </li>
       </ul>
     ),
