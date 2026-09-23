@@ -16,7 +16,7 @@ type Categoria = {
   descricao: string | null;
   ativo: boolean;
   cargo_id: string | null;
-  cargos: { nome: string } | null;
+  cargos: { nome: string }[] | null;
 };
 
 export function CategoriaCard({
@@ -108,7 +108,7 @@ export function CategoriaCard({
           </div>
           <div className="flex items-center gap-3">
             <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">
-              {categoria.cargos?.nome ?? "Todos os cargos"}
+              {categoria.cargos?.[0]?.nome ?? "Todos os cargos"}
             </span>
             <span className="text-sm text-zinc-500">{categoria.ativo ? "Ativa" : "Inativa"}</span>
 
