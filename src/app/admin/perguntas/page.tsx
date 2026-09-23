@@ -15,11 +15,7 @@ export default async function PerguntasPage() {
       .select("id, marco, texto, ativo, categorias_treinamento(nome), cargos(nome)")
       .order("marco")
       .order("ordem"),
-    supabase
-      .from("categorias_treinamento")
-      .select("id, nome, cargo_id")
-      .eq("ativo", true)
-      .order("nome"),
+    supabase.from("categorias_treinamento").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("cargos").select("id, nome").eq("ativo", true).order("nome"),
   ]);
 

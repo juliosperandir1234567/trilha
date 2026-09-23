@@ -14,7 +14,6 @@ export async function createCategoria(
   await requireStaff();
   const nome = String(formData.get("nome") ?? "").trim();
   const descricao = String(formData.get("descricao") ?? "").trim();
-  const cargoId = String(formData.get("cargo_id") ?? "");
 
   if (!nome) {
     return { error: "Informe o nome da competência." };
@@ -23,7 +22,7 @@ export async function createCategoria(
   const supabase = await createClient();
   const { error } = await supabase
     .from("categorias_treinamento")
-    .insert({ nome, descricao: descricao || null, cargo_id: cargoId || null });
+    .insert({ nome, descricao: descricao || null });
 
   if (error) {
     return { error: "Não foi possível criar a competência (nome já existe?)." };
@@ -54,7 +53,6 @@ export async function updateCategoria(
   const id = String(formData.get("id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
   const descricao = String(formData.get("descricao") ?? "").trim();
-  const cargoId = String(formData.get("cargo_id") ?? "");
 
   if (!nome) {
     return { error: "Informe o nome da competência." };
@@ -63,7 +61,7 @@ export async function updateCategoria(
   const supabase = await createClient();
   const { error } = await supabase
     .from("categorias_treinamento")
-    .update({ nome, descricao: descricao || null, cargo_id: cargoId || null })
+    .update({ nome, descricao: descricao || null })
     .eq("id", id);
 
   if (error) {

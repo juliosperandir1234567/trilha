@@ -1,10 +1,10 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { Plus } from "lucide-react";
 import { createPergunta } from "@/lib/actions/perguntas";
 
-type Categoria = { id: string; nome: string; cargo_id: string | null };
+type Categoria = { id: string; nome: string };
 type Cargo = { id: string; nome: string };
 
 const MARCOS = [30, 60, 90, 120, 180, 270] as const;
@@ -17,13 +17,6 @@ export function PerguntaForm({
   cargos: Cargo[];
 }) {
   const [state, action, pending] = useActionState(createPergunta, undefined);
-  const [cargoSelecionado, setCargoSelecionado] = useState("");
-
-  // Mostra as competências gerais (sem cargo) + as do cargo escolhido acima.
-  // Sem cargo escolhido ("Todos os cargos"), mostra só as gerais.
-  const categoriasFiltradas = categorias.filter(
-    (categoria) => !categoria.cargo_id || categoria.cargo_id === cargoSelecionado
-  );
 
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
@@ -51,8 +44,6 @@ export function PerguntaForm({
         <select
           id="cargo_id"
           name="cargo_id"
-          value={cargoSelecionado}
-          onChange={(e) => setCargoSelecionado(e.target.value)}
           className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
         >
           <option value="">Todos os cargos</option>
@@ -86,7 +77,7 @@ export function PerguntaForm({
           className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
         >
           <option value="">Nenhuma</option>
-          {categoriasFiltradas.map((categoria) => (
+          {categorias.map((categoria) => (
             <option key={categoria.id} value={categoria.id}>
               {categoria.nome}
             </option>

@@ -8,16 +8,12 @@ import { TreinamentoRow } from "./treinamento-row";
 export default async function CategoriasPage() {
   const { perfil } = await getUsuarioAtual();
   const supabase = await createClient();
-  const [{ data: categorias }, { data: treinamentos }, { data: cargos }] = await Promise.all([
-    supabase
-      .from("categorias_treinamento")
-      .select("id, nome, descricao, ativo, cargo_id, cargos(nome)")
-      .order("nome"),
+  const [{ data: categorias }, { data: treinamentos }] = await Promise.all([
+    supabase.from("categorias_treinamento").select("id, nome, descricao, ativo").order("nome"),
     supabase
       .from("treinamentos")
       .select("id, categoria_id, nome, descricao, ativo")
       .order("nome"),
-    supabase.from("cargos").select("id, nome").eq("ativo", true).order("nome"),
   ]);
 
   type Treinamento = {
@@ -44,7 +40,7 @@ export default async function CategoriasPage() {
 
       <div className="flex flex-col gap-2">
         <h2 className="font-medium">Criar competência</h2>
-        <CategoriaForm cargos={cargos ?? []} />
+        <CategoriaForm />
       </div>
 
       <hr className="border-primary-border" />
@@ -61,12 +57,7 @@ export default async function CategoriasPage() {
           const lista = treinamentosPorCategoria.get(categoria.id) ?? [];
 
           return (
-            <CategoriaCard
-              key={categoria.id}
-              categoria={categoria}
-              cargos={cargos ?? []}
-              podeExcluir={podeExcluir}
-            >
+            <CategoriaCard key={categoria.id} categoria={categoria} podeExcluir={podeExcluir}>
               {lista.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[560px] text-left text-sm">

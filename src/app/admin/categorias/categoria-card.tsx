@@ -9,24 +9,14 @@ import {
 } from "@/lib/actions/categorias";
 import { AcoesMenu } from "@/components/acoes-menu";
 
-type Cargo = { id: string; nome: string };
-type Categoria = {
-  id: string;
-  nome: string;
-  descricao: string | null;
-  ativo: boolean;
-  cargo_id: string | null;
-  cargos: { nome: string }[] | null;
-};
+type Categoria = { id: string; nome: string; descricao: string | null; ativo: boolean };
 
 export function CategoriaCard({
   categoria,
-  cargos,
   podeExcluir,
   children,
 }: {
   categoria: Categoria;
-  cargos: Cargo[];
   podeExcluir: boolean;
   children: ReactNode;
 }) {
@@ -67,21 +57,6 @@ export function CategoriaCard({
               className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
             />
           </div>
-          <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[160px]">
-            <label className="text-xs font-medium">Cargo</label>
-            <select
-              name="cargo_id"
-              defaultValue={categoria.cargo_id ?? ""}
-              className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
-            >
-              <option value="">Todos os cargos</option>
-              {cargos.map((cargo) => (
-                <option key={cargo.id} value={cargo.id}>
-                  {cargo.nome}
-                </option>
-              ))}
-            </select>
-          </div>
           <div className="flex gap-2">
             <button
               type="submit"
@@ -107,9 +82,6 @@ export function CategoriaCard({
             {categoria.descricao && <p className="text-sm text-zinc-500">{categoria.descricao}</p>}
           </div>
           <div className="flex items-center gap-3">
-            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">
-              {categoria.cargos?.[0]?.nome ?? "Todos os cargos"}
-            </span>
             <span className="text-sm text-zinc-500">{categoria.ativo ? "Ativa" : "Inativa"}</span>
 
             <AcoesMenu label="Ações da competência" onClose={() => setConfirmandoExclusao(false)}>
