@@ -4,9 +4,11 @@ const SECOES = [
     conteudo: (
       <p>
         Sistema de acompanhamento de integração, capacitação e desenvolvimento de
-        colaboradores novatos (ou em capacitação), com avaliações nos marcos de{" "}
-        <strong>30, 60, 90, 120, 180 e 270 dias</strong> após a admissão. O objetivo é
-        acompanhar a evolução do colaborador e indicar treinamentos quando necessário.
+        colaboradores novatos (ou em capacitação), com avaliações em marcos que vão de{" "}
+        <strong>30 a 270 dias</strong> após a admissão — quais marcos exatamente dependem
+        do <strong>cargo</strong> do colaborador (veja a seção &quot;Cargos: marcos e
+        perguntas específicas&quot; abaixo). O objetivo é acompanhar a evolução do
+        colaborador e indicar treinamentos quando necessário.
       </p>
     ),
   },
@@ -42,8 +44,10 @@ const SECOES = [
         </li>
         <li>
           Todo dia, uma rotina automática (pg_cron + Edge Function no Supabase) verifica
-          quem completou 30, 60, 90, 120, 180 ou 270 dias na data atual — e também tenta
-          de novo qualquer avaliação que tenha ficado presa sem enviar nos últimos dias.
+          quem completou, na data atual, um dos marcos configurados pro cargo daquele
+          colaborador (ou 30/60/90 como padrão, se ele não tiver cargo cadastrado) — e
+          também tenta de novo qualquer avaliação que tenha ficado presa sem enviar nos
+          últimos dias.
         </li>
         <li>
           Para cada colaborador que bateu um marco, o sistema cria a avaliação, gera um
@@ -135,23 +139,38 @@ const SECOES = [
     ),
   },
   {
-    titulo: "Perguntas por cargo",
+    titulo: "Cargos: marcos e perguntas específicas",
     conteudo: (
       <>
         <p>
-          Cada pergunta pode ser <strong>geral</strong> (aparece pra qualquer colaborador,
-          é o padrão) ou marcada pra um <strong>cargo</strong> específico, cadastrado na
-          tela <strong>Cargos</strong>. Uma pergunta com cargo só aparece no formulário de
-          quem tem aquele cargo.
+          Cada <strong>cargo</strong> (cadastrado na tela Cargos) define dois pontos
+          independentes:
+        </p>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li>
+            <strong>Em quais marcos ele é avaliado</strong> — marcado por checkbox na
+            própria tela de Cargos. Um colaborador com esse cargo só vai gerar avaliação
+            nos marcos marcados ali (ex: Gestores avalia nos 6 marcos — 30 a 270 dias —
+            enquanto Tratorista, Operador de colhedora e Auxiliar de processo avaliam só
+            em 30/60/90). Colaborador sem cargo cadastrado usa o padrão 30/60/90.
+          </li>
+          <li>
+            <strong>Quais perguntas ele recebe</strong> — cada pergunta pode ser{" "}
+            <strong>geral</strong> (aparece pra qualquer colaborador, é o padrão) ou
+            marcada pra um cargo específico. Uma pergunta com cargo só aparece no
+            formulário de quem tem aquele cargo, e o campo Marco do formulário de pergunta
+            se ajusta automaticamente aos marcos daquele cargo.
+          </li>
+        </ul>
+        <p className="mt-2">
+          Exemplo: a pergunta de 30 dias do <strong>Gestor</strong> é um registro
+          diferente da pergunta de 30 dias do <strong>Tratorista</strong>, mesmo os dois
+          tendo marco 30 — e o Gestor ainda responde perguntas específicas em marcos
+          (120/180/270) que o Tratorista nunca chega a ter.
         </p>
         <p className="mt-2">
-          Exemplo: uma pergunta geral do tipo &quot;Chegou no horário durante o período?&quot;
-          aparece pra todo mundo, mas &quot;Operou o trator com segurança?&quot; pode ficar
-          restrita ao cargo <strong>Tratorista</strong>, sem aparecer pra quem tem outro
-          cargo (ou nenhum cargo definido).
-        </p>
-        <p className="mt-2">
-          Um colaborador sem cargo cadastrado só recebe as perguntas gerais.
+          Um colaborador sem cargo cadastrado só recebe as perguntas gerais, nos marcos
+          padrão 30/60/90.
         </p>
       </>
     ),
@@ -213,7 +232,12 @@ const SECOES = [
   {
     titulo: "Onde encontrar cada coisa no painel",
     conteudo: (
-      <ul className="list-disc space-y-2 pl-5">
+      <>
+        <p className="mb-2 text-zinc-500">
+          Segue a mesma ordem do menu lateral: Visão geral, Cargos, Competências,
+          Perguntas, Colaboradores, Usuários, Configurações, Ajuda.
+        </p>
+        <ul className="list-disc space-y-2 pl-5">
         <li>
           <strong>Visão geral</strong>: cinco cards no topo (Colaboradores ativos,
           Aguardando resposta, Respondidas, Expiradas, Notas críticas) — cada um é também
@@ -225,17 +249,11 @@ const SECOES = [
           <strong>Exportar tudo</strong>.
         </li>
         <li>
-          <strong>Configurações</strong>: logo da usina e imagem da tela de login (upload de
-          até 10&nbsp;MB cada), nome e e-mail do remetente dos e-mails de avaliação, e a
-          validade do link de avaliação em dias (depois desse prazo sem resposta, a
-          avaliação passa pra &quot;Expirada&quot;).
-        </li>
-        <li>
-          <strong>Perguntas</strong>: cadastro das perguntas de cada marco (30 a 270 dias),
-          cada uma podendo ter uma competência sugerida pra quando a nota vier baixa e,
-          opcionalmente, um cargo específico (deixando em branco, vale pra todos). Dá pra
-          ativar/desativar uma pergunta (ela some do formulário do gestor, mas o histórico
-          de quem já respondeu fica intacto) e, só o admin, excluir.
+          <strong>Cargos</strong>: formulário pra criar cargo (nome + descrição) com
+          checkboxes dos marcos em que ele é avaliado (padrão 30/60/90, marque os outros se
+          precisar). A listagem mostra os marcos de cada cargo e permite editar/ativar-
+          desativar/excluir. Veja a seção &quot;Cargos: marcos e perguntas
+          específicas&quot; acima.
         </li>
         <li>
           <strong>Competências</strong>: um formulário pra criar competência (nome +
@@ -245,16 +263,22 @@ const SECOES = [
           competência quanto cada treinamento.
         </li>
         <li>
-          <strong>Cargos</strong>: cadastro simples (nome + descrição) usado pra restringir
-          perguntas específicas a colaboradores de um cargo (ex: Tratorista, Operador,
-          Gestor). Veja a seção &quot;Perguntas por cargo&quot; acima.
+          <strong>Perguntas</strong>: cadastro das perguntas, cada uma podendo ter uma
+          competência sugerida pra quando a nota vier baixa e, opcionalmente, um cargo
+          específico (deixando em branco, vale pra todos — e o campo Marco se ajusta aos
+          marcos do cargo escolhido). Os filtros no topo da lista (por cargo) restringem o
+          que aparece nas seções abaixo. Cada pergunta tem um menu de ações com{" "}
+          <strong>Editar</strong> (marco, cargo, texto e competência sugerida),
+          ativar/desativar (ela some do formulário do gestor, mas o histórico de quem já
+          respondeu fica intacto) e, só o admin, excluir.
         </li>
         <li>
           <strong>Colaboradores</strong>: formulário de cadastro individual e outro pra
           importar uma planilha CSV em lote. A listagem mostra matrícula, tipo (novato ou em
           capacitação), cargo, data de admissão, gestor responsável, status (ativo/inativo)
           e o próximo marco pendente daquele colaborador, com o botão de forçar envio do
-          e-mail. Clicar no nome abre o histórico completo de todos os marcos.
+          e-mail. Clicar no nome abre o histórico completo de todos os marcos daquele
+          colaborador (que variam conforme o cargo dele).
         </li>
         <li>
           <strong>Usuários</strong>: lista de quem tem login no sistema (nome, e-mail,
@@ -262,9 +286,16 @@ const SECOES = [
           admin.
         </li>
         <li>
+          <strong>Configurações</strong>: logo da usina e imagem da tela de login (upload de
+          até 10&nbsp;MB cada), nome e e-mail do remetente dos e-mails de avaliação, e a
+          validade do link de avaliação em dias (depois desse prazo sem resposta, a
+          avaliação passa pra &quot;Expirada&quot;).
+        </li>
+        <li>
           <strong>Ajuda</strong>: esta página.
         </li>
-      </ul>
+        </ul>
+      </>
     ),
   },
   {
