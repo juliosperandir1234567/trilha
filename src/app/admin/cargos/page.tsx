@@ -8,7 +8,7 @@ export default async function CargosPage() {
   const supabase = await createClient();
   const { data: cargos } = await supabase
     .from("cargos")
-    .select("id, nome, descricao, ativo")
+    .select("id, nome, descricao, ativo, marcos")
     .order("nome");
 
   const podeExcluir = perfil?.papel === "admin";
@@ -19,7 +19,9 @@ export default async function CargosPage() {
         <h1 className="text-xl font-semibold">Cargos</h1>
         <p className="text-sm text-zinc-500">
           Use cargos para ter perguntas específicas por função (ex: Tratorista, Operador,
-          Gestor). Uma pergunta sem cargo definido continua valendo para todo mundo.
+          Gestor). Uma pergunta sem cargo definido continua valendo para todo mundo. Cada
+          cargo também define em quais marcos os colaboradores com esse cargo são
+          avaliados — nem todo cargo precisa passar pelos 6 marcos.
         </p>
       </div>
 
@@ -31,6 +33,7 @@ export default async function CargosPage() {
             <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Descrição</th>
+              <th className="px-4 py-3">Marcos</th>
               <th className="whitespace-nowrap px-4 py-3">Status</th>
               <th className="px-4 py-3" />
             </tr>
@@ -41,7 +44,7 @@ export default async function CargosPage() {
             ))}
             {(cargos ?? []).length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
                   Nenhum cargo cadastrado ainda.
                 </td>
               </tr>

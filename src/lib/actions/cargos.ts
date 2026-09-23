@@ -7,6 +7,18 @@ import { requireAdmin, requireStaff } from "@/lib/supabase/dal";
 
 export type CargoFormState = { error?: string } | undefined;
 
+const MARCOS_VALIDOS = [30, 60, 90, 120, 180, 270];
+
+function parseMarcos(formData: FormData): number[] {
+  const marcos = formData
+    .getAll("marcos")
+    .map(Number)
+    .filter((marco) => MARCOS_VALIDOS.includes(marco));
+  // Nunca deixa um cargo sem nenhum marco marcado — cairia num limbo sem
+  // avaliação nenhuma sem ninguém perceber. 30/60/90 é o padrão seguro.
+  return marcos.length > 0 ? marcos.sort((a, b) => a - b) : [30, 60, 90];
+}
+
 export async function createCargo(
   _prevState: CargoFormState,
   formData: FormData
@@ -14,13 +26,16 @@ export async function createCargo(
   await requireStaff();
   const nome = String(formData.get("nome") ?? "").trim();
   const descricao = String(formData.get("descricao") ?? "").trim();
+  const marcos = parseMarcos(formData);
 
   if (!nome) {
     return { error: "Informe o nome do cargo." };
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("cargos").insert({ nome, descricao: descricao || null });
+  const { error } = await supabase
+    .from("cargos")
+    .insert({ nome, descricao: descricao || null, marcos });
 
   if (error) {
     return { error: "Não foi possível criar o cargo (nome já existe?)." };
@@ -55,6 +70,7 @@ export async function updateCargo(
   const id = String(formData.get("id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
   const descricao = String(formData.get("descricao") ?? "").trim();
+  const marcos = parseMarcos(formData);
 
   if (!nome) {
     return { error: "Informe o nome do cargo." };
@@ -63,7 +79,7 @@ export async function updateCargo(
   const supabase = await createClient();
   const { error } = await supabase
     .from("cargos")
-    .update({ nome, descricao: descricao || null })
+    .update({ nome, descricao: descricao || null, marcos })
     .eq("id", id);
 
   if (error) {

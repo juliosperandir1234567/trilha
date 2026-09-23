@@ -4,8 +4,15 @@ import { useActionState, useState } from "react";
 import { Pencil, Power, Trash2 } from "lucide-react";
 import { toggleCargoAtivo, updateCargo, deleteCargo } from "@/lib/actions/cargos";
 import { AcoesMenu } from "@/components/acoes-menu";
+import { MarcosCheckboxes } from "./marcos-checkboxes";
 
-type Cargo = { id: string; nome: string; descricao: string | null; ativo: boolean };
+type Cargo = {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  ativo: boolean;
+  marcos: number[];
+};
 
 export function CargoRow({ cargo, podeExcluir }: { cargo: Cargo; podeExcluir: boolean }) {
   const [editando, setEditando] = useState(false);
@@ -23,25 +30,31 @@ export function CargoRow({ cargo, podeExcluir }: { cargo: Cargo; podeExcluir: bo
   if (editando) {
     return (
       <tr className="border-b border-primary-border/40 last:border-b-0">
-        <td colSpan={4} className="px-4 py-3">
-          <form action={editAction} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+        <td colSpan={5} className="px-4 py-3">
+          <form action={editAction} className="flex flex-col gap-3">
             <input type="hidden" name="id" value={cargo.id} />
-            <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[180px]">
-              <label className="text-xs font-medium">Nome</label>
-              <input
-                name="nome"
-                defaultValue={cargo.nome}
-                required
-                className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
-              />
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+              <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[180px]">
+                <label className="text-xs font-medium">Nome</label>
+                <input
+                  name="nome"
+                  defaultValue={cargo.nome}
+                  required
+                  className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
+                />
+              </div>
+              <div className="flex flex-[2] flex-col gap-1.5 sm:min-w-[220px]">
+                <label className="text-xs font-medium">Descrição</label>
+                <input
+                  name="descricao"
+                  defaultValue={cargo.descricao ?? ""}
+                  className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
+                />
+              </div>
             </div>
-            <div className="flex flex-[2] flex-col gap-1.5 sm:min-w-[220px]">
-              <label className="text-xs font-medium">Descrição</label>
-              <input
-                name="descricao"
-                defaultValue={cargo.descricao ?? ""}
-                className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
-              />
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs font-medium">Marcos avaliados</span>
+              <MarcosCheckboxes marcosSelecionados={cargo.marcos} />
             </div>
             <div className="flex gap-2">
               <button
@@ -70,6 +83,7 @@ export function CargoRow({ cargo, podeExcluir }: { cargo: Cargo; podeExcluir: bo
     <tr className="border-b border-primary-border/40 align-top last:border-b-0 hover:bg-primary-soft/20">
       <td className="px-4 py-3">{cargo.nome}</td>
       <td className="px-4 py-3 text-zinc-500">{cargo.descricao}</td>
+      <td className="px-4 py-3 text-zinc-500">{cargo.marcos.join(", ")} dias</td>
       <td className="whitespace-nowrap px-4 py-3">{cargo.ativo ? "Ativo" : "Inativo"}</td>
       <td className="px-4 py-3 text-right">
         <AcoesMenu label="Ações do cargo" onClose={() => setConfirmandoExclusao(false)}>

@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { Plus } from "lucide-react";
 import { createPergunta } from "@/lib/actions/perguntas";
 
 type Categoria = { id: string; nome: string };
-type Cargo = { id: string; nome: string };
+type Cargo = { id: string; nome: string; marcos: number[] };
 
-const MARCOS = [30, 60, 90, 120, 180, 270] as const;
+const TODOS_OS_MARCOS = [30, 60, 90, 120, 180, 270] as const;
 
 export function PerguntaForm({
   categorias,
@@ -17,26 +17,20 @@ export function PerguntaForm({
   cargos: Cargo[];
 }) {
   const [state, action, pending] = useActionState(createPergunta, undefined);
+  const [cargoSelecionado, setCargoSelecionado] = useState("");
+
+  const cargoAtual = cargos.find((cargo) => cargo.id === cargoSelecionado);
+  // Sem cargo escolhido ("Todos os cargos"), a pergunta pode valer pra
+  // qualquer marco. Com um cargo escolhido, só mostra os marcos que esse
+  // cargo de fato usa (configurados na tela de Cargos).
+  const marcosDisponiveis = cargoAtual ? cargoAtual.marcos : [...TODOS_OS_MARCOS];
+  const [marcoSelecionado, setMarcoSelecionado] = useState<number>(30);
+  const marcoValido = marcosDisponiveis.includes(marcoSelecionado)
+    ? marcoSelecionado
+    : marcosDisponiveis[0];
 
   return (
     <form action={action} className="flex flex-wrap items-end gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="marco" className="text-sm font-medium">
-          Marco
-        </label>
-        <select
-          id="marco"
-          name="marco"
-          className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
-        >
-          {MARCOS.map((marco) => (
-            <option key={marco} value={marco}>
-              {marco} dias
-            </option>
-          ))}
-        </select>
-      </div>
-
       <div className="flex flex-col gap-1">
         <label htmlFor="cargo_id" className="text-sm font-medium">
           Cargo
@@ -44,12 +38,33 @@ export function PerguntaForm({
         <select
           id="cargo_id"
           name="cargo_id"
+          value={cargoSelecionado}
+          onChange={(e) => setCargoSelecionado(e.target.value)}
           className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
         >
           <option value="">Todos os cargos</option>
           {cargos.map((cargo) => (
             <option key={cargo.id} value={cargo.id}>
               {cargo.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="marco" className="text-sm font-medium">
+          Marco
+        </label>
+        <select
+          id="marco"
+          name="marco"
+          value={marcoValido}
+          onChange={(e) => setMarcoSelecionado(Number(e.target.value))}
+          className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+        >
+          {marcosDisponiveis.map((marco) => (
+            <option key={marco} value={marco}>
+              {marco} dias
             </option>
           ))}
         </select>

@@ -49,11 +49,19 @@ Deno.serve(async (req: Request) => {
 
   const { data: colaborador } = await supabase
     .from("colaboradores")
-    .select("id, nome, gestor_nome, gestor_email")
+    .select("id, nome, gestor_nome, gestor_email, cargos(marcos)")
     .eq("id", colaboradorId)
     .single();
 
   if (!colaborador) return json({ error: "Colaborador não encontrado" }, 404);
+
+  // Cada cargo define seus próprios marcos (ex: Gestor tem os 6, outros só
+  // 30/60/90). Colaborador sem cargo cadastrado usa o padrão 30/60/90.
+  const cargoDoColaborador = colaborador.cargos as unknown as { marcos: number[] } | null;
+  const marcosDoColaborador = cargoDoColaborador?.marcos ?? [30, 60, 90];
+  if (!marcosDoColaborador.includes(marco as number)) {
+    return json({ error: "Esse marco não se aplica ao cargo deste colaborador." }, 400);
+  }
 
   const { data: config } = await supabase
     .from("configuracoes_sistema")

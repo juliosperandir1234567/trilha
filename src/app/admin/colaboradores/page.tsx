@@ -5,7 +5,7 @@ import { ColaboradorForm } from "./colaborador-form";
 import { ImportForm } from "./import-form";
 import { EnviarAgoraButton } from "./[id]/enviar-agora-button";
 
-const MARCOS = [30, 60, 90, 120, 180, 270] as const;
+const MARCOS_PADRAO = [30, 60, 90];
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: "Pendente",
@@ -20,7 +20,7 @@ export default async function ColaboradoresPage() {
       supabase
         .from("colaboradores")
         .select(
-          "id, nome, matricula, data_admissao, tipo, cargos(nome), gestor_nome, gestor_email, ativo"
+          "id, nome, matricula, data_admissao, tipo, cargos(nome, marcos), gestor_nome, gestor_email, ativo"
         )
         .order("created_at", { ascending: false })
         .limit(50),
@@ -73,8 +73,12 @@ export default async function ColaboradoresPage() {
           </thead>
           <tbody>
             {(colaboradores ?? []).map((colaborador) => {
+              const cargo = colaborador.cargos as unknown as { nome: string; marcos: number[] } | null;
+              const marcosDoColaborador = cargo?.marcos ?? MARCOS_PADRAO;
               const statusPorMarco = avaliacoesPorColaborador.get(colaborador.id) ?? new Map();
-              const marcoPendente = MARCOS.find((m) => statusPorMarco.get(m) !== "respondida");
+              const marcoPendente = marcosDoColaborador.find(
+                (m) => statusPorMarco.get(m) !== "respondida"
+              );
 
               return (
                 <tr
@@ -100,7 +104,7 @@ export default async function ColaboradoresPage() {
                     {colaborador.tipo === "capacitacao" ? "Em capacitação" : "Novato"}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
-                    {(colaborador.cargos as unknown as { nome: string } | null)?.nome ?? "-"}
+                    {cargo?.nome ?? "-"}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     {new Date(colaborador.data_admissao + "T00:00:00").toLocaleDateString("pt-BR")}

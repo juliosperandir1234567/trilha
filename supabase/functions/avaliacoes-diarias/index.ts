@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer/mod.ts";
 
-const MARCOS = [30, 60, 90, 120, 180, 270] as const;
+const MARCOS_PADRAO = [30, 60, 90];
 const DIAS_RETENTATIVA = 3;
 const DIAS_CATCHUP = 30;
 
@@ -67,7 +67,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: colaboradores, error: erroColaboradores } = await supabase
     .from("colaboradores")
-    .select("id, nome, data_admissao, gestor_nome, gestor_email")
+    .select("id, nome, data_admissao, gestor_nome, gestor_email, cargos(marcos)")
     .eq("ativo", true);
 
   if (erroColaboradores) {
@@ -102,7 +102,12 @@ Deno.serve(async (req: Request) => {
   }
 
   for (const colaborador of colaboradores ?? []) {
-    for (const marco of MARCOS) {
+    // Cada cargo define seus próprios marcos (ex: Gestor tem os 6, outros só
+    // 30/60/90). Colaborador sem cargo cadastrado usa o padrão 30/60/90.
+    const cargo = colaborador.cargos as unknown as { marcos: number[] } | null;
+    const marcosDoColaborador = cargo?.marcos ?? MARCOS_PADRAO;
+
+    for (const marco of marcosDoColaborador) {
       const dataAlvo = somarDias(colaborador.data_admissao, marco);
       // Não é só "bateu hoje": também cobre marco (colaborador cadastrado
       // depois que a data já tinha passado, ex: importação tardia). O

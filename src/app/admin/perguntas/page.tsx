@@ -16,7 +16,7 @@ export default async function PerguntasPage() {
       .order("marco")
       .order("ordem"),
     supabase.from("categorias_treinamento").select("id, nome").eq("ativo", true).order("nome"),
-    supabase.from("cargos").select("id, nome").eq("ativo", true).order("nome"),
+    supabase.from("cargos").select("id, nome, marcos").eq("ativo", true).order("nome"),
   ]);
 
   return (

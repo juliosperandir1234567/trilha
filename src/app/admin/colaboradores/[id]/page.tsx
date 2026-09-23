@@ -4,7 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EnviarAgoraButton } from "./enviar-agora-button";
 
-const MARCOS = [30, 60, 90, 120, 180, 270] as const;
+const MARCOS_PADRAO = [30, 60, 90];
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: "Pendente (aguardando disparo)",
@@ -24,12 +24,15 @@ export default async function ColaboradorDetalhePage({
   const { data: colaborador } = await supabase
     .from("colaboradores")
     .select(
-      "id, nome, matricula, email, data_admissao, tipo, gestor_nome, gestor_email, gestor_matricula, ativo"
+      "id, nome, matricula, email, data_admissao, tipo, gestor_nome, gestor_email, gestor_matricula, ativo, cargos(nome, marcos)"
     )
     .eq("id", id)
     .single();
 
   if (!colaborador) notFound();
+
+  const cargo = colaborador.cargos as unknown as { nome: string; marcos: number[] } | null;
+  const marcos = cargo?.marcos ?? MARCOS_PADRAO;
 
   const { data: avaliacoes } = await supabase
     .from("avaliacoes")
@@ -61,7 +64,8 @@ export default async function ColaboradorDetalhePage({
           )}
         </h1>
         <p className="text-sm text-zinc-500">
-          {colaborador.tipo === "capacitacao" ? "Em capacitação" : "Novato"} · Admissão em{" "}
+          {colaborador.tipo === "capacitacao" ? "Em capacitação" : "Novato"}
+          {cargo && <> · Cargo: {cargo.nome}</>} · Admissão em{" "}
           {new Date(colaborador.data_admissao + "T00:00:00").toLocaleDateString("pt-BR")}
           {" · "}Gestor: {colaborador.gestor_matricula} — {colaborador.gestor_nome} (
           {colaborador.gestor_email})
@@ -69,7 +73,7 @@ export default async function ColaboradorDetalhePage({
         </p>
       </div>
 
-      {MARCOS.map((marco) => {
+      {marcos.map((marco) => {
         const avaliacao = avaliacaoPorMarco.get(marco);
 
         return (
