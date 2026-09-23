@@ -36,7 +36,14 @@ export default async function CategoriasPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">Competências</h1>
+      <div>
+        <h1 className="text-xl font-semibold">Competências</h1>
+        <p className="text-sm text-zinc-500">
+          Uma competência é sugerida automaticamente quando o gestor dá nota baixa (1 ou 2)
+          numa pergunta. Cada competência pode ter treinamentos específicos vinculados a
+          ela, listados abaixo do seu card.
+        </p>
+      </div>
 
       <div className="flex flex-col gap-2">
         <h2 className="font-medium">Criar competência</h2>

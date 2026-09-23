@@ -21,7 +21,15 @@ export default async function PerguntasPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">Perguntas por marco</h1>
+      <div>
+        <h1 className="text-xl font-semibold">Perguntas por marco</h1>
+        <p className="text-sm text-zinc-500">
+          Escolha um cargo pra deixar a pergunta específica dele (o campo Marco se ajusta
+          aos marcos daquele cargo) ou deixe em &quot;Todos os cargos&quot; pra uma pergunta
+          geral. As seções abaixo mostram todas as perguntas cadastradas, agrupadas por
+          marco.
+        </p>
+      </div>
       <PerguntaForm categorias={categorias ?? []} cargos={cargos ?? []} />
 
       {MARCOS.map((marco) => (
@@ -70,7 +78,7 @@ export default async function PerguntasPage() {
                 {(perguntas ?? []).filter((pergunta) => pergunta.marco === marco).length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-4 py-4 text-center text-zinc-500">
-                      Nenhuma pergunta cadastrada para este marco.
+                      Nenhuma pergunta cadastrada para este marco ainda.
                     </td>
                   </tr>
                 )}
