@@ -62,8 +62,9 @@ Deno.serve(async (req: Request) => {
 
     const cargoId = avaliacao.colaboradores?.cargo_id ?? null;
 
-    // Uma pergunta sem cargo definido vale pra todo mundo; uma pergunta com
-    // cargo só aparece pra colaboradores daquele cargo específico.
+    // Colaborador com cargo só recebe as perguntas daquele cargo; sem cargo,
+    // só as gerais. Não soma os dois — cada cargo tem seu próprio conjunto
+    // completo de perguntas.
     let perguntasQuery = supabase
       .from("perguntas")
       .select("id, texto, categoria_sugerida_id")
@@ -71,7 +72,7 @@ Deno.serve(async (req: Request) => {
       .eq("ativo", true)
       .order("ordem");
     perguntasQuery = cargoId
-      ? perguntasQuery.or(`cargo_id.is.null,cargo_id.eq.${cargoId}`)
+      ? perguntasQuery.eq("cargo_id", cargoId)
       : perguntasQuery.is("cargo_id", null);
 
     const [{ data: perguntas }, { data: categorias }, { data: treinamentos }] = await Promise.all([
@@ -138,7 +139,7 @@ Deno.serve(async (req: Request) => {
       .eq("marco", avaliacao.marco)
       .eq("ativo", true);
     perguntasValidasQuery = cargoId
-      ? perguntasValidasQuery.or(`cargo_id.is.null,cargo_id.eq.${cargoId}`)
+      ? perguntasValidasQuery.eq("cargo_id", cargoId)
       : perguntasValidasQuery.is("cargo_id", null);
 
     const { data: perguntasValidas } = await perguntasValidasQuery;
