@@ -100,6 +100,43 @@ const SECOES = [
     ),
   },
   {
+    titulo: "Limite de envio de e-mail (Gmail)",
+    conteudo: (
+      <>
+        <p>
+          O sistema envia os e-mails de avaliação via SMTP de uma conta{" "}
+          <strong>Gmail comum</strong> (não é Google Workspace/empresarial). Isso tem um
+          limite imposto pelo próprio Google:
+        </p>
+        <ul className="mt-2 list-disc space-y-1 pl-5">
+          <li>
+            <strong>500 destinatários por dia</strong>, numa janela móvel de 24 horas (não
+            é por semana nem por mês — o limite vai liberando aos poucos conforme as 24h
+            de cada envio antigo vão passando).
+          </li>
+          <li>
+            O limite conta <strong>destinatários</strong>, não &quot;e-mails&quot;. Como
+            cada avaliação daqui manda um e-mail pra um único gestor, na prática dá pra
+            enviar até <strong>500 avaliações por dia</strong> antes de bater no teto.
+          </li>
+          <li>
+            Se o limite for atingido, o Gmail passa a recusar novos envios até a janela de
+            24h liberar espaço — as avaliações continuam sendo criadas normalmente no
+            sistema, só o e-mail que falharia (o link ainda fica disponível pra copiar e
+            mandar manualmente, como descrito acima).
+          </li>
+        </ul>
+        <p className="mt-2">
+          Pra uma usina com centenas de colaboradores batendo marco no mesmo dia, isso
+          dificilmente vira problema — mas se algum dia for necessário um volume maior,
+          o caminho é migrar pra uma conta <strong>Google Workspace</strong> (limite
+          costuma subir pra 2.000/dia) ou um serviço de envio dedicado (ex: Resend,
+          SendGrid).
+        </p>
+      </>
+    ),
+  },
+  {
     titulo: "Como funciona a nota e a sugestão de treinamento",
     conteudo: (
       <>
