@@ -43,6 +43,12 @@ export default async function PerguntasPage({
     ? perguntasFormatadas.filter((pergunta) => pergunta.cargo_id === cargoFiltro)
     : perguntasFormatadas;
 
+  // Com um cargo filtrado, só mostra os marcos que aquele cargo de fato usa —
+  // sem cargo escolhido, mostra todos, já que perguntas gerais valem pra
+  // qualquer marco.
+  const cargoSelecionado = (cargos ?? []).find((cargo) => cargo.id === cargoFiltro);
+  const marcosParaExibir: number[] = cargoSelecionado ? cargoSelecionado.marcos : [...MARCOS];
+
   const FILTRO_CARGOS = [
     { label: "Todos os cargos", valor: "" },
     ...(cargos ?? []).map((cargo) => ({ label: cargo.nome, valor: cargo.id })),
@@ -79,18 +85,18 @@ export default async function PerguntasPage({
         })}
       </div>
 
-      {MARCOS.map((marco) => (
+      {marcosParaExibir.map((marco) => (
         <div key={marco} className="flex flex-col gap-2">
           <h2 className="font-medium">{marco} dias</h2>
           <div className="overflow-x-auto rounded-lg border border-primary-border">
-            <table className="w-full min-w-[700px] text-left text-sm">
+            <table className="w-full min-w-[700px] table-fixed text-left text-sm">
               <thead>
                 <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
-                  <th className="px-4 py-3">Pergunta</th>
-                  <th className="px-4 py-3">Cargo</th>
-                  <th className="px-4 py-3">Competência sugerida</th>
-                  <th className="whitespace-nowrap px-4 py-3">Status</th>
-                  <th className="px-4 py-3" />
+                  <th className="w-2/5 px-4 py-3">Pergunta</th>
+                  <th className="w-[15%] px-4 py-3">Cargo</th>
+                  <th className="w-1/5 px-4 py-3">Competência sugerida</th>
+                  <th className="w-20 whitespace-nowrap px-4 py-3">Status</th>
+                  <th className="w-12 px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
