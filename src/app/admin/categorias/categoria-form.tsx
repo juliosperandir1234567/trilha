@@ -4,7 +4,9 @@ import { useActionState } from "react";
 import { Plus } from "lucide-react";
 import { createCategoria } from "@/lib/actions/categorias";
 
-export function CategoriaForm() {
+type Cargo = { id: string; nome: string };
+
+export function CategoriaForm({ cargos }: { cargos: Cargo[] }) {
   const [state, action, pending] = useActionState(createCategoria, undefined);
 
   return (
@@ -32,6 +34,23 @@ export function CategoriaForm() {
           name="descricao"
           className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
         />
+      </div>
+      <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[180px]">
+        <label htmlFor="cargo_id" className="text-sm font-medium">
+          Cargo
+        </label>
+        <select
+          id="cargo_id"
+          name="cargo_id"
+          className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+        >
+          <option value="">Todos os cargos</option>
+          {cargos.map((cargo) => (
+            <option key={cargo.id} value={cargo.id}>
+              {cargo.nome}
+            </option>
+          ))}
+        </select>
       </div>
       <button
         type="submit"

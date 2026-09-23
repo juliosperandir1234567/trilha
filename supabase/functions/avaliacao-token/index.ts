@@ -74,13 +74,20 @@ Deno.serve(async (req: Request) => {
       ? perguntasQuery.or(`cargo_id.is.null,cargo_id.eq.${cargoId}`)
       : perguntasQuery.is("cargo_id", null);
 
+    // Mesma regra de cargo vale pras competências disponíveis pro gestor
+    // escolher como indicação de treinamento.
+    let categoriasQuery = supabase
+      .from("categorias_treinamento")
+      .select("id, nome")
+      .eq("ativo", true)
+      .order("nome");
+    categoriasQuery = cargoId
+      ? categoriasQuery.or(`cargo_id.is.null,cargo_id.eq.${cargoId}`)
+      : categoriasQuery.is("cargo_id", null);
+
     const [{ data: perguntas }, { data: categorias }, { data: treinamentos }] = await Promise.all([
       perguntasQuery,
-      supabase
-        .from("categorias_treinamento")
-        .select("id, nome")
-        .eq("ativo", true)
-        .order("nome"),
+      categoriasQuery,
       supabase
         .from("treinamentos")
         .select("id, categoria_id, nome")
