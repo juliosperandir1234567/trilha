@@ -167,7 +167,7 @@ export default async function AdminOverviewPage({
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Card
           icon={Users}
-          label={marcoNum ? "Colaboradores neste marco" : "Colaboradores ativos"}
+          label={marcoNum ? "Colaboradores neste período" : "Colaboradores ativos"}
           value={colaboradoresAtivos}
           href={hrefFiltro({})}
           ativo={!status && !critico}
@@ -204,12 +204,12 @@ export default async function AdminOverviewPage({
       </div>
 
       <div>
-        <h2 className="mb-3 font-medium">Progresso por marco</h2>
+        <h2 className="mb-3 font-medium">Progresso por período</h2>
         <div className="overflow-x-auto rounded-lg border border-primary-border">
           <table className="w-full min-w-[480px] text-left text-sm">
             <thead>
               <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
-                <th className="px-4 py-3">Marco</th>
+                <th className="px-4 py-3">Período</th>
                 <th className="px-4 py-3">Total</th>
                 <th className="px-4 py-3">Respondidas</th>
                 <th className="px-4 py-3">Aguardando</th>
@@ -287,7 +287,7 @@ export default async function AdminOverviewPage({
               <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
                 <th className="whitespace-nowrap px-4 py-3">Matrícula</th>
                 <th className="px-4 py-3">Colaborador</th>
-                <th className="whitespace-nowrap px-4 py-3">Marco</th>
+                <th className="whitespace-nowrap px-4 py-3">Período</th>
                 <th className="px-4 py-3">Gestor</th>
                 <th className="whitespace-nowrap px-4 py-3">Status</th>
                 <th className="whitespace-nowrap px-4 py-3">Expira / respondida em</th>

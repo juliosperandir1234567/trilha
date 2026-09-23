@@ -93,7 +93,7 @@ export default async function CategoriaDetalhePage({
             <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
               <th className="whitespace-nowrap px-4 py-3">Matrícula</th>
               <th className="px-4 py-3">Colaborador</th>
-              <th className="whitespace-nowrap px-4 py-3">Marco</th>
+              <th className="whitespace-nowrap px-4 py-3">Período</th>
               <th className="whitespace-nowrap px-4 py-3">Nota</th>
               <th className="px-4 py-3">Gestor</th>
             </tr>

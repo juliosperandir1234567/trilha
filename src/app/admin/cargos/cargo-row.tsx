@@ -53,7 +53,7 @@ export function CargoRow({ cargo, podeExcluir }: { cargo: Cargo; podeExcluir: bo
               </div>
             </div>
             <div className="flex flex-col gap-1.5">
-              <span className="text-xs font-medium">Marcos avaliados</span>
+              <span className="text-xs font-medium">Períodos avaliados</span>
               <MarcosCheckboxes marcosSelecionados={cargo.marcos} />
             </div>
             <div className="flex gap-2">

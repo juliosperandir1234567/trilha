@@ -39,7 +39,7 @@ export function CargoForm() {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium">Marcos avaliados</span>
+        <span className="text-sm font-medium">Períodos avaliados</span>
         <MarcosCheckboxes marcosSelecionados={[30, 60, 90]} />
       </div>
 

@@ -32,7 +32,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: respostas } = await query;
 
   const linhas = [
-    ["Matrícula", "Colaborador", "Marco", "Nota", "Gestor"].map(escapeCsv).join(";"),
+    ["Matrícula", "Colaborador", "Período", "Nota", "Gestor"].map(escapeCsv).join(";"),
   ];
 
   for (const resposta of respostas ?? []) {

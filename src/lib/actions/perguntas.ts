@@ -19,7 +19,7 @@ export async function createPergunta(
   const cargoId = String(formData.get("cargo_id") ?? "");
 
   if (![30, 60, 90, 120, 180, 270].includes(marco)) {
-    return { error: "Marco inválido." };
+    return { error: "Período inválido." };
   }
   if (!texto) {
     return { error: "Informe o texto da pergunta." };
@@ -55,7 +55,7 @@ export async function updatePergunta(
   const cargoId = String(formData.get("cargo_id") ?? "");
 
   if (![30, 60, 90, 120, 180, 270].includes(marco)) {
-    return { error: "Marco inválido." };
+    return { error: "Período inválido." };
   }
   if (!texto) {
     return { error: "Informe o texto da pergunta." };

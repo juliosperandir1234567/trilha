@@ -46,14 +46,10 @@ export async function createColaborador(
   const gestorNome = String(formData.get("gestor_nome") ?? "").trim();
   const gestorEmail = String(formData.get("gestor_email") ?? "").trim();
   const gestorMatricula = String(formData.get("gestor_matricula") ?? "").trim();
-  const tipo = String(formData.get("tipo") ?? "novato").trim();
   const cargoId = String(formData.get("cargo_id") ?? "").trim();
 
   if (!nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail || !gestorMatricula) {
     return { error: "Preencha todos os campos." };
-  }
-  if (!["novato", "capacitacao"].includes(tipo)) {
-    return { error: "Tipo inválido." };
   }
 
   const supabase = await createClient();
@@ -64,7 +60,6 @@ export async function createColaborador(
     gestor_nome: gestorNome,
     gestor_email: gestorEmail,
     gestor_matricula: gestorMatricula,
-    tipo,
     cargo_id: cargoId || null,
   });
 
@@ -100,7 +95,6 @@ export async function importColaboradores(
     gestor_nome: string;
     gestor_email: string;
     gestor_matricula: string;
-    tipo: string;
     cargo_nome: string;
   }[] = [];
   let ignorados = 0;
@@ -144,10 +138,6 @@ export async function importColaboradores(
       linha["gestor_matricula"] ??
       ""
     ).trim();
-    const tipoBruto = (linha["tipo"] ?? linha["novato ou capacitacao"] ?? "novato")
-      .trim()
-      .toLowerCase();
-    const tipo = tipoBruto.startsWith("capacit") ? "capacitacao" : "novato";
     const cargoNome = (linha["cargo"] ?? "").trim();
 
     const dataAdmissao = dataBruta ? parseDataAdmissao(dataBruta) : null;
@@ -164,7 +154,6 @@ export async function importColaboradores(
       gestor_nome: gestorNome,
       gestor_email: gestorEmail,
       gestor_matricula: gestorMatricula,
-      tipo,
       cargo_nome: cargoNome,
     });
   }

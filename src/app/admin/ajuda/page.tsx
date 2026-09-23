@@ -4,10 +4,10 @@ const SECOES = [
     conteudo: (
       <p>
         Sistema de acompanhamento de integração, capacitação e desenvolvimento de
-        colaboradores novatos (ou em capacitação), com avaliações em marcos que vão de{" "}
-        <strong>30 a 270 dias</strong> após a admissão — quais marcos exatamente dependem
-        do <strong>cargo</strong> do colaborador (veja a seção &quot;Cargos: marcos e
-        perguntas específicas&quot; abaixo). O objetivo é acompanhar a evolução do
+        colaboradores novatos (ou em capacitação), com avaliações em períodos que vão de{" "}
+        <strong>30 a 270 dias</strong> após a admissão — quais períodos exatamente
+        dependem do <strong>cargo</strong> do colaborador (veja a seção &quot;Cargos:
+        períodos e perguntas específicas&quot; abaixo). O objetivo é acompanhar a evolução do
         colaborador e indicar treinamentos quando necessário.
       </p>
     ),
@@ -44,17 +44,17 @@ const SECOES = [
         </li>
         <li>
           Todo dia, uma rotina automática (pg_cron + Edge Function no Supabase) verifica
-          quem completou, na data atual, um dos marcos configurados pro cargo daquele
+          quem completou, na data atual, um dos períodos configurados pro cargo daquele
           colaborador (ou 30/60/90 como padrão, se ele não tiver cargo cadastrado) — e
           também tenta de novo qualquer avaliação que tenha ficado presa sem enviar nos
           últimos dias.
         </li>
         <li>
-          Para cada colaborador que bateu um marco, o sistema cria a avaliação, gera um
+          Para cada colaborador que bateu um período, o sistema cria a avaliação, gera um
           link único com prazo de validade, e envia um e-mail (via Gmail, SMTP) para o
           gestor.
         </li>
-        <li>O gestor responde as perguntas daquele marco direto pelo link, sem login.</li>
+        <li>O gestor responde as perguntas daquele período direto pelo link, sem login.</li>
         <li>
           Notas 1 ou 2 (baixas) já vêm com uma competência sugerida
           automaticamente; o gestor pode trocar antes de salvar.
@@ -71,7 +71,7 @@ const SECOES = [
       <>
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            <strong>Pendente</strong>: a avaliação foi criada (bateu o marco), mas o
+            <strong>Pendente</strong>: a avaliação foi criada (bateu o período), mas o
             sistema ainda não confirmou o envio do e-mail.
           </li>
           <li>
@@ -79,7 +79,7 @@ const SECOES = [
             está esperando a resposta dele.
           </li>
           <li>
-            <strong>Respondida</strong>: o gestor já enviou as respostas daquele marco.
+            <strong>Respondida</strong>: o gestor já enviou as respostas daquele período.
           </li>
           <li>
             <strong>Expirada</strong>: passou do prazo configurado em{" "}
@@ -127,7 +127,7 @@ const SECOES = [
           </li>
         </ul>
         <p className="mt-2">
-          Pra uma usina com centenas de colaboradores batendo marco no mesmo dia, isso
+          Pra uma usina com centenas de colaboradores batendo período no mesmo dia, isso
           dificilmente vira problema — mas se algum dia for necessário um volume maior,
           o caminho é migrar pra uma conta <strong>Google Workspace</strong> (limite
           costuma subir pra 2.000/dia) ou um serviço de envio dedicado (ex: Resend,
@@ -168,7 +168,7 @@ const SECOES = [
           </li>
           <li>
             Os KPIs de &quot;Treinamentos indicados&quot; na Visão Geral contam quantas
-            respostas (perguntas) apontaram para cada competência, somando todos os marcos e
+            respostas (perguntas) apontaram para cada competência, somando todos os períodos e
             colaboradores.
           </li>
         </ul>
@@ -176,7 +176,7 @@ const SECOES = [
     ),
   },
   {
-    titulo: "Cargos: marcos e perguntas específicas",
+    titulo: "Cargos: períodos e perguntas específicas",
     conteudo: (
       <>
         <p>
@@ -185,9 +185,9 @@ const SECOES = [
         </p>
         <ul className="mt-2 list-disc space-y-1 pl-5">
           <li>
-            <strong>Em quais marcos ele é avaliado</strong> — marcado por checkbox na
+            <strong>Em quais períodos ele é avaliado</strong> — marcado por checkbox na
             própria tela de Cargos. Um colaborador com esse cargo só vai gerar avaliação
-            nos marcos marcados ali (ex: Gestores avalia nos 6 marcos — 30 a 270 dias —
+            nos períodos marcados ali (ex: Gestores avalia nos 6 períodos — 30 a 270 dias —
             enquanto Tratorista, Operador de colhedora e Auxiliar de processo avaliam só
             em 30/60/90). Colaborador sem cargo cadastrado usa o padrão 30/60/90.
           </li>
@@ -195,18 +195,18 @@ const SECOES = [
             <strong>Quais perguntas ele recebe</strong> — cada pergunta pode ser{" "}
             <strong>geral</strong> (aparece pra qualquer colaborador, é o padrão) ou
             marcada pra um cargo específico. Uma pergunta com cargo só aparece no
-            formulário de quem tem aquele cargo, e o campo Marco do formulário de pergunta
-            se ajusta automaticamente aos marcos daquele cargo.
+            formulário de quem tem aquele cargo, e o campo Período do formulário de
+            pergunta se ajusta automaticamente aos períodos daquele cargo.
           </li>
         </ul>
         <p className="mt-2">
           Exemplo: a pergunta de 30 dias do <strong>Gestor</strong> é um registro
           diferente da pergunta de 30 dias do <strong>Tratorista</strong>, mesmo os dois
-          tendo marco 30 — e o Gestor ainda responde perguntas específicas em marcos
+          tendo período 30 — e o Gestor ainda responde perguntas específicas em períodos
           (120/180/270) que o Tratorista nunca chega a ter.
         </p>
         <p className="mt-2">
-          Um colaborador sem cargo cadastrado só recebe as perguntas gerais, nos marcos
+          Um colaborador sem cargo cadastrado só recebe as perguntas gerais, nos períodos
           padrão 30/60/90.
         </p>
       </>
@@ -278,8 +278,8 @@ const SECOES = [
         <li>
           <strong>Visão geral</strong>: cinco cards no topo (Colaboradores ativos,
           Aguardando resposta, Respondidas, Expiradas, Notas críticas) — cada um é também
-          um filtro, clique pra aplicar. Abaixo: a tabela <strong>Progresso por marco</strong>{" "}
-          (clique em qualquer marco — 30/60/90/120/180/270 dias — pra filtrar só aquele),{" "}
+          um filtro, clique pra aplicar. Abaixo: a tabela <strong>Progresso por período</strong>{" "}
+          (clique em qualquer período — 30/60/90/120/180/270 dias — pra filtrar só aquele),{" "}
           <strong>Treinamentos indicados</strong> (um card por competência, com a contagem de
           respostas que apontaram pra ela — clique pra ver quem são e exportar em CSV), e a
           tabela de <strong>Avaliações</strong> com os filtros aplicados, mais o botão{" "}
@@ -287,9 +287,9 @@ const SECOES = [
         </li>
         <li>
           <strong>Cargos</strong>: formulário pra criar cargo (nome + descrição) com
-          checkboxes dos marcos em que ele é avaliado (padrão 30/60/90, marque os outros se
-          precisar). A listagem mostra os marcos de cada cargo e permite editar/ativar-
-          desativar/excluir. Veja a seção &quot;Cargos: marcos e perguntas
+          checkboxes dos períodos em que ele é avaliado (padrão 30/60/90, marque os outros
+          se precisar). A listagem mostra os períodos de cada cargo e permite editar/
+          ativar-desativar/excluir. Veja a seção &quot;Cargos: períodos e perguntas
           específicas&quot; acima.
         </li>
         <li>
@@ -302,20 +302,20 @@ const SECOES = [
         <li>
           <strong>Perguntas</strong>: cadastro das perguntas, cada uma podendo ter uma
           competência sugerida pra quando a nota vier baixa e, opcionalmente, um cargo
-          específico (deixando em branco, vale pra todos — e o campo Marco se ajusta aos
-          marcos do cargo escolhido). Os filtros no topo da lista (por cargo) restringem o
-          que aparece nas seções abaixo. Cada pergunta tem um menu de ações com{" "}
-          <strong>Editar</strong> (marco, cargo, texto e competência sugerida),
+          específico (deixando em branco, vale pra todos — e o campo Período se ajusta aos
+          períodos do cargo escolhido). Os filtros no topo da lista (por cargo) restringem
+          o que aparece nas seções abaixo. Cada pergunta tem um menu de ações com{" "}
+          <strong>Editar</strong> (período, cargo, texto e competência sugerida),
           ativar/desativar (ela some do formulário do gestor, mas o histórico de quem já
           respondeu fica intacto) e, só o admin, excluir.
         </li>
         <li>
           <strong>Colaboradores</strong>: formulário de cadastro individual e outro pra
-          importar uma planilha CSV em lote. A listagem mostra matrícula, tipo (novato ou em
-          capacitação), cargo, data de admissão, gestor responsável, status (ativo/inativo)
-          e o próximo marco pendente daquele colaborador, com o botão de forçar envio do
-          e-mail. Clicar no nome abre o histórico completo de todos os marcos daquele
-          colaborador (que variam conforme o cargo dele).
+          importar uma planilha CSV em lote. A listagem mostra matrícula, cargo, data de
+          admissão, gestor responsável, status (ativo/inativo) e o próximo período pendente
+          daquele colaborador, com o botão de forçar envio do e-mail. Clicar no nome abre o
+          histórico completo de todos os períodos daquele colaborador (que variam conforme
+          o cargo dele).
         </li>
         <li>
           <strong>Usuários</strong>: lista de quem tem login no sistema (nome, e-mail,

@@ -24,7 +24,7 @@ export default async function ColaboradorDetalhePage({
   const { data: colaborador } = await supabase
     .from("colaboradores")
     .select(
-      "id, nome, matricula, email, data_admissao, tipo, gestor_nome, gestor_email, gestor_matricula, ativo, cargos(nome, marcos)"
+      "id, nome, matricula, email, data_admissao, gestor_nome, gestor_email, gestor_matricula, ativo, cargos(nome, marcos)"
     )
     .eq("id", id)
     .single();
@@ -64,8 +64,7 @@ export default async function ColaboradorDetalhePage({
           )}
         </h1>
         <p className="text-sm text-zinc-500">
-          {colaborador.tipo === "capacitacao" ? "Em capacitação" : "Novato"}
-          {cargo && <> · Cargo: {cargo.nome}</>} · Admissão em{" "}
+          {cargo ? <>Cargo: {cargo.nome} · </> : null}Admissão em{" "}
           {new Date(colaborador.data_admissao + "T00:00:00").toLocaleDateString("pt-BR")}
           {" · "}Gestor: {colaborador.gestor_matricula} — {colaborador.gestor_nome} (
           {colaborador.gestor_email})
@@ -82,7 +81,7 @@ export default async function ColaboradorDetalhePage({
               <h2 className="font-medium">{marco} dias</h2>
               <div className="flex items-center gap-3">
                 <span className="text-sm text-zinc-500">
-                  {avaliacao ? STATUS_LABEL[avaliacao.status] ?? avaliacao.status : "Ainda não atingiu este marco"}
+                  {avaliacao ? STATUS_LABEL[avaliacao.status] ?? avaliacao.status : "Ainda não atingiu este período"}
                 </span>
                 {avaliacao?.status !== "respondida" && (
                   <EnviarAgoraButton colaboradorId={colaborador.id} marco={marco} />

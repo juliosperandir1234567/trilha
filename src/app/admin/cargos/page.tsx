@@ -20,8 +20,8 @@ export default async function CargosPage() {
         <p className="text-sm text-zinc-500">
           Use cargos para ter perguntas específicas por função (ex: Tratorista, Operador,
           Gestor). Uma pergunta sem cargo definido continua valendo para todo mundo. Cada
-          cargo também define em quais marcos os colaboradores com esse cargo são
-          avaliados — nem todo cargo precisa passar pelos 6 marcos.
+          cargo também define em quais períodos os colaboradores com esse cargo são
+          avaliados — nem todo cargo precisa passar pelos 6 períodos.
         </p>
       </div>
 
@@ -33,7 +33,7 @@ export default async function CargosPage() {
             <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
               <th className="px-4 py-3">Nome</th>
               <th className="px-4 py-3">Descrição</th>
-              <th className="px-4 py-3">Marcos</th>
+              <th className="px-4 py-3">Períodos</th>
               <th className="whitespace-nowrap px-4 py-3">Status</th>
               <th className="px-4 py-3" />
             </tr>

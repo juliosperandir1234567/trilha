@@ -50,21 +50,6 @@ export function ColaboradorForm({ cargos }: { cargos: Cargo[] }) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="tipo" className="text-sm font-medium">
-            Tipo
-          </label>
-          <select
-            id="tipo"
-            name="tipo"
-            defaultValue="novato"
-            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
-          >
-            <option value="novato">Novato</option>
-            <option value="capacitacao">Em capacitação</option>
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
           <label htmlFor="cargo_id" className="text-sm font-medium">
             Cargo
           </label>

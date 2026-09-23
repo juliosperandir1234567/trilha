@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   const { data: respostas } = await query;
 
   const linhas = [
-    ["Matrícula", "Colaborador", "Marco", "Nota", "Gestor", "Treinamento indicado"]
+    ["Matrícula", "Colaborador", "Período", "Nota", "Gestor", "Treinamento indicado"]
       .map(escapeCsv)
       .join(";"),
   ];

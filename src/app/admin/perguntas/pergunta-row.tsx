@@ -74,7 +74,7 @@ export function PerguntaRow({
               </div>
 
               <div className="flex flex-col gap-1.5 sm:min-w-[120px]">
-                <label className="text-xs font-medium">Marco</label>
+                <label className="text-xs font-medium">Período</label>
                 <select
                   name="marco"
                   value={marcoValido}

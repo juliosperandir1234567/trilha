@@ -56,7 +56,7 @@ export function PerguntaForm({
 
       <div className="flex flex-col gap-1.5 sm:min-w-[120px]">
         <label htmlFor="marco" className="text-sm font-medium">
-          Marco
+          Período
         </label>
         <select
           id="marco"

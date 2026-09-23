@@ -20,7 +20,7 @@ export default async function ColaboradoresPage() {
       supabase
         .from("colaboradores")
         .select(
-          "id, nome, matricula, data_admissao, tipo, cargos(nome, marcos), gestor_nome, gestor_email, ativo"
+          "id, nome, matricula, data_admissao, cargos(nome, marcos), gestor_nome, gestor_email, ativo"
         )
         .order("created_at", { ascending: false })
         .limit(50),
@@ -63,7 +63,6 @@ export default async function ColaboradoresPage() {
             <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
               <th className="whitespace-nowrap px-4 py-3">Matrícula</th>
               <th className="whitespace-nowrap px-4 py-3">Nome</th>
-              <th className="whitespace-nowrap px-4 py-3">Tipo</th>
               <th className="whitespace-nowrap px-4 py-3">Cargo</th>
               <th className="whitespace-nowrap px-4 py-3">Admissão</th>
               <th className="px-4 py-3">Gestor</th>
@@ -101,9 +100,6 @@ export default async function ColaboradoresPage() {
                     )}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
-                    {colaborador.tipo === "capacitacao" ? "Em capacitação" : "Novato"}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
                     {cargo?.nome ?? "-"}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">
@@ -136,7 +132,7 @@ export default async function ColaboradoresPage() {
             })}
             {(colaboradores ?? []).length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
                   Nenhum colaborador importado ainda.
                 </td>
               </tr>
