@@ -2,36 +2,17 @@
 
 import { useActionState, useState } from "react";
 import { Pencil, Power, Trash2 } from "lucide-react";
-import {
-  toggleTreinamentoAtivo,
-  updateTreinamento,
-  deleteTreinamento,
-} from "@/lib/actions/treinamentos";
+import { toggleCargoAtivo, updateCargo, deleteCargo } from "@/lib/actions/cargos";
 import { AcoesMenu } from "@/components/acoes-menu";
 
-type Categoria = { id: string; nome: string };
-type Treinamento = {
-  id: string;
-  categoria_id: string;
-  nome: string;
-  descricao: string | null;
-  ativo: boolean;
-};
+type Cargo = { id: string; nome: string; descricao: string | null; ativo: boolean };
 
-export function TreinamentoRow({
-  treinamento,
-  categorias,
-  podeExcluir,
-}: {
-  treinamento: Treinamento;
-  categorias: Categoria[];
-  podeExcluir: boolean;
-}) {
+export function CargoRow({ cargo, podeExcluir }: { cargo: Cargo; podeExcluir: boolean }) {
   const [editando, setEditando] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
 
-  const [editState, editAction, editPending] = useActionState(updateTreinamento, undefined);
-  const [deleteState, deleteAction, deletePending] = useActionState(deleteTreinamento, undefined);
+  const [editState, editAction, editPending] = useActionState(updateCargo, undefined);
+  const [deleteState, deleteAction, deletePending] = useActionState(deleteCargo, undefined);
 
   const [editStateVisto, setEditStateVisto] = useState(editState);
   if (editState !== editStateVisto) {
@@ -44,36 +25,21 @@ export function TreinamentoRow({
       <tr className="border-b border-primary-border/40 last:border-b-0">
         <td colSpan={4} className="px-4 py-3">
           <form action={editAction} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <input type="hidden" name="id" value={treinamento.id} />
-            <div className="flex flex-col gap-1.5 sm:min-w-[180px]">
-              <label className="text-xs font-medium">Competência</label>
-              <select
-                name="categoria_id"
-                defaultValue={treinamento.categoria_id}
-                required
-                className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
-              >
-                {categorias.map((categoria) => (
-                  <option key={categoria.id} value={categoria.id}>
-                    {categoria.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[160px]">
+            <input type="hidden" name="id" value={cargo.id} />
+            <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[180px]">
               <label className="text-xs font-medium">Nome</label>
               <input
                 name="nome"
-                defaultValue={treinamento.nome}
+                defaultValue={cargo.nome}
                 required
                 className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
               />
             </div>
-            <div className="flex flex-[2] flex-col gap-1.5 sm:min-w-[200px]">
+            <div className="flex flex-[2] flex-col gap-1.5 sm:min-w-[220px]">
               <label className="text-xs font-medium">Descrição</label>
               <input
                 name="descricao"
-                defaultValue={treinamento.descricao ?? ""}
+                defaultValue={cargo.descricao ?? ""}
                 className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
               />
             </div>
@@ -102,11 +68,11 @@ export function TreinamentoRow({
 
   return (
     <tr className="border-b border-primary-border/40 align-top last:border-b-0 hover:bg-primary-soft/20">
-      <td className="px-4 py-3">{treinamento.nome}</td>
-      <td className="px-4 py-3 text-zinc-500">{treinamento.descricao}</td>
-      <td className="whitespace-nowrap px-4 py-3">{treinamento.ativo ? "Ativo" : "Inativo"}</td>
+      <td className="px-4 py-3">{cargo.nome}</td>
+      <td className="px-4 py-3 text-zinc-500">{cargo.descricao}</td>
+      <td className="whitespace-nowrap px-4 py-3">{cargo.ativo ? "Ativo" : "Inativo"}</td>
       <td className="px-4 py-3 text-right">
-        <AcoesMenu label="Ações do treinamento" onClose={() => setConfirmandoExclusao(false)}>
+        <AcoesMenu label="Ações do cargo" onClose={() => setConfirmandoExclusao(false)}>
           {(fechar) =>
             !confirmandoExclusao ? (
               <>
@@ -121,15 +87,15 @@ export function TreinamentoRow({
                   <Pencil className="h-4 w-4" />
                   Editar
                 </button>
-                <form action={toggleTreinamentoAtivo} onSubmit={fechar}>
-                  <input type="hidden" name="id" value={treinamento.id} />
-                  <input type="hidden" name="ativo" value={String(treinamento.ativo)} />
+                <form action={toggleCargoAtivo} onSubmit={fechar}>
+                  <input type="hidden" name="id" value={cargo.id} />
+                  <input type="hidden" name="ativo" value={String(cargo.ativo)} />
                   <button
                     type="submit"
                     className="flex w-full items-center gap-2 rounded px-3 py-2 text-left text-sm hover:bg-primary/10"
                   >
                     <Power className="h-4 w-4" />
-                    {treinamento.ativo ? "Desativar" : "Ativar"}
+                    {cargo.ativo ? "Desativar" : "Ativar"}
                   </button>
                 </form>
                 {podeExcluir && (
@@ -145,7 +111,7 @@ export function TreinamentoRow({
               </>
             ) : (
               <form action={deleteAction} className="flex flex-col gap-2 p-2">
-                <input type="hidden" name="id" value={treinamento.id} />
+                <input type="hidden" name="id" value={cargo.id} />
                 <label className="text-xs text-zinc-500">
                   Confirme sua senha de admin para excluir
                 </label>

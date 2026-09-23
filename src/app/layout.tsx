@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Trilha 30·60·90",
-  description: "Sistema de avaliação de colaboradores nos marcos de 30, 60 e 90 dias",
+  title: "Trilha Desenvolve+",
+  description: "Acompanhamento de integração, capacitação e desenvolvimento",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

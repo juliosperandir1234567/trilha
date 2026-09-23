@@ -47,6 +47,7 @@ export async function createColaborador(
   const gestorEmail = String(formData.get("gestor_email") ?? "").trim();
   const gestorMatricula = String(formData.get("gestor_matricula") ?? "").trim();
   const tipo = String(formData.get("tipo") ?? "novato").trim();
+  const cargoId = String(formData.get("cargo_id") ?? "").trim();
 
   if (!nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail || !gestorMatricula) {
     return { error: "Preencha todos os campos." };
@@ -64,6 +65,7 @@ export async function createColaborador(
     gestor_email: gestorEmail,
     gestor_matricula: gestorMatricula,
     tipo,
+    cargo_id: cargoId || null,
   });
 
   if (error) {
@@ -99,6 +101,7 @@ export async function importColaboradores(
     gestor_email: string;
     gestor_matricula: string;
     tipo: string;
+    cargo_nome: string;
   }[] = [];
   let ignorados = 0;
 
@@ -145,6 +148,7 @@ export async function importColaboradores(
       .trim()
       .toLowerCase();
     const tipo = tipoBruto.startsWith("capacit") ? "capacitacao" : "novato";
+    const cargoNome = (linha["cargo"] ?? "").trim();
 
     const dataAdmissao = dataBruta ? parseDataAdmissao(dataBruta) : null;
 
@@ -161,6 +165,7 @@ export async function importColaboradores(
       gestor_email: gestorEmail,
       gestor_matricula: gestorMatricula,
       tipo,
+      cargo_nome: cargoNome,
     });
   }
 
@@ -183,9 +188,15 @@ export async function importColaboradores(
     (usuariosExistentes ?? []).map((u) => [u.email.toLowerCase(), u.id])
   );
 
-  const paraInserir = registros.map((registro) => ({
+  const { data: cargosExistentes } = await supabase.from("cargos").select("id, nome");
+  const idPorCargo = new Map(
+    (cargosExistentes ?? []).map((c) => [c.nome.trim().toLowerCase(), c.id])
+  );
+
+  const paraInserir = registros.map(({ cargo_nome, ...registro }) => ({
     ...registro,
     gestor_id: idPorEmail.get(registro.gestor_email.toLowerCase()) ?? null,
+    cargo_id: cargo_nome ? idPorCargo.get(cargo_nome.toLowerCase()) ?? null : null,
   }));
 
   const { error } = await supabase.from("colaboradores").insert(paraInserir);

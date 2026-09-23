@@ -36,9 +36,9 @@ export default async function LoginPage() {
           />
         )}
         <div className="flex flex-col items-center gap-1 text-center">
-          <h1 className="text-2xl font-semibold text-primary">Trilha 30·60·90</h1>
+          <h1 className="text-2xl font-semibold text-primary">Trilha Desenvolve+</h1>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Sistema de avaliação de colaboradores
+            Acompanhamento de integração, capacitação e desenvolvimento
           </p>
         </div>
         <LoginForm />

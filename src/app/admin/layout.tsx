@@ -34,7 +34,7 @@ export default async function AdminLayout({
             <TrendingUp className="h-6 w-6 shrink-0" />
           )}
           <div>
-            <p className="text-sm font-semibold">Trilha 30·60·90</p>
+            <p className="text-sm font-semibold">Trilha Desenvolve+</p>
             <p className="text-xs text-sidebar-fg-muted">{perfil?.nome}</p>
           </div>
         </div>
@@ -53,7 +53,7 @@ export default async function AdminLayout({
         <header className="flex items-center justify-between bg-primary px-6 py-3 text-primary-foreground">
           <span className="flex items-center gap-2 font-semibold">
             <TrendingUp className="h-5 w-5" />
-            Trilha 30·60·90
+            Trilha Desenvolve+
           </span>
           <span className="text-sm opacity-90">
             {perfil?.nome} · {perfil?.papel}

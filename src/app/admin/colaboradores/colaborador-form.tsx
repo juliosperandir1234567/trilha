@@ -4,7 +4,9 @@ import { useActionState } from "react";
 import { UserPlus } from "lucide-react";
 import { createColaborador } from "@/lib/actions/colaboradores";
 
-export function ColaboradorForm() {
+type Cargo = { id: string; nome: string };
+
+export function ColaboradorForm({ cargos }: { cargos: Cargo[] }) {
   const [state, action, pending] = useActionState(createColaborador, undefined);
 
   return (
@@ -59,6 +61,24 @@ export function ColaboradorForm() {
           >
             <option value="novato">Novato</option>
             <option value="capacitacao">Em capacitação</option>
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="cargo_id" className="text-sm font-medium">
+            Cargo
+          </label>
+          <select
+            id="cargo_id"
+            name="cargo_id"
+            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+          >
+            <option value="">Sem cargo específico</option>
+            {cargos.map((cargo) => (
+              <option key={cargo.id} value={cargo.id}>
+                {cargo.nome}
+              </option>
+            ))}
           </select>
         </div>
 

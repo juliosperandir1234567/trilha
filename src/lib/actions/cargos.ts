@@ -5,49 +5,51 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, requireStaff } from "@/lib/supabase/dal";
 
-export type CategoriaFormState = { error?: string } | undefined;
+export type CargoFormState = { error?: string } | undefined;
 
-export async function createCategoria(
-  _prevState: CategoriaFormState,
+export async function createCargo(
+  _prevState: CargoFormState,
   formData: FormData
-): Promise<CategoriaFormState> {
+): Promise<CargoFormState> {
   await requireStaff();
   const nome = String(formData.get("nome") ?? "").trim();
   const descricao = String(formData.get("descricao") ?? "").trim();
 
   if (!nome) {
-    return { error: "Informe o nome da competência." };
+    return { error: "Informe o nome do cargo." };
   }
 
   const supabase = await createClient();
-  const { error } = await supabase
-    .from("categorias_treinamento")
-    .insert({ nome, descricao: descricao || null });
+  const { error } = await supabase.from("cargos").insert({ nome, descricao: descricao || null });
 
   if (error) {
-    return { error: "Não foi possível criar a competência (nome já existe?)." };
+    return { error: "Não foi possível criar o cargo (nome já existe?)." };
   }
 
-  revalidatePath("/admin/categorias");
+  revalidatePath("/admin/cargos");
+  revalidatePath("/admin/colaboradores");
+  revalidatePath("/admin/perguntas");
 }
 
-export async function toggleCategoriaAtiva(formData: FormData) {
+export async function toggleCargoAtivo(formData: FormData) {
   await requireStaff();
   const id = String(formData.get("id"));
   const ativo = formData.get("ativo") === "true";
 
   const supabase = await createClient();
-  await supabase.from("categorias_treinamento").update({ ativo: !ativo }).eq("id", id);
+  await supabase.from("cargos").update({ ativo: !ativo }).eq("id", id);
 
-  revalidatePath("/admin/categorias");
+  revalidatePath("/admin/cargos");
+  revalidatePath("/admin/colaboradores");
+  revalidatePath("/admin/perguntas");
 }
 
-export type CategoriaUpdateState = { error?: string; success?: boolean } | undefined;
+export type CargoUpdateState = { error?: string; success?: boolean } | undefined;
 
-export async function updateCategoria(
-  _prevState: CategoriaUpdateState,
+export async function updateCargo(
+  _prevState: CargoUpdateState,
   formData: FormData
-): Promise<CategoriaUpdateState> {
+): Promise<CargoUpdateState> {
   await requireStaff();
 
   const id = String(formData.get("id") ?? "");
@@ -55,12 +57,12 @@ export async function updateCategoria(
   const descricao = String(formData.get("descricao") ?? "").trim();
 
   if (!nome) {
-    return { error: "Informe o nome da competência." };
+    return { error: "Informe o nome do cargo." };
   }
 
   const supabase = await createClient();
   const { error } = await supabase
-    .from("categorias_treinamento")
+    .from("cargos")
     .update({ nome, descricao: descricao || null })
     .eq("id", id);
 
@@ -68,16 +70,16 @@ export async function updateCategoria(
     return { error: "Não foi possível salvar (nome já existe?)." };
   }
 
-  revalidatePath("/admin/categorias");
+  revalidatePath("/admin/cargos");
   return { success: true };
 }
 
-export type DeleteCategoriaFormState = { error?: string } | undefined;
+export type DeleteCargoFormState = { error?: string } | undefined;
 
-export async function deleteCategoria(
-  _prevState: DeleteCategoriaFormState,
+export async function deleteCargo(
+  _prevState: DeleteCargoFormState,
   formData: FormData
-): Promise<DeleteCategoriaFormState> {
+): Promise<DeleteCargoFormState> {
   const { user } = await requireAdmin();
   const id = String(formData.get("id"));
   const senha = String(formData.get("senha") ?? "");
@@ -100,14 +102,11 @@ export async function deleteCategoria(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("categorias_treinamento").delete().eq("id", id);
+  const { error } = await supabase.from("cargos").delete().eq("id", id);
 
   if (error) {
-    return {
-      error:
-        "Não é possível excluir: existem treinamentos ou respostas usando esta competência. Desative-a em vez disso.",
-    };
+    return { error: "Não foi possível excluir esse cargo." };
   }
 
-  revalidatePath("/admin/categorias");
+  revalidatePath("/admin/cargos");
 }

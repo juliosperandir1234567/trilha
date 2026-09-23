@@ -28,7 +28,7 @@ Deno.serve(async (req: Request) => {
     const { data: link } = await supabase
       .from("links_avaliacao")
       .select(
-        "token, expira_em, usado_em, avaliacao_id, avaliacoes(id, marco, status, colaboradores(nome))"
+        "token, expira_em, usado_em, avaliacao_id, avaliacoes(id, marco, status, colaboradores(nome, cargo_id))"
       )
       .eq("token", token)
       .maybeSingle();
@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
       id: string;
       marco: number;
       status: string;
-      colaboradores: { nome: string } | null;
+      colaboradores: { nome: string; cargo_id: string | null } | null;
     };
 
     if (new Date(link.expira_em) < new Date()) {
@@ -60,13 +60,22 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Esta avaliação já foi respondida." }, 409);
     }
 
+    const cargoId = avaliacao.colaboradores?.cargo_id ?? null;
+
+    // Uma pergunta sem cargo definido vale pra todo mundo; uma pergunta com
+    // cargo só aparece pra colaboradores daquele cargo específico.
+    let perguntasQuery = supabase
+      .from("perguntas")
+      .select("id, texto, categoria_sugerida_id")
+      .eq("marco", avaliacao.marco)
+      .eq("ativo", true)
+      .order("ordem");
+    perguntasQuery = cargoId
+      ? perguntasQuery.or(`cargo_id.is.null,cargo_id.eq.${cargoId}`)
+      : perguntasQuery.is("cargo_id", null);
+
     const [{ data: perguntas }, { data: categorias }, { data: treinamentos }] = await Promise.all([
-      supabase
-        .from("perguntas")
-        .select("id, texto, categoria_sugerida_id")
-        .eq("marco", avaliacao.marco)
-        .eq("ativo", true)
-        .order("ordem"),
+      perguntasQuery,
       supabase
         .from("categorias_treinamento")
         .select("id, nome")
@@ -108,7 +117,12 @@ Deno.serve(async (req: Request) => {
     const link = await buscarLink(token);
     if (!link) return json({ error: "Link inválido" }, 404);
 
-    const avaliacao = link.avaliacoes as unknown as { id: string; marco: number; status: string };
+    const avaliacao = link.avaliacoes as unknown as {
+      id: string;
+      marco: number;
+      status: string;
+      colaboradores: { cargo_id: string | null } | null;
+    };
 
     if (new Date(link.expira_em) < new Date()) {
       return json({ error: "Este link expirou." }, 410);
@@ -117,11 +131,17 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Esta avaliação já foi respondida." }, 409);
     }
 
-    const { data: perguntasValidas } = await supabase
+    const cargoId = avaliacao.colaboradores?.cargo_id ?? null;
+    let perguntasValidasQuery = supabase
       .from("perguntas")
       .select("id, categoria_sugerida_id")
       .eq("marco", avaliacao.marco)
       .eq("ativo", true);
+    perguntasValidasQuery = cargoId
+      ? perguntasValidasQuery.or(`cargo_id.is.null,cargo_id.eq.${cargoId}`)
+      : perguntasValidasQuery.is("cargo_id", null);
+
+    const { data: perguntasValidas } = await perguntasValidasQuery;
 
     const perguntasPorId = new Map((perguntasValidas ?? []).map((p) => [p.id, p]));
 

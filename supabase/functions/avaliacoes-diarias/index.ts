@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer/mod.ts";
 
-const MARCOS = [30, 60, 90] as const;
+const MARCOS = [30, 60, 90, 120, 180, 270] as const;
 const DIAS_RETENTATIVA = 3;
 const DIAS_CATCHUP = 30;
 
@@ -60,7 +60,7 @@ Deno.serve(async (req: Request) => {
 
   const validadeHoras = config?.validade_link_horas ?? 120;
   const emailRemetente = config?.email_remetente;
-  const nomeRemetente = config?.nome_remetente ?? "Trilha 30-60-90";
+  const nomeRemetente = config?.nome_remetente ?? "Trilha Desenvolve+";
 
   const hoje = hojeISO();
   const dataLimiteCatchup = somarDias(hoje, -DIAS_CATCHUP);

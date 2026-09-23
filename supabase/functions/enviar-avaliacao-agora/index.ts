@@ -43,7 +43,7 @@ Deno.serve(async (req: Request) => {
   const colaboradorId = body?.colaborador_id as string | undefined;
   const marco = body?.marco as number | undefined;
 
-  if (!colaboradorId || ![30, 60, 90].includes(marco as number)) {
+  if (!colaboradorId || ![30, 60, 90, 120, 180, 270].includes(marco as number)) {
     return json({ error: "Dados inválidos" }, 400);
   }
 
@@ -66,7 +66,7 @@ Deno.serve(async (req: Request) => {
   const siteUrl = Deno.env.get("SITE_URL") ?? "http://localhost:3000";
   const validadeHoras = config?.validade_link_horas ?? 120;
   const emailRemetente = config?.email_remetente;
-  const nomeRemetente = config?.nome_remetente ?? "Trilha 30-60-90";
+  const nomeRemetente = config?.nome_remetente ?? "Trilha Desenvolve+";
 
   let { data: avaliacao } = await supabase
     .from("avaliacoes")

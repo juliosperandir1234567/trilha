@@ -36,17 +36,17 @@ export default async function CategoriasPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold">Categorias de treinamento</h1>
+      <h1 className="text-xl font-semibold">Competências</h1>
 
       <div className="flex flex-col gap-2">
-        <h2 className="font-medium">Criar categoria</h2>
+        <h2 className="font-medium">Criar competência</h2>
         <CategoriaForm />
       </div>
 
       <hr className="border-primary-border" />
 
       <div className="flex flex-col gap-2">
-        <h2 className="font-medium">Criar treinamento dentro de uma categoria</h2>
+        <h2 className="font-medium">Criar treinamento dentro de uma competência</h2>
         <TreinamentoForm categorias={categoriasAtivas} />
       </div>
 
@@ -83,14 +83,14 @@ export default async function CategoriasPage() {
                 </div>
               ) : (
                 <p className="px-4 py-3 text-sm text-zinc-500">
-                  Nenhum treinamento cadastrado nesta categoria ainda.
+                  Nenhum treinamento cadastrado nesta competência ainda.
                 </p>
               )}
             </CategoriaCard>
           );
         })}
         {(categorias ?? []).length === 0 && (
-          <p className="text-sm text-zinc-500">Nenhuma categoria cadastrada.</p>
+          <p className="text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
         )}
       </div>
     </div>

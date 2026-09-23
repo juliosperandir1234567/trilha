@@ -18,8 +18,10 @@ export function ImportForm() {
           Colunas esperadas: <code>matricula</code>, <code>nome</code>,{" "}
           <code>data_admissao</code> (dd/mm/aaaa ou aaaa-mm-dd), <code>tipo</code> (
           <code>novato</code> ou <code>capacitacao</code>, opcional — padrão novato),{" "}
-          <code>matricula do gestor</code>, <code>gestor</code>, <code>email do gestor</code>.
-          Exporte sua planilha do Excel/Google Sheets como CSV antes de importar.
+          <code>cargo</code> (opcional — precisa bater com o nome de um cargo já cadastrado
+          em Cargos), <code>matricula do gestor</code>, <code>gestor</code>,{" "}
+          <code>email do gestor</code>. Exporte sua planilha do Excel/Google Sheets como CSV
+          antes de importar.
         </p>
       </div>
 

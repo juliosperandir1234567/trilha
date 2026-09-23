@@ -16,7 +16,7 @@ export function TreinamentoForm({ categorias }: { categorias: Categoria[] }) {
     >
       <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[220px]">
         <label htmlFor="categoria_id" className="text-sm font-medium">
-          Categoria
+          Competência
         </label>
         <select
           id="categoria_id"

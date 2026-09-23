@@ -16,8 +16,9 @@ export async function createPergunta(
   const marco = Number(formData.get("marco"));
   const texto = String(formData.get("texto") ?? "").trim();
   const categoriaSugeridaId = String(formData.get("categoria_sugerida_id") ?? "");
+  const cargoId = String(formData.get("cargo_id") ?? "");
 
-  if (![30, 60, 90].includes(marco)) {
+  if (![30, 60, 90, 120, 180, 270].includes(marco)) {
     return { error: "Marco inválido." };
   }
   if (!texto) {
@@ -29,6 +30,7 @@ export async function createPergunta(
     marco,
     texto,
     categoria_sugerida_id: categoriaSugeridaId || null,
+    cargo_id: cargoId || null,
   });
 
   if (error) {

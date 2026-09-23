@@ -5,8 +5,17 @@ import { Plus } from "lucide-react";
 import { createPergunta } from "@/lib/actions/perguntas";
 
 type Categoria = { id: string; nome: string };
+type Cargo = { id: string; nome: string };
 
-export function PerguntaForm({ categorias }: { categorias: Categoria[] }) {
+const MARCOS = [30, 60, 90, 120, 180, 270] as const;
+
+export function PerguntaForm({
+  categorias,
+  cargos,
+}: {
+  categorias: Categoria[];
+  cargos: Cargo[];
+}) {
   const [state, action, pending] = useActionState(createPergunta, undefined);
 
   return (
@@ -20,9 +29,29 @@ export function PerguntaForm({ categorias }: { categorias: Categoria[] }) {
           name="marco"
           className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
         >
-          <option value="30">30 dias</option>
-          <option value="60">60 dias</option>
-          <option value="90">90 dias</option>
+          {MARCOS.map((marco) => (
+            <option key={marco} value={marco}>
+              {marco} dias
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="cargo_id" className="text-sm font-medium">
+          Cargo
+        </label>
+        <select
+          id="cargo_id"
+          name="cargo_id"
+          className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+        >
+          <option value="">Todos os cargos</option>
+          {cargos.map((cargo) => (
+            <option key={cargo.id} value={cargo.id}>
+              {cargo.nome}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -40,7 +69,7 @@ export function PerguntaForm({ categorias }: { categorias: Categoria[] }) {
 
       <div className="flex flex-col gap-1">
         <label htmlFor="categoria_sugerida_id" className="text-sm font-medium">
-          Categoria sugerida (nota baixa)
+          Competência sugerida (nota baixa)
         </label>
         <select
           id="categoria_sugerida_id"

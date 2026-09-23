@@ -1,11 +1,12 @@
 const SECOES = [
   {
-    titulo: "O que é o Trilha 30·60·90",
+    titulo: "O que é o Trilha Desenvolve+",
     conteudo: (
       <p>
-        Sistema de avaliação de colaboradores novatos (ou em capacitação) nos marcos de{" "}
-        <strong>30, 60 e 90 dias</strong> após a admissão. O objetivo é acompanhar a
-        evolução do colaborador e indicar treinamentos quando necessário.
+        Sistema de acompanhamento de integração, capacitação e desenvolvimento de
+        colaboradores novatos (ou em capacitação), com avaliações nos marcos de{" "}
+        <strong>30, 60, 90, 120, 180 e 270 dias</strong> após a admissão. O objetivo é
+        acompanhar a evolução do colaborador e indicar treinamentos quando necessário.
       </p>
     ),
   },
@@ -14,8 +15,8 @@ const SECOES = [
     conteudo: (
       <ul className="list-disc space-y-1 pl-5">
         <li>
-          <strong>Admin</strong>: acesso completo — configurações, perguntas, categorias,
-          colaboradores, e é o único que pode <strong>excluir</strong> registros e{" "}
+          <strong>Admin</strong>: acesso completo — configurações, perguntas, competências,
+          cargos, colaboradores, e é o único que pode <strong>excluir</strong> registros e{" "}
           <strong>criar novos usuários</strong>.
         </li>
         <li>
@@ -41,7 +42,8 @@ const SECOES = [
         </li>
         <li>
           Todo dia, uma rotina automática (pg_cron + Edge Function no Supabase) verifica
-          quem completou 30, 60 ou 90 dias na data atual.
+          quem completou 30, 60, 90, 120, 180 ou 270 dias na data atual — e também tenta
+          de novo qualquer avaliação que tenha ficado presa sem enviar nos últimos dias.
         </li>
         <li>
           Para cada colaborador que bateu um marco, o sistema cria a avaliação, gera um
@@ -50,7 +52,7 @@ const SECOES = [
         </li>
         <li>O gestor responde as perguntas daquele marco direto pelo link, sem login.</li>
         <li>
-          Notas 1 ou 2 (baixas) já vêm com uma categoria de treinamento sugerida
+          Notas 1 ou 2 (baixas) já vêm com uma competência sugerida
           automaticamente; o gestor pode trocar antes de salvar.
         </li>
         <li>
@@ -104,15 +106,15 @@ const SECOES = [
         <ul className="list-disc space-y-1 pl-5">
           <li>
             Cada pergunta (cadastrada em <strong>Perguntas</strong>) pode ter uma{" "}
-            <strong>categoria de treinamento sugerida</strong> vinculada a ela.
+            <strong>competência sugerida</strong> vinculada a ela.
           </li>
           <li>
             Quando o gestor responde com nota <strong>1 ou 2</strong> naquela pergunta
-            específica, o sistema já preenche automaticamente a categoria sugerida daquela
+            específica, o sistema já preenche automaticamente a competência sugerida daquela
             pergunta como indicação de treinamento.
           </li>
           <li>
-            O gestor pode trocar a categoria sugerida por outra (ou remover) antes de
+            O gestor pode trocar a competência sugerida por outra (ou remover) antes de
             enviar a avaliação.
           </li>
           <li>
@@ -120,15 +122,37 @@ const SECOES = [
           </li>
           <li>
             Um colaborador com várias perguntas de nota baixa pode acabar indicado em{" "}
-            <strong>mais de uma categoria</strong> ao mesmo tempo — uma por pergunta, não
+            <strong>mais de uma competência</strong> ao mesmo tempo — uma por pergunta, não
             uma soma geral.
           </li>
           <li>
             Os KPIs de &quot;Treinamentos indicados&quot; na Visão Geral contam quantas
-            respostas (perguntas) apontaram para cada categoria, somando todos os marcos e
+            respostas (perguntas) apontaram para cada competência, somando todos os marcos e
             colaboradores.
           </li>
         </ul>
+      </>
+    ),
+  },
+  {
+    titulo: "Perguntas por cargo",
+    conteudo: (
+      <>
+        <p>
+          Cada pergunta pode ser <strong>geral</strong> (aparece pra qualquer colaborador,
+          é o padrão) ou marcada pra um <strong>cargo</strong> específico, cadastrado na
+          tela <strong>Cargos</strong>. Uma pergunta com cargo só aparece no formulário de
+          quem tem aquele cargo.
+        </p>
+        <p className="mt-2">
+          Exemplo: uma pergunta geral do tipo &quot;Chegou no horário durante o período?&quot;
+          aparece pra todo mundo, mas &quot;Operou o trator com segurança?&quot; pode ficar
+          restrita ao cargo <strong>Tratorista</strong>, sem aparecer pra quem tem outro
+          cargo (ou nenhum cargo definido).
+        </p>
+        <p className="mt-2">
+          Um colaborador sem cargo cadastrado só recebe as perguntas gerais.
+        </p>
       </>
     ),
   },
@@ -194,8 +218,8 @@ const SECOES = [
           <strong>Visão geral</strong>: cinco cards no topo (Colaboradores ativos,
           Aguardando resposta, Respondidas, Expiradas, Notas críticas) — cada um é também
           um filtro, clique pra aplicar. Abaixo: a tabela <strong>Progresso por marco</strong>{" "}
-          (clique em &quot;30/60/90 dias&quot; pra filtrar só aquele marco),{" "}
-          <strong>Treinamentos indicados</strong> (um card por categoria, com a contagem de
+          (clique em qualquer marco — 30/60/90/120/180/270 dias — pra filtrar só aquele),{" "}
+          <strong>Treinamentos indicados</strong> (um card por competência, com a contagem de
           respostas que apontaram pra ela — clique pra ver quem são e exportar em CSV), e a
           tabela de <strong>Avaliações</strong> com os filtros aplicados, mais o botão{" "}
           <strong>Exportar tudo</strong>.
@@ -207,24 +231,30 @@ const SECOES = [
           avaliação passa pra &quot;Expirada&quot;).
         </li>
         <li>
-          <strong>Perguntas</strong>: cadastro das perguntas de cada marco (30/60/90), cada
-          uma podendo ter uma categoria de treinamento sugerida pra quando a nota vier baixa.
-          Dá pra ativar/desativar uma pergunta (ela some do formulário do gestor, mas o
-          histórico de quem já respondeu fica intacto) e, só o admin, excluir.
+          <strong>Perguntas</strong>: cadastro das perguntas de cada marco (30 a 270 dias),
+          cada uma podendo ter uma competência sugerida pra quando a nota vier baixa e,
+          opcionalmente, um cargo específico (deixando em branco, vale pra todos). Dá pra
+          ativar/desativar uma pergunta (ela some do formulário do gestor, mas o histórico
+          de quem já respondeu fica intacto) e, só o admin, excluir.
         </li>
         <li>
-          <strong>Categorias de treinamento</strong>: um formulário pra criar categoria
-          (nome + descrição) e outro pra criar um treinamento específico dentro de uma
-          categoria já existente. Cada categoria aparece como um card com os treinamentos
+          <strong>Competências</strong>: um formulário pra criar competência (nome +
+          descrição) e outro pra criar um treinamento específico dentro de uma competência
+          já existente. Cada competência aparece como um card com os treinamentos
           cadastrados dentro dela, e dá pra editar/ativar-desativar/excluir tanto a
-          categoria quanto cada treinamento.
+          competência quanto cada treinamento.
+        </li>
+        <li>
+          <strong>Cargos</strong>: cadastro simples (nome + descrição) usado pra restringir
+          perguntas específicas a colaboradores de um cargo (ex: Tratorista, Operador,
+          Gestor). Veja a seção &quot;Perguntas por cargo&quot; acima.
         </li>
         <li>
           <strong>Colaboradores</strong>: formulário de cadastro individual e outro pra
           importar uma planilha CSV em lote. A listagem mostra matrícula, tipo (novato ou em
-          capacitação), data de admissão, gestor responsável, status (ativo/inativo) e o
-          próximo marco pendente daquele colaborador, com o botão de forçar envio do
-          e-mail. Clicar no nome abre o histórico completo dos 3 marcos.
+          capacitação), cargo, data de admissão, gestor responsável, status (ativo/inativo)
+          e o próximo marco pendente daquele colaborador, com o botão de forçar envio do
+          e-mail. Clicar no nome abre o histórico completo de todos os marcos.
         </li>
         <li>
           <strong>Usuários</strong>: lista de quem tem login no sistema (nome, e-mail,

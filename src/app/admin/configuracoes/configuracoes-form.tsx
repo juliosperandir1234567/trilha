@@ -68,7 +68,7 @@ export function ConfiguracoesForm({ config }: { config: Config }) {
           id="nome_remetente"
           name="nome_remetente"
           defaultValue={config.nome_remetente ?? ""}
-          placeholder="Trilha 30-60-90"
+          placeholder="Trilha Desenvolve+"
           className="rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
         />
       </div>

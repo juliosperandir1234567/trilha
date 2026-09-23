@@ -5,7 +5,7 @@ import { ColaboradorForm } from "./colaborador-form";
 import { ImportForm } from "./import-form";
 import { EnviarAgoraButton } from "./[id]/enviar-agora-button";
 
-const MARCOS = [30, 60, 90] as const;
+const MARCOS = [30, 60, 90, 120, 180, 270] as const;
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: "Pendente",
@@ -15,15 +15,19 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default async function ColaboradoresPage() {
   const supabase = await createClient();
-  const [{ data: colaboradores }, { data: notasCriticas }, { data: avaliacoes }] = await Promise.all([
-    supabase
-      .from("colaboradores")
-      .select("id, nome, matricula, data_admissao, tipo, gestor_nome, gestor_email, ativo")
-      .order("created_at", { ascending: false })
-      .limit(50),
-    supabase.from("respostas").select("avaliacoes!inner(colaborador_id)").eq("nota", 1),
-    supabase.from("avaliacoes").select("colaborador_id, marco, status"),
-  ]);
+  const [{ data: colaboradores }, { data: notasCriticas }, { data: avaliacoes }, { data: cargos }] =
+    await Promise.all([
+      supabase
+        .from("colaboradores")
+        .select(
+          "id, nome, matricula, data_admissao, tipo, cargos(nome), gestor_nome, gestor_email, ativo"
+        )
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase.from("respostas").select("avaliacoes!inner(colaborador_id)").eq("nota", 1),
+      supabase.from("avaliacoes").select("colaborador_id, marco, status"),
+      supabase.from("cargos").select("id, nome").eq("ativo", true).order("nome"),
+    ]);
 
   const colaboradoresComNotaCritica = new Set(
     (notasCriticas ?? []).map(
@@ -45,7 +49,7 @@ export default async function ColaboradoresPage() {
 
       <div className="flex flex-col gap-2">
         <h2 className="font-medium">Cadastrar individualmente</h2>
-        <ColaboradorForm />
+        <ColaboradorForm cargos={cargos ?? []} />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -60,6 +64,7 @@ export default async function ColaboradoresPage() {
               <th className="whitespace-nowrap px-4 py-3">Matrícula</th>
               <th className="whitespace-nowrap px-4 py-3">Nome</th>
               <th className="whitespace-nowrap px-4 py-3">Tipo</th>
+              <th className="whitespace-nowrap px-4 py-3">Cargo</th>
               <th className="whitespace-nowrap px-4 py-3">Admissão</th>
               <th className="px-4 py-3">Gestor</th>
               <th className="whitespace-nowrap px-4 py-3">Status</th>
@@ -94,6 +99,9 @@ export default async function ColaboradoresPage() {
                   <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
                     {colaborador.tipo === "capacitacao" ? "Em capacitação" : "Novato"}
                   </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
+                    {(colaborador.cargos as unknown as { nome: string } | null)?.nome ?? "-"}
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     {new Date(colaborador.data_admissao + "T00:00:00").toLocaleDateString("pt-BR")}
                   </td>
@@ -124,7 +132,7 @@ export default async function ColaboradoresPage() {
             })}
             {(colaboradores ?? []).length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={8} className="px-4 py-6 text-center text-zinc-500">
                   Nenhum colaborador importado ainda.
                 </td>
               </tr>

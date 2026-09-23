@@ -84,7 +84,7 @@ export function CategoriaCard({
           <div className="flex items-center gap-3">
             <span className="text-sm text-zinc-500">{categoria.ativo ? "Ativa" : "Inativa"}</span>
 
-            <AcoesMenu label="Ações da categoria" onClose={() => setConfirmandoExclusao(false)}>
+            <AcoesMenu label="Ações da competência" onClose={() => setConfirmandoExclusao(false)}>
               {(fechar) =>
                 !confirmandoExclusao ? (
                   <>

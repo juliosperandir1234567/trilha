@@ -8,6 +8,9 @@ const MARCOS_FILTRO = [
   { label: "30 dias", valor: "30" },
   { label: "60 dias", valor: "60" },
   { label: "90 dias", valor: "90" },
+  { label: "120 dias", valor: "120" },
+  { label: "180 dias", valor: "180" },
+  { label: "270 dias", valor: "270" },
 ];
 
 export default async function CategoriaDetalhePage({

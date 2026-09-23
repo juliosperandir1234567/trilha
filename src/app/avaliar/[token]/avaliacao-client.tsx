@@ -168,7 +168,7 @@ export function AvaliacaoClient({ token }: { token: string }) {
               <div className="flex flex-col gap-2">
                 {resposta.categoria_final_id && (
                   <div className="flex flex-col gap-1">
-                    <label className="text-xs text-zinc-500">Categoria de treinamento</label>
+                    <label className="text-xs text-zinc-500">Competência de treinamento</label>
                     <p className="rounded-md border border-black/15 bg-black/[0.03] px-3 py-2 text-sm dark:border-white/20 dark:bg-white/[0.03]">
                       {dados.categorias.find((c) => c.id === resposta.categoria_final_id)?.nome ??
                         "Nenhuma"}

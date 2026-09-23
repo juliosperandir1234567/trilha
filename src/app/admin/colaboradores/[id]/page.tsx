@@ -4,7 +4,7 @@ import { AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EnviarAgoraButton } from "./enviar-agora-button";
 
-const MARCOS = [30, 60, 90] as const;
+const MARCOS = [30, 60, 90, 120, 180, 270] as const;
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: "Pendente (aguardando disparo)",
@@ -115,7 +115,7 @@ export default async function ColaboradorDetalhePage({
                         <> · Treinamento indicado: {resposta.treinamentos.nome}</>
                       ) : (
                         resposta.categorias_treinamento && (
-                          <> · Categoria sugerida: {resposta.categorias_treinamento.nome}</>
+                          <> · Competência sugerida: {resposta.categorias_treinamento.nome}</>
                         )
                       )}
                     </p>

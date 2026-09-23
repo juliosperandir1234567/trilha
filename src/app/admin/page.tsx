@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 
-const MARCOS = [30, 60, 90] as const;
+const MARCOS = [30, 60, 90, 120, 180, 270] as const;
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: "Pendente",
@@ -24,6 +24,9 @@ const MARCOS_FILTRO = [
   { label: "30 dias", valor: "30" },
   { label: "60 dias", valor: "60" },
   { label: "90 dias", valor: "90" },
+  { label: "120 dias", valor: "120" },
+  { label: "180 dias", valor: "180" },
+  { label: "270 dias", valor: "270" },
 ];
 
 const STATUS_FILTRO_LABEL: Record<string, string> = {
@@ -266,7 +269,7 @@ export default async function AdminOverviewPage({
             </Link>
           ))}
           {(categorias ?? []).length === 0 && (
-            <p className="text-sm text-zinc-500">Nenhuma categoria de treinamento cadastrada.</p>
+            <p className="text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
           )}
         </div>
       </div>

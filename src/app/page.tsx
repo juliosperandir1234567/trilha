@@ -11,7 +11,7 @@ export default async function Home() {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-primary-soft p-6 dark:bg-background">
-      <h1 className="text-2xl font-semibold text-primary">Trilha 30·60·90</h1>
+      <h1 className="text-2xl font-semibold text-primary">Trilha Desenvolve+</h1>
 
       <p className="max-w-sm text-center text-sm text-zinc-600 dark:text-zinc-400">
         Login autenticado ({user.email}), mas ainda não existe um cadastro em

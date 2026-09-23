@@ -7,6 +7,7 @@ import {
   Settings,
   ListChecks,
   GraduationCap,
+  Briefcase,
   Users,
   UserCog,
   HelpCircle,
@@ -16,7 +17,8 @@ import {
 const NAV_ITEMS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/admin", label: "Visão geral", icon: LayoutDashboard },
   { href: "/admin/perguntas", label: "Perguntas", icon: ListChecks },
-  { href: "/admin/categorias", label: "Categorias de treinamento", icon: GraduationCap },
+  { href: "/admin/categorias", label: "Competências", icon: GraduationCap },
+  { href: "/admin/cargos", label: "Cargos", icon: Briefcase },
   { href: "/admin/colaboradores", label: "Colaboradores", icon: Users },
   { href: "/admin/usuarios", label: "Usuários", icon: UserCog },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },
