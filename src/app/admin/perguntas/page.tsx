@@ -1,23 +1,52 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getUsuarioAtual } from "@/lib/supabase/dal";
 import { PerguntaForm } from "./pergunta-form";
-import { PerguntaRowActions } from "./pergunta-row-actions";
+import { PerguntaRow } from "./pergunta-row";
 
 const MARCOS = [30, 60, 90, 120, 180, 270] as const;
 
-export default async function PerguntasPage() {
+export default async function PerguntasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cargo?: string }>;
+}) {
+  const { cargo: cargoFiltro } = await searchParams;
   const { perfil } = await getUsuarioAtual();
   const supabase = await createClient();
 
   const [{ data: perguntas }, { data: categorias }, { data: cargos }] = await Promise.all([
     supabase
       .from("perguntas")
-      .select("id, marco, texto, ativo, categorias_treinamento(nome), cargos(nome)")
+      .select(
+        "id, marco, texto, ativo, cargo_id, categoria_sugerida_id, categorias_treinamento(nome), cargos(nome)"
+      )
       .order("marco")
       .order("ordem"),
     supabase.from("categorias_treinamento").select("id, nome").eq("ativo", true).order("nome"),
     supabase.from("cargos").select("id, nome, marcos").eq("ativo", true).order("nome"),
   ]);
+
+  const perguntasFormatadas = (perguntas ?? []).map((pergunta) => ({
+    id: pergunta.id,
+    marco: pergunta.marco,
+    texto: pergunta.texto,
+    ativo: pergunta.ativo,
+    cargo_id: pergunta.cargo_id,
+    categoria_sugerida_id: pergunta.categoria_sugerida_id,
+    cargoNome: (pergunta.cargos as unknown as { nome: string } | null)?.nome ?? "Todos",
+    categoriaNome:
+      (pergunta.categorias_treinamento as unknown as { nome: string } | null)?.nome ?? "-",
+  }));
+
+  const perguntasFiltradas = cargoFiltro
+    ? perguntasFormatadas.filter((pergunta) => pergunta.cargo_id === cargoFiltro)
+    : perguntasFormatadas;
+
+  const FILTRO_CARGOS = [
+    { label: "Todos os cargos", valor: "" },
+    ...(cargos ?? []).map((cargo) => ({ label: cargo.nome, valor: cargo.id })),
+  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -26,11 +55,29 @@ export default async function PerguntasPage() {
         <p className="text-sm text-zinc-500">
           Escolha um cargo pra deixar a pergunta específica dele (o campo Marco se ajusta
           aos marcos daquele cargo) ou deixe em &quot;Todos os cargos&quot; pra uma pergunta
-          geral. As seções abaixo mostram todas as perguntas cadastradas, agrupadas por
-          marco.
+          geral. As seções abaixo mostram as perguntas cadastradas, agrupadas por marco.
         </p>
       </div>
       <PerguntaForm categorias={categorias ?? []} cargos={cargos ?? []} />
+
+      <div className="flex flex-wrap gap-2">
+        {FILTRO_CARGOS.map((opcao) => {
+          const ativo = (cargoFiltro ?? "") === opcao.valor;
+          return (
+            <Link
+              key={opcao.label}
+              href={opcao.valor ? `/admin/perguntas?cargo=${opcao.valor}` : "/admin/perguntas"}
+              className={`rounded-full px-3 py-1 text-sm ${
+                ativo
+                  ? "bg-primary text-primary-foreground"
+                  : "border border-primary-border text-primary hover:bg-primary-soft"
+              }`}
+            >
+              {opcao.label}
+            </Link>
+          );
+        })}
+      </div>
 
       {MARCOS.map((marco) => (
         <div key={marco} className="flex flex-col gap-2">
@@ -47,35 +94,18 @@ export default async function PerguntasPage() {
                 </tr>
               </thead>
               <tbody>
-                {(perguntas ?? [])
+                {perguntasFiltradas
                   .filter((pergunta) => pergunta.marco === marco)
                   .map((pergunta) => (
-                    <tr
+                    <PerguntaRow
                       key={pergunta.id}
-                      className="border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20"
-                    >
-                      <td className="px-4 py-3">{pergunta.texto}</td>
-                      <td className="px-4 py-3 text-zinc-500">
-                        {(pergunta.cargos as unknown as { nome: string } | null)?.nome ??
-                          "Todos"}
-                      </td>
-                      <td className="px-4 py-3 text-zinc-500">
-                        {(pergunta.categorias_treinamento as unknown as { nome: string } | null)
-                          ?.nome ?? "-"}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        {pergunta.ativo ? "Ativa" : "Inativa"}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <PerguntaRowActions
-                          id={pergunta.id}
-                          ativo={pergunta.ativo}
-                          podeExcluir={perfil?.papel === "admin"}
-                        />
-                      </td>
-                    </tr>
+                      pergunta={pergunta}
+                      categorias={categorias ?? []}
+                      cargos={cargos ?? []}
+                      podeExcluir={perfil?.papel === "admin"}
+                    />
                   ))}
-                {(perguntas ?? []).filter((pergunta) => pergunta.marco === marco).length === 0 && (
+                {perguntasFiltradas.filter((pergunta) => pergunta.marco === marco).length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-4 py-4 text-center text-zinc-500">
                       Nenhuma pergunta cadastrada para este marco ainda.

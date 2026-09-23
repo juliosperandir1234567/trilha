@@ -40,6 +40,46 @@ export async function createPergunta(
   revalidatePath("/admin/perguntas");
 }
 
+export type PerguntaUpdateState = { error?: string; success?: boolean } | undefined;
+
+export async function updatePergunta(
+  _prevState: PerguntaUpdateState,
+  formData: FormData
+): Promise<PerguntaUpdateState> {
+  await requireStaff();
+
+  const id = String(formData.get("id") ?? "");
+  const marco = Number(formData.get("marco"));
+  const texto = String(formData.get("texto") ?? "").trim();
+  const categoriaSugeridaId = String(formData.get("categoria_sugerida_id") ?? "");
+  const cargoId = String(formData.get("cargo_id") ?? "");
+
+  if (![30, 60, 90, 120, 180, 270].includes(marco)) {
+    return { error: "Marco inválido." };
+  }
+  if (!texto) {
+    return { error: "Informe o texto da pergunta." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("perguntas")
+    .update({
+      marco,
+      texto,
+      categoria_sugerida_id: categoriaSugeridaId || null,
+      cargo_id: cargoId || null,
+    })
+    .eq("id", id);
+
+  if (error) {
+    return { error: "Não foi possível salvar a pergunta." };
+  }
+
+  revalidatePath("/admin/perguntas");
+  return { success: true };
+}
+
 export async function togglePerguntaAtiva(formData: FormData) {
   await requireStaff();
   const id = String(formData.get("id"));
