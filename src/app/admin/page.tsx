@@ -256,48 +256,87 @@ export default async function AdminOverviewPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <Card
-          icon={Users}
-          label={marcoNum ? "Colaboradores neste período" : "Colaboradores ativos"}
-          value={colaboradoresAtivos}
-          href={hrefFiltro({})}
-          ativo={!status && !critico}
-          tone="neutral"
-        />
-        <Card
-          icon={Clock}
-          label="Aguardando resposta"
-          value={totalAguardando}
-          href={status === "aguardando" ? hrefFiltro({}) : hrefFiltro({ status: "aguardando" })}
-          ativo={status === "aguardando"}
-          tone="warning"
-        />
-        <Card
-          icon={CheckCircle2}
-          label="Respondidas"
-          value={totalRespondidas}
-          href={status === "respondida" ? hrefFiltro({}) : hrefFiltro({ status: "respondida" })}
-          ativo={status === "respondida"}
-          tone="good"
-        />
-        <Card
-          icon={AlertTriangle}
-          label="Expiradas"
-          value={totalExpiradas}
-          href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
-          ativo={status === "expirada"}
-          tone="critical"
-        />
-        <Card
-          icon={AlertTriangle}
-          label="Notas críticas"
-          value={colaboradoresComNotaCritica}
-          href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
-          ativo={!!critico}
-          tone="critical"
-          alertaSoSeValor
-        />
+      <div className="grid gap-6 xl:grid-cols-[1fr_auto]">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <Card
+            icon={Users}
+            label={marcoNum ? "Colaboradores neste período" : "Colaboradores ativos"}
+            value={colaboradoresAtivos}
+            href={hrefFiltro({})}
+            ativo={!status && !critico}
+            tone="neutral"
+          />
+          <Card
+            icon={Clock}
+            label="Aguardando resposta"
+            value={totalAguardando}
+            href={status === "aguardando" ? hrefFiltro({}) : hrefFiltro({ status: "aguardando" })}
+            ativo={status === "aguardando"}
+            tone="warning"
+          />
+          <Card
+            icon={CheckCircle2}
+            label="Respondidas"
+            value={totalRespondidas}
+            href={status === "respondida" ? hrefFiltro({}) : hrefFiltro({ status: "respondida" })}
+            ativo={status === "respondida"}
+            tone="good"
+          />
+          <Card
+            icon={AlertTriangle}
+            label="Expiradas"
+            value={totalExpiradas}
+            href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
+            ativo={status === "expirada"}
+            tone="critical"
+          />
+          <Card
+            icon={AlertTriangle}
+            label="Notas críticas"
+            value={colaboradoresComNotaCritica}
+            href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
+            ativo={!!critico}
+            tone="critical"
+            alertaSoSeValor
+          />
+        </div>
+
+        <div className="xl:w-72">
+          <h2 className="mb-3 font-medium">Status das avaliações{marco ? ` — ${marco} dias` : ""}</h2>
+          <div className="flex h-[calc(100%-2rem)] flex-col items-center justify-center gap-4 rounded-lg border border-primary-border p-4">
+            <div
+              className="relative h-28 w-28 shrink-0 rounded-full"
+              style={{
+                background:
+                  totalDoDonut === 0
+                    ? "#f1f1ef"
+                    : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
+              }}
+            >
+              <div className="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-white text-center">
+                <span className="text-xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
+                <span className="text-xs text-zinc-500">avaliaç{totalDoDonut === 1 ? "ão" : "ões"}</span>
+              </div>
+            </div>
+            <ul className="flex w-full flex-col gap-1.5 text-sm">
+              <li className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.good }} />
+                Concluídas
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalRespondidas}</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.warning }} />
+                Aguardando
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalAguardando}</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.critical }} />
+                Atrasadas
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalExpiradas}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
       </div>
 
       <div>
@@ -408,78 +447,40 @@ export default async function AdminOverviewPage({
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div>
-          <h2 className="mb-3 font-medium">Status das avaliações{marco ? ` — ${marco} dias` : ""}</h2>
-          <div className="flex flex-col items-center gap-4 rounded-lg border border-primary-border p-4 sm:flex-row sm:justify-center">
-            <div
-              className="relative h-36 w-36 shrink-0 rounded-full"
-              style={{
-                background:
-                  totalDoDonut === 0
-                    ? "#f1f1ef"
-                    : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
-              }}
-            >
-              <div className="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-white text-center">
-                <span className="text-2xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
-                <span className="text-xs text-zinc-500">avaliaç{totalDoDonut === 1 ? "ão" : "ões"}</span>
-              </div>
-            </div>
-            <ul className="flex flex-col gap-2 text-sm">
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.good }} />
-                Concluídas
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalRespondidas}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.warning }} />
-                Aguardando
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalAguardando}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.critical }} />
-                Atrasadas
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalExpiradas}</span>
-              </li>
-            </ul>
+      <div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-medium">Treinamentos indicados{marco ? ` — ${marco} dias` : ""}</h2>
+          <a
+            href={`/admin/categorias/export${marco ? `?marco=${marco}` : ""}`}
+            className="flex items-center gap-2 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
+          >
+            <Download className="h-4 w-4" />
+            Exportar tudo
+          </a>
+        </div>
+        <div className="mb-3 flex items-center gap-3 rounded-lg border border-primary-border bg-primary-soft/40 px-4 py-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft">
+            <GraduationCap className="h-5 w-5 text-primary" />
+          </span>
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-zinc-900">{respostasFiltradas.length}</p>
+            <p className="text-xs text-zinc-500">Indicações de treinamento</p>
           </div>
         </div>
-
-        <div>
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-medium">Treinamentos indicados{marco ? ` — ${marco} dias` : ""}</h2>
-            <a
-              href={`/admin/categorias/export${marco ? `?marco=${marco}` : ""}`}
-              className="flex items-center gap-2 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {(categorias ?? []).map((categoria) => (
+            <Link
+              key={categoria.id}
+              href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
+              className="flex items-center justify-between gap-3 rounded-lg border border-primary-border px-4 py-3 text-sm transition-colors hover:bg-primary-soft/30"
             >
-              <Download className="h-4 w-4" />
-              Exportar tudo
-            </a>
-          </div>
-          <div className="mb-3 flex items-center gap-3 rounded-lg border border-primary-border bg-primary-soft/40 px-4 py-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft">
-              <GraduationCap className="h-5 w-5 text-primary" />
-            </span>
-            <div>
-              <p className="text-2xl font-bold tabular-nums text-zinc-900">{respostasFiltradas.length}</p>
-              <p className="text-xs text-zinc-500">Indicações de treinamento</p>
-            </div>
-          </div>
-          <div className="flex flex-col divide-y divide-primary-border/50 overflow-hidden rounded-lg border border-primary-border">
-            {(categorias ?? []).map((categoria) => (
-              <Link
-                key={categoria.id}
-                href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
-                className="flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-primary-soft/30"
-              >
-                <span className="flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
-                  {categoria.nome}
-                </span>
-                <span className="flex items-center gap-2 text-zinc-500">
-                  <span className="font-semibold text-primary">
-                    {contagemPorCategoria.get(categoria.id) ?? 0}
+              <span className="flex items-center gap-2">
+                <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
+                {categoria.nome}
+              </span>
+              <span className="flex items-center gap-2 text-zinc-500">
+                <span className="font-semibold text-primary">
+                  {contagemPorCategoria.get(categoria.id) ?? 0}
                 </span>
                 <ChevronRight className="h-4 w-4" />
               </span>
@@ -488,7 +489,6 @@ export default async function AdminOverviewPage({
           {(categorias ?? []).length === 0 && (
             <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
           )}
-          </div>
         </div>
       </div>
 

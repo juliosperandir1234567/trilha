@@ -35,7 +35,7 @@ export default async function CategoriaDetalhePage({
   let query = supabase
     .from("respostas")
     .select(
-      "id, nota, created_at, avaliacoes!inner(marco, colaboradores(id, nome, matricula, gestor_nome, gestor_email))"
+      "id, nota, comentario, created_at, treinamentos:treinamento_final_id(nome), avaliacoes!inner(marco, colaboradores(id, nome, matricula, gestor_nome, gestor_email))"
     )
     .eq("categoria_final_id", id)
     .order("created_at", { ascending: false });
@@ -95,6 +95,8 @@ export default async function CategoriaDetalhePage({
               <th className="px-4 py-3">Colaborador</th>
               <th className="whitespace-nowrap px-4 py-3">Período</th>
               <th className="whitespace-nowrap px-4 py-3">Nota</th>
+              <th className="px-4 py-3">Treinamento</th>
+              <th className="px-4 py-3">Comentário</th>
               <th className="px-4 py-3">Gestor</th>
             </tr>
           </thead>
@@ -111,6 +113,7 @@ export default async function CategoriaDetalhePage({
                 } | null;
               } | null;
               const colaborador = avaliacao?.colaboradores;
+              const treinamento = resposta.treinamentos as unknown as { nome: string } | null;
 
               return (
                 <tr
@@ -128,13 +131,15 @@ export default async function CategoriaDetalhePage({
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">{avaliacao?.marco} dias</td>
                   <td className="whitespace-nowrap px-4 py-3">{resposta.nota}</td>
+                  <td className="px-4 py-3">{treinamento?.nome ?? "-"}</td>
+                  <td className="px-4 py-3 text-zinc-500 italic">{resposta.comentario ?? "-"}</td>
                   <td className="px-4 py-3 text-zinc-500">{colaborador?.gestor_nome}</td>
                 </tr>
               );
             })}
             {(respostas ?? []).length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
                   Nenhum colaborador indicado para este treinamento ainda.
                 </td>
               </tr>
