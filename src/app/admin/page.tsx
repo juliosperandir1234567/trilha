@@ -11,16 +11,59 @@ import {
   ChevronRight,
   Download,
   CalendarDays,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { AvaliacoesTable, type AvaliacaoLinha } from "./avaliacoes-table";
+import { EnviarAgoraButton } from "./colaboradores/[id]/enviar-agora-button";
 
 const MARCOS = [30, 60, 90, 120, 180, 270] as const;
 
-// Paleta de status (não a cor de marca): verde = concluído, âmbar = em
-// andamento, vermelho = atrasado. Fixa de propósito, não deve mudar com o tema.
-const STATUS_COLORS = { good: "#0ca30c", warning: "#fab219", critical: "#d03b3b" };
+// Mesmas regras da rotina diária (supabase/functions/avaliacoes-diarias):
+// marcos padrão pra quem não tem cargo e janela de recuperação de marco
+// vencido. Se mudar lá, mudar aqui.
+const MARCOS_PADRAO = [30, 60, 90];
+const DIAS_CATCHUP_ROTINA = 30;
+// "Próximas avaliações": quantos dias à frente mostrar, e até quantos dias
+// atrás um marco sem avaliação ainda vale a pena listar/contar.
+const DIAS_PROXIMAS = 7;
+const DIAS_MARCO_PERDIDO_VISIVEL = 90;
+
+function somarDiasISO(dataISO: string, dias: number): string {
+  const data = new Date(dataISO + "T00:00:00Z");
+  data.setUTCDate(data.getUTCDate() + dias);
+  return data.toISOString().slice(0, 10);
+}
+
+function diferencaDias(deISO: string, ateISO: string): number {
+  return Math.round(
+    (new Date(ateISO + "T00:00:00Z").getTime() - new Date(deISO + "T00:00:00Z").getTime()) /
+      (24 * 60 * 60 * 1000)
+  );
+}
+
+// Um status tem sempre o mesmo nome e a mesma cor em toda a página: card,
+// rosca e barras. Os hex batem com o -500 do Tailwind usado no ícone do card.
+const STATUS_VISUAL = [
+  { chave: "respondida", label: "Respondidas", cor: "#22c55e" },
+  { chave: "enviada", label: "Aguardando resposta", cor: "#f59e0b" },
+  { chave: "pendente", label: "Não enviadas", cor: "#8b5cf6" },
+  { chave: "expirada", label: "Expiradas", cor: "#ef4444" },
+] as const;
+
+// Até quantos dias antes do vencimento um item do "Requer atenção" é urgente.
+const DIAS_URGENCIA = 2;
+
+// Abaixo de um dia, mostrar "0,2 dias" parece erro — vira horas.
+function formatarTempoResposta(dias: number | null): string {
+  if (dias === null) return "-";
+  if (dias < 1) {
+    const horas = Math.round(dias * 24);
+    return horas < 1 ? "< 1h" : `${horas}h`;
+  }
+  return `${dias.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} dias`;
+}
 
 function iniciais(nome: string): string {
   const partes = nome.trim().split(/\s+/);
@@ -85,6 +128,20 @@ export default async function AdminOverviewPage({
     return query ? `/admin?${query}` : "/admin";
   }
 
+  type ChaveFiltro = "marco" | "status" | "critico" | "admissao";
+
+  // Mesma página, tirando só os filtros pedidos — usado no "✕" de cada
+  // filtro ativo e no "Limpar tudo".
+  function hrefSem(remover: ChaveFiltro[]) {
+    const params = new URLSearchParams();
+    if (marco && !remover.includes("marco")) params.set("marco", marco);
+    if (status && !remover.includes("status")) params.set("status", status);
+    if (critico && !remover.includes("critico")) params.set("critico", critico);
+    if (!remover.includes("admissao")) comAdmissao(params);
+    const query = params.toString();
+    return query ? `/admin?${query}` : "/admin";
+  }
+
   function hrefSemAdmissao() {
     const params = new URLSearchParams();
     if (marco) params.set("marco", marco);
@@ -115,6 +172,28 @@ export default async function AdminOverviewPage({
 
   const temFiltroAdmissao = !!(admissaoDe || admissaoAte);
 
+  const dataBR = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString("pt-BR");
+  const filtrosAtivos: { chave: ChaveFiltro; rotulo: string }[] = [
+    ...(marco ? [{ chave: "marco" as const, rotulo: `Período: ${marco} dias` }] : []),
+    ...(status && STATUS_FILTRO_LABEL[status]
+      ? [{ chave: "status" as const, rotulo: `Status: ${STATUS_FILTRO_LABEL[status]}` }]
+      : []),
+    ...(critico ? [{ chave: "critico" as const, rotulo: "Notas críticas" }] : []),
+    ...(temFiltroAdmissao
+      ? [
+          {
+            chave: "admissao" as const,
+            rotulo:
+              admissaoDe && admissaoAte
+                ? `Admissão: ${dataBR(admissaoDe)} a ${dataBR(admissaoAte)}`
+                : admissaoDe
+                  ? `Admissão a partir de ${dataBR(admissaoDe)}`
+                  : `Admissão até ${dataBR(admissaoAte!)}`,
+          },
+        ]
+      : []),
+  ];
+
   const sufixoFiltrosDosCards =
     (status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : "") +
     (critico ? " — Notas críticas" : "");
@@ -133,6 +212,7 @@ export default async function AdminOverviewPage({
     { data: categorias },
     { data: respostas },
     { data: notasCriticas },
+    { data: colaboradoresParaMarcos },
   ] = await Promise.all([
     colaboradoresQuery,
     supabase
@@ -152,6 +232,10 @@ export default async function AdminOverviewPage({
       .from("respostas")
       .select("avaliacao_id, avaliacoes!inner(marco, colaborador_id, colaboradores(data_admissao))")
       .eq("nota", 1),
+    supabase
+      .from("colaboradores")
+      .select("id, nome, matricula, gestor_nome, data_admissao, cargos(marcos)")
+      .eq("ativo", true),
   ]);
 
   const avaliacoesComNotaCritica = new Set((notasCriticas ?? []).map((r) => r.avaliacao_id));
@@ -211,8 +295,66 @@ export default async function AdminOverviewPage({
     .sort((a, b) => b.total - a.total)
     .slice(0, 6);
 
+  // Server Component: roda uma vez por requisição, então ler o relógio aqui
+  // é estável — não existe re-render no cliente pra dar valor diferente.
+  // eslint-disable-next-line react-hooks/purity
+  const agora = Date.now();
+
+  // Marcos previstos pela admissão + cargo que ainda não viraram avaliação
+  // (ex: colaborador cadastrado depois da rotina do dia, ou depois do marco).
+  const hojeISO = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(agora);
+  const marcosComAvaliacao = new Set(
+    listaBase.map((a) => `${(a.colaboradores as unknown as { id: string } | null)?.id}:${a.marco}`)
+  );
+  const marcosPrevistos = (colaboradoresParaMarcos ?? [])
+    .filter((c) => !temFiltroAdmissao || dentroDoPeriodoAdmissao(c.data_admissao))
+    .flatMap((c) => {
+      const cargo = c.cargos as unknown as { marcos: number[] | null } | null;
+      return (cargo?.marcos ?? MARCOS_PADRAO)
+        .filter((m) => !marcosComAvaliacao.has(`${c.id}:${m}`))
+        .map((m) => {
+          const dataMarco = somarDiasISO(c.data_admissao, m);
+          const diasAteMarco = diferencaDias(hojeISO, dataMarco);
+          return {
+            colaboradorId: c.id,
+            nome: c.nome,
+            matricula: c.matricula as string | null,
+            gestorNome: c.gestor_nome as string,
+            marco: m,
+            dataMarco,
+            diasAteMarco,
+            // A rotina só recupera marco vencido há até DIAS_CATCHUP_ROTINA
+            // dias; contando que ela roda amanhã, o limite é um dia antes.
+            naoSeraGerada: diasAteMarco < -(DIAS_CATCHUP_ROTINA - 1),
+          };
+        });
+    })
+    .filter((p) => p.diasAteMarco <= DIAS_PROXIMAS && p.diasAteMarco >= -DIAS_MARCO_PERDIDO_VISIVEL);
+
+  // Períodos que já chegaram sem avaliação, sem olhar os filtros dos cards —
+  // usado no total dos botões de período, que também ignoram esses filtros.
+  const periodosSemAvaliacao = marcosPrevistos.filter((p) => p.diasAteMarco <= 0);
+
+  // Filtro de status/notas críticas é sobre avaliações que já existem. Só
+  // "Não enviadas" combina com marco previsto — nos outros, eles saem.
+  const incluirPrevistos = !critico && (!status || status === "pendente");
+
+  // Marco que já chegou e não tem avaliação conta como "Não enviada" no card
+  // e nas barras. Marco futuro não conta: ainda não era pra ter saído.
+  const previstosVencidos = incluirPrevistos ? marcosPrevistos.filter((p) => p.diasAteMarco <= 0) : [];
+  const previstosVencidosDoMarco = (m: number | null) =>
+    previstosVencidos.filter((p) => !m || p.marco === m).length;
+
+  const proximasAvaliacoes = (incluirPrevistos ? marcosPrevistos : [])
+    .filter((p) => !marcoNum || p.marco === marcoNum)
+    .sort((a, b) => {
+      if (a.naoSeraGerada !== b.naoSeraGerada) return a.naoSeraGerada ? -1 : 1;
+      return a.diasAteMarco - b.diasAteMarco;
+    });
+
   const totalRespondidas = avaliacoesDoMarco.filter((a) => a.status === "respondida").length;
-  const totalPendente = avaliacoesDoMarco.filter((a) => a.status === "pendente").length;
+  const totalPendente =
+    avaliacoesDoMarco.filter((a) => a.status === "pendente").length + previstosVencidosDoMarco(marcoNum);
   const totalEnviada = avaliacoesDoMarco.filter((a) => a.status === "enviada").length;
   const totalExpiradas = avaliacoesDoMarco.filter((a) => a.status === "expirada").length;
 
@@ -229,22 +371,6 @@ export default async function AdminOverviewPage({
         return soma + dias;
       }, 0) / respondidasComTempo.length
     : null;
-
-  const donutRespondidas = avaliacoesFiltradas.filter((a) => a.status === "respondida").length;
-  const donutAguardando = avaliacoesFiltradas.filter((a) => a.status === "pendente" || a.status === "enviada").length;
-  const donutExpiradas = avaliacoesFiltradas.filter((a) => a.status === "expirada").length;
-  const totalDoDonut = donutRespondidas + donutAguardando + donutExpiradas;
-  const pctRespondidas = totalDoDonut ? (donutRespondidas / totalDoDonut) * 100 : 0;
-  const pctAguardando = totalDoDonut ? (donutAguardando / totalDoDonut) * 100 : 0;
-  const pctExpiradasDonut = totalDoDonut ? (donutExpiradas / totalDoDonut) * 100 : 0;
-
-  // Rótulos dentro da rosca: só os fatios grandes o bastante pra caber o
-  // texto sem sobrepor os vizinhos.
-  const donutRotulos = [
-    { pct: pctRespondidas, meio: pctRespondidas / 2 },
-    { pct: pctAguardando, meio: pctRespondidas + pctAguardando / 2 },
-    { pct: pctExpiradasDonut, meio: pctRespondidas + pctAguardando + pctExpiradasDonut / 2 },
-  ].filter((s) => s.pct >= 8);
 
   const colaboradoresAtivos = marcoNum
     ? new Set(
@@ -272,22 +398,33 @@ export default async function AdminOverviewPage({
   const listaComFiltrosDosCards = aplicarFiltrosDosCards(lista);
   const progressoPorMarco = MARCOS.map((m) => {
     const doMarco = listaComFiltrosDosCards.filter((a) => a.marco === m);
+    const previstos = previstosVencidosDoMarco(m);
     return {
       marco: m,
-      total: doMarco.length,
-      respondidas: doMarco.filter((a) => a.status === "respondida").length,
-      aguardando: doMarco.filter((a) => a.status === "pendente" || a.status === "enviada").length,
-      expiradas: doMarco.filter((a) => a.status === "expirada").length,
+      total: doMarco.length + previstos,
+      porStatus: STATUS_VISUAL.map((st) => ({
+        ...st,
+        valor:
+          doMarco.filter((a) => a.status === st.chave).length + (st.chave === "pendente" ? previstos : 0),
+      })),
     };
   });
 
+  // Linha "Total" no topo das barras: soma de todos os períodos.
+  const progressoTotal = {
+    total: listaComFiltrosDosCards.length + previstosVencidos.length,
+    porStatus: STATUS_VISUAL.map((st) => ({
+      ...st,
+      valor:
+        listaComFiltrosDosCards.filter((a) => a.status === st.chave).length +
+        (st.chave === "pendente" ? previstosVencidos.length : 0),
+    })),
+  };
+
   // "Requer atenção": avaliações já expiradas, ou aguardando resposta —
   // pra não depender de ninguém abrir a tabela completa e reparar sozinho.
-  // Server Component: roda uma vez por requisição, então ler o relógio aqui
-  // é estável — não existe re-render no cliente pra dar valor diferente.
-  // eslint-disable-next-line react-hooks/purity
-  const agora = Date.now();
-
+  // Tudo que está em aberto aparece, mas só é "urgente" (vermelho) o que já
+  // expirou ou vence em até DIAS_URGENCIA dias — senão tudo vira alerta.
   const itensAtencao = avaliacoesFiltradas
     .map((a) => {
       const colaborador = a.colaboradores as unknown as {
@@ -308,6 +445,7 @@ export default async function AdminOverviewPage({
           cargo: colaborador.cargos?.nome ?? null,
           marco: a.marco,
           atrasada: true,
+          urgente: true,
           expiraEm: link?.expira_em ?? null,
         };
       }
@@ -322,6 +460,7 @@ export default async function AdminOverviewPage({
           cargo: colaborador.cargos?.nome ?? null,
           marco: a.marco,
           atrasada: expiraEmMs < agora,
+          urgente: expiraEmMs - agora <= DIAS_URGENCIA * 24 * 60 * 60 * 1000,
           expiraEm: link.expira_em,
         };
       }
@@ -335,7 +474,9 @@ export default async function AdminOverviewPage({
     });
 
 
-  const avaliacoesParaTabela: AvaliacaoLinha[] = avaliacoesFiltradas.map((a) => {
+  const totalUrgentes = itensAtencao.filter((i) => i.urgente).length;
+
+  const avaliacoesCriadasParaTabela: AvaliacaoLinha[] = avaliacoesFiltradas.map((a) => {
     const colaborador = a.colaboradores as unknown as {
       id: string;
       nome: string;
@@ -359,6 +500,71 @@ export default async function AdminOverviewPage({
     };
   });
 
+  // Os mesmos períodos que o card "Não enviadas" conta sem avaliação criada
+  // entram aqui também — senão o card diz 2 e a tabela mostra 0.
+  const avaliacoesParaTabela: AvaliacaoLinha[] = [
+    ...previstosVencidos
+      .filter((p) => !marcoNum || p.marco === marcoNum)
+      .sort((a, b) => b.dataMarco.localeCompare(a.dataMarco))
+      .map((p) => ({
+        id: `previsto:${p.colaboradorId}:${p.marco}`,
+        marco: p.marco,
+        status: "pendente",
+        dataResposta: null,
+        expiraEm: null,
+        notaCritica: false,
+        colaboradorId: p.colaboradorId,
+        colaboradorNome: p.nome,
+        matricula: p.matricula,
+        gestorNome: p.gestorNome,
+        previstaPara: p.dataMarco,
+      })),
+    ...avaliacoesCriadasParaTabela,
+  ];
+
+  // Competências com indicação primeiro (mais indicadas no topo); as zeradas
+  // ficam recolhidas no fim pra não ocupar espaço sem dizer nada.
+  const totalDaCategoria = (id: string) => contagemPorCategoria.get(id) ?? 0;
+  const categoriasComIndicacao = (categorias ?? [])
+    .filter((c) => totalDaCategoria(c.id) > 0)
+    .sort((a, b) => totalDaCategoria(b.id) - totalDaCategoria(a.id));
+  const categoriasSemIndicacao = (categorias ?? []).filter((c) => totalDaCategoria(c.id) === 0);
+
+  function linhaCategoria(categoria: { id: string; nome: string }) {
+    const treinamentos = [...(treinamentosPorCategoria.get(categoria.id)?.values() ?? [])].sort(
+      (a, b) => b.total - a.total
+    );
+    return (
+      <div key={categoria.id} className="px-4 py-3">
+        <Link
+          href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
+          className="flex items-center justify-between gap-3 text-sm transition-colors hover:text-primary"
+        >
+          <span className="flex items-center gap-2 font-medium">
+            <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
+            {categoria.nome}
+          </span>
+          <span className="flex items-center gap-2 text-zinc-500">
+            <span className="font-semibold text-primary">
+              {contagemPorCategoria.get(categoria.id) ?? 0}
+            </span>
+            <ChevronRight className="h-4 w-4" />
+          </span>
+        </Link>
+        {treinamentos.length > 0 && (
+          <ul className="mt-2 flex flex-col gap-1 pl-6 text-sm text-zinc-600">
+            {treinamentos.map((t, i) => (
+              <li key={i} className="flex items-center justify-between gap-3">
+                <span>{t.nome}</span>
+                <span className="font-semibold text-primary">{t.total}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <div className="-mt-2 flex flex-wrap items-start justify-between gap-4">
@@ -370,8 +576,9 @@ export default async function AdminOverviewPage({
             {MARCOS_FILTRO.map((opcao) => {
               const ativo = (marco ?? "") === opcao.valor;
               const total = opcao.valor
-                ? lista.filter((a) => a.marco === Number(opcao.valor)).length
-                : lista.length;
+                ? lista.filter((a) => a.marco === Number(opcao.valor)).length +
+                  periodosSemAvaliacao.filter((p) => p.marco === Number(opcao.valor)).length
+                : lista.length + periodosSemAvaliacao.length;
               return (
                 <Link
                   key={opcao.label}
@@ -387,6 +594,38 @@ export default async function AdminOverviewPage({
                 </Link>
               );
             })}
+            {/* Fica sempre visível ao lado dos períodos; os filtros aparecem
+                aqui conforme são aplicados, cada um com ✕ pra remover. */}
+            <div className="flex min-w-56 flex-col justify-center gap-1.5 rounded-xl border border-dashed border-primary-border px-4 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-zinc-500">Filtros ativos</span>
+                {filtrosAtivos.length > 1 && (
+                  <Link
+                    href={hrefSem(["marco", "status", "critico", "admissao"])}
+                    className="text-xs text-zinc-500 underline underline-offset-2 hover:text-primary"
+                  >
+                    Limpar tudo
+                  </Link>
+                )}
+              </div>
+              {filtrosAtivos.length === 0 ? (
+                <span className="text-sm text-zinc-400">Nenhum</span>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {filtrosAtivos.map((filtro) => (
+                    <Link
+                      key={filtro.chave}
+                      href={hrefSem([filtro.chave])}
+                      title="Remover este filtro"
+                      className="flex items-center gap-1 rounded-full border border-primary-border bg-white py-0.5 pl-2.5 pr-1.5 text-xs font-medium text-primary hover:bg-primary-soft"
+                    >
+                      {filtro.rotulo}
+                      <X className="h-3.5 w-3.5" />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <form method="get" action="/admin" className="flex flex-wrap items-end gap-2">
@@ -442,7 +681,7 @@ export default async function AdminOverviewPage({
           value={colaboradoresAtivos}
           href={hrefFiltro({})}
           ativo={!status && !critico}
-          tone="blue"
+          tone="brand"
         />
         <Card
           icon={Hourglass}
@@ -474,7 +713,7 @@ export default async function AdminOverviewPage({
           value={totalExpiradas}
           href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
           ativo={status === "expirada"}
-          tone="orange"
+          tone="red"
         />
         <Card
           icon={AlertTriangle}
@@ -482,146 +721,124 @@ export default async function AdminOverviewPage({
           value={colaboradoresComNotaCritica}
           href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
           ativo={!!critico}
-          tone="red"
+          tone="orange"
           alertaSoSeValor
         />
         <Card
           icon={Timer}
           label="Tempo médio de resposta"
-          value={tempoMedioRespostaDias === null ? "-" : `${tempoMedioRespostaDias.toFixed(1)}d`}
+          value={formatarTempoResposta(tempoMedioRespostaDias)}
           tone="teal"
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-      <div>
-        <h2 className="mb-3 font-medium">Progresso por período{sufixoFiltrosDosCards}</h2>
-        <div className="flex flex-col gap-3 rounded-lg border border-primary-border p-4">
-          <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
-            <LegendaCor cor={STATUS_COLORS.good} label="Concluídas" />
-            <LegendaCor cor={STATUS_COLORS.warning} label="Aguardando" />
-            <LegendaCor cor={STATUS_COLORS.critical} label="Atrasadas" />
+      <div className={`grid gap-6 ${incluirPrevistos ? "lg:grid-cols-[3fr_2fr]" : ""}`}>
+      <div className="min-w-0">
+        <h2 className="mb-3 font-medium">Status por período{sufixoFiltrosDosCards}</h2>
+        <div className="flex flex-col gap-2 rounded-lg border border-primary-border p-4">
+          <div className="mb-1 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+            {STATUS_VISUAL.map((st) => (
+              <LegendaCor key={st.chave} cor={st.cor} label={st.label} />
+            ))}
           </div>
-          {progressoPorMarco.map((linha) => {
-            const pct = (n: number) => (linha.total ? Math.round((n / linha.total) * 100) : 0);
-            return (
-              <Link
-                key={linha.marco}
-                href={hrefMarco(String(linha.marco))}
-                className={`flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-primary-soft/40 ${
-                  linha.marco === marcoNum ? "bg-primary-soft/60" : ""
-                }`}
-              >
-                <span className="w-16 shrink-0 text-sm text-primary underline-offset-2 hover:underline">
-                  {linha.marco} dias
-                </span>
-                <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-zinc-100">
-                  {linha.total > 0 && (
-                    <>
-                      <div
-                        style={{
-                          width: `${pct(linha.respondidas)}%`,
-                          background: STATUS_COLORS.good,
-                          borderRight: linha.aguardando || linha.expiradas ? "2px solid #fff" : undefined,
-                        }}
-                      />
-                      <div
-                        style={{
-                          width: `${pct(linha.aguardando)}%`,
-                          background: STATUS_COLORS.warning,
-                          borderRight: linha.expiradas ? "2px solid #fff" : undefined,
-                        }}
-                      />
-                      <div style={{ width: `${pct(linha.expiradas)}%`, background: STATUS_COLORS.critical }} />
-                    </>
-                  )}
-                </div>
-                <span className="w-10 shrink-0 text-right text-xs tabular-nums text-zinc-500">
-                  {pct(linha.respondidas)}%
-                </span>
-                <span className="w-16 shrink-0 text-right text-xs tabular-nums text-zinc-400">
-                  {linha.total} total
-                </span>
-              </Link>
-            );
-          })}
+          <BarraStatus rotulo="Total" linha={progressoTotal} destaque />
+          <div className="my-1 border-t border-primary-border/50" />
+          {progressoPorMarco.map((linha) => (
+            <BarraStatus
+              key={linha.marco}
+              rotulo={`${linha.marco} dias`}
+              linha={linha}
+              href={hrefMarco(String(linha.marco))}
+              selecionada={linha.marco === marcoNum}
+            />
+          ))}
         </div>
       </div>
 
-      <div>
-        <h2 className="mb-3 font-medium">Status das avaliações{sufixoFiltros}</h2>
-        <div className="flex h-[calc(100%-2rem)] flex-col gap-3 rounded-xl bg-primary-soft/40 p-4">
-          <div className="flex flex-1 flex-col items-center justify-center gap-5 sm:flex-row sm:justify-center">
-            <div
-              className="relative h-64 w-64 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
-              style={{
-                background:
-                  totalDoDonut === 0
-                    ? "#e4e3de"
-                    : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
-              }}
-            >
-              {donutRotulos.map((rotulo, i) => {
-                const deg = (rotulo.meio / 100) * 360;
-                return (
-                  <span
-                    key={i}
-                    className="absolute flex h-9 min-w-9 items-center justify-center rounded-full bg-white px-2 text-sm font-bold text-zinc-900 shadow-sm"
-                    style={{
-                      top: "50%",
-                      left: "50%",
-                      transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-104px) rotate(${-deg}deg)`,
-                    }}
+      {incluirPrevistos && (
+        <div className="flex min-w-0 flex-col">
+          <h2 className="mb-3 font-medium">Próximas avaliações{marco ? ` — ${marco} dias` : ""}</h2>
+          <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-lg border border-primary-border p-4">
+            <p className="text-xs text-zinc-500">
+              Períodos que vencem nos próximos {DIAS_PROXIMAS} dias e períodos que chegaram sem avaliação. A
+              rotina cria e envia automaticamente às 9h.
+            </p>
+            {proximasAvaliacoes.length === 0 ? (
+              <p className="py-6 text-center text-sm text-zinc-500">Nenhuma avaliação prevista nos próximos dias.</p>
+            ) : (
+              <ul className="flex max-h-[340px] flex-col gap-2 overflow-y-auto pr-1">
+                {proximasAvaliacoes.map((p) => (
+                  <li
+                    key={`${p.colaboradorId}:${p.marco}`}
+                    className={`flex shrink-0 items-center justify-between gap-3 rounded-md border-l-4 px-3 py-2 text-sm ${
+                      p.naoSeraGerada ? "border-red-500 bg-red-50/60" : "border-transparent bg-primary-soft/30"
+                    }`}
                   >
-                    {Math.round(rotulo.pct)}%
-                  </span>
-                );
-              })}
-              <div className="absolute inset-11 flex flex-col items-center justify-center rounded-full bg-white text-center">
-                <span className="text-4xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
-                <span className="text-xs text-zinc-500">avaliaç{totalDoDonut === 1 ? "ão" : "ões"}</span>
-              </div>
-            </div>
-            <ul className="flex w-full flex-col gap-2 text-sm sm:w-auto">
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.good }} />
-                Concluídas
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{donutRespondidas}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.warning }} />
-                Aguardando
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{donutAguardando}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.critical }} />
-                Atrasadas
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{donutExpiradas}</span>
-              </li>
-            </ul>
+                    <div className="min-w-0">
+                      <Link
+                        href={`/admin/colaboradores/${p.colaboradorId}`}
+                        className="font-semibold text-zinc-900 hover:underline"
+                      >
+                        {p.nome}
+                      </Link>
+                      <div className="text-xs text-zinc-500">
+                        Avaliação de {p.marco} dias · {new Date(p.dataMarco + "T00:00:00").toLocaleDateString("pt-BR")}
+                      </div>
+                      <div className={`text-xs font-medium ${p.naoSeraGerada ? "text-red-600" : "text-primary"}`}>
+                        {p.naoSeraGerada
+                          ? `Passou há ${-p.diasAteMarco} dias — não será gerada automaticamente`
+                          : p.diasAteMarco < 0
+                            ? `Passou há ${-p.diasAteMarco} dia(s) — será criada na próxima rotina`
+                            : p.diasAteMarco === 0
+                              ? "Hoje — será criada na próxima rotina"
+                              : p.diasAteMarco === 1
+                                ? "Amanhã"
+                                : `Em ${p.diasAteMarco} dias`}
+                      </div>
+                    </div>
+                    {p.diasAteMarco <= 0 && (
+                      <EnviarAgoraButton colaboradorId={p.colaboradorId} marco={p.marco} rotulo="Enviar agora" />
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
-      </div>
+      )}
       </div>
 
       {/* Altura fixa no desktop: os dois lados ficam do mesmo tamanho e cada um
           rola por dentro quando tiver mais gente. */}
       <div className={`grid gap-6 lg:h-[560px] ${itensAtencao.length > 0 ? "lg:grid-cols-[2fr_3fr]" : ""}`}>
       {itensAtencao.length > 0 && (
-        <div className="flex min-h-0 min-w-0 flex-col rounded-lg border border-red-200 bg-red-50/60 p-4">
+        <div
+          className={`flex min-h-0 min-w-0 flex-col rounded-lg border p-4 ${
+            totalUrgentes > 0 ? "border-red-200 bg-red-50/60" : "border-amber-200 bg-amber-50/50"
+          }`}
+        >
           <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h2 className="flex items-center gap-2 font-medium text-red-700">
+              <h2
+                className={`flex items-center gap-2 font-medium ${totalUrgentes > 0 ? "text-red-700" : "text-amber-700"}`}
+              >
                 <AlertTriangle className="h-4 w-4" />
                 Requer atenção
               </h2>
-              <p className="text-xs text-red-600/80">
-                Colaboradores com avaliações próximas do vencimento ou atrasadas.
+              <p className="text-xs text-zinc-500">
+                Avaliações em aberto. Em vermelho: expiradas ou vencendo em até {DIAS_URGENCIA} dias.
               </p>
             </div>
-            <span className="whitespace-nowrap rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700">
-              {itensAtencao.length} no total
-            </span>
+            <div className="flex gap-1.5">
+              {totalUrgentes > 0 && (
+                <span className="whitespace-nowrap rounded-full bg-red-600 px-3 py-1 text-xs font-medium text-white">
+                  {totalUrgentes} urgente{totalUrgentes === 1 ? "" : "s"}
+                </span>
+              )}
+              <span className="whitespace-nowrap rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-600">
+                {itensAtencao.length} no total
+              </span>
+            </div>
           </div>
           <ul className="flex max-h-[480px] min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none">
             {itensAtencao.map((item) => {
@@ -631,7 +848,9 @@ export default async function AdminOverviewPage({
               return (
                 <li
                   key={item.avaliacaoId}
-                  className="flex shrink-0 flex-col gap-2 rounded-md bg-white px-3 py-2.5 text-sm"
+                  className={`flex shrink-0 flex-col gap-2 rounded-md border-l-4 bg-white px-3 py-2.5 text-sm ${
+                    item.urgente ? "border-red-500" : "border-transparent"
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
@@ -653,7 +872,11 @@ export default async function AdminOverviewPage({
                   </div>
                     <Link
                       href={`/admin/colaboradores/${item.colaboradorId}`}
-                      className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary-hover"
+                      className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium ${
+                        item.urgente
+                          ? "bg-primary text-primary-foreground hover:bg-primary-hover"
+                          : "border border-primary-border text-primary hover:bg-primary-soft"
+                      }`}
                     >
                       Abrir avaliação
                     </Link>
@@ -661,7 +884,7 @@ export default async function AdminOverviewPage({
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-12">
                     <span
                       className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${
-                        item.atrasada ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                        item.urgente ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-600"
                       }`}
                     >
                       Avaliação de {item.marco} dias
@@ -673,10 +896,10 @@ export default async function AdminOverviewPage({
                       </span>
                     )}
                     <span
-                      className={`whitespace-nowrap font-medium ${item.atrasada ? "text-red-600" : "text-amber-600"}`}
+                      className={`whitespace-nowrap ${item.urgente ? "font-medium text-red-600" : "text-zinc-500"}`}
                     >
                       {item.atrasada
-                        ? `Atrasada há ${Math.max(1, -diasRestantes)} dia(s)`
+                        ? `Expirou há ${Math.max(1, -diasRestantes)} dia(s)`
                         : `Faltam ${Math.max(0, diasRestantes)} dia(s)`}
                     </span>
                   </div>
@@ -720,40 +943,31 @@ export default async function AdminOverviewPage({
             </div>
           </div>
           <div className="flex flex-col divide-y divide-primary-border/50 overflow-hidden rounded-lg border border-primary-border">
-            {(categorias ?? []).map((categoria) => {
-              const treinamentos = [...(treinamentosPorCategoria.get(categoria.id)?.values() ?? [])].sort(
-                (a, b) => b.total - a.total
-              );
-              return (
-                <div key={categoria.id} className="px-4 py-3">
-                  <Link
-                    href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
-                    className="flex items-center justify-between gap-3 text-sm transition-colors hover:text-primary"
-                  >
-                    <span className="flex items-center gap-2 font-medium">
-                      <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
-                      {categoria.nome}
-                    </span>
-                    <span className="flex items-center gap-2 text-zinc-500">
-                      <span className="font-semibold text-primary">
-                        {contagemPorCategoria.get(categoria.id) ?? 0}
-                      </span>
-                      <ChevronRight className="h-4 w-4" />
-                    </span>
-                  </Link>
-                  {treinamentos.length > 0 && (
-                    <ul className="mt-2 flex flex-col gap-1 pl-6 text-sm text-zinc-600">
-                      {treinamentos.map((t, i) => (
-                        <li key={i} className="flex items-center justify-between gap-3">
-                          <span>{t.nome}</span>
-                          <span className="font-semibold text-primary">{t.total}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              );
-            })}
+            {categoriasComIndicacao.map(linhaCategoria)}
+            {categoriasComIndicacao.length === 0 && (categorias ?? []).length > 0 && (
+              <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma indicação de treinamento com esses filtros.</p>
+            )}
+            {categoriasSemIndicacao.length > 0 && (
+              <details className="group px-4 py-3 text-sm">
+                <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-zinc-500 hover:text-primary">
+                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+                  {categoriasSemIndicacao.length} competência{categoriasSemIndicacao.length === 1 ? "" : "s"} sem
+                  indicação
+                </summary>
+                <ul className="mt-2 flex flex-col gap-1 pl-5">
+                  {categoriasSemIndicacao.map((categoria) => (
+                    <li key={categoria.id}>
+                      <Link
+                        href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
+                        className="text-zinc-500 hover:text-primary"
+                      >
+                        {categoria.nome}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {(categorias ?? []).length === 0 && (
               <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
             )}
@@ -805,6 +1019,64 @@ export default async function AdminOverviewPage({
   );
 }
 
+// Uma linha do gráfico: barra dividida por status, com a porcentagem escrita
+// dentro de cada pedaço (só quando o pedaço é largo o bastante pro texto).
+function BarraStatus({
+  rotulo,
+  linha,
+  href,
+  selecionada,
+  destaque,
+}: {
+  rotulo: string;
+  linha: { total: number; porStatus: readonly { chave: string; label: string; cor: string; valor: number }[] };
+  href?: string;
+  selecionada?: boolean;
+  destaque?: boolean;
+}) {
+  const pct = (n: number) => (linha.total ? (n / linha.total) * 100 : 0);
+  const visiveis = linha.porStatus.filter((st) => st.valor > 0);
+  const conteudo = (
+    <>
+      <span
+        className={`w-16 shrink-0 text-sm ${destaque ? "font-semibold text-zinc-900" : "text-primary underline-offset-2 hover:underline"}`}
+      >
+        {rotulo}
+      </span>
+      <div className="flex h-7 flex-1 overflow-hidden rounded-full bg-zinc-100">
+        {visiveis.map((st, i) => (
+          <div
+            key={st.chave}
+            title={`${st.label}: ${st.valor}`}
+            className="flex items-center justify-center overflow-hidden text-xs font-semibold text-white"
+            style={{
+              width: `${pct(st.valor)}%`,
+              background: st.cor,
+              borderRight: i < visiveis.length - 1 ? "2px solid #fff" : undefined,
+            }}
+          >
+            {pct(st.valor) >= 8 && `${Math.round(pct(st.valor))}%`}
+          </div>
+        ))}
+      </div>
+      <span className="w-16 shrink-0 text-right text-xs tabular-nums text-zinc-500">{linha.total} total</span>
+    </>
+  );
+
+  if (!href) return <div className="flex items-center gap-3 px-1 py-1">{conteudo}</div>;
+
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-primary-soft/40 ${
+        selecionada ? "bg-primary-soft/60" : ""
+      }`}
+    >
+      {conteudo}
+    </Link>
+  );
+}
+
 function LegendaCor({ cor, label }: { cor: string; label: string }) {
   return (
     <span className="flex items-center gap-1.5">
@@ -816,7 +1088,7 @@ function LegendaCor({ cor, label }: { cor: string; label: string }) {
 
 // Cada card tem uma cor própria pra não repetir fundo lado a lado; o ícone
 // vai em cor sólida pra destacar. "neutral" só aparece quando alertaSoSeValor zera.
-type Tom = "neutral" | "blue" | "violet" | "amber" | "green" | "orange" | "red" | "teal";
+type Tom = "neutral" | "brand" | "violet" | "amber" | "green" | "orange" | "red" | "teal";
 
 const ESTILO_POR_TOM: Record<
   Tom,
@@ -828,11 +1100,12 @@ const ESTILO_POR_TOM: Record<
     iconColor: "text-white",
     activeRing: "ring-zinc-500",
   },
-  blue: {
-    cardBg: "bg-blue-50",
-    iconBg: "bg-blue-500",
-    iconColor: "text-white",
-    activeRing: "ring-blue-500",
+  // Verde da marca: pra cards que não são status (ex: total de colaboradores).
+  brand: {
+    cardBg: "bg-primary-soft/50",
+    iconBg: "bg-primary",
+    iconColor: "text-primary-foreground",
+    activeRing: "ring-primary",
   },
   violet: {
     cardBg: "bg-violet-50",

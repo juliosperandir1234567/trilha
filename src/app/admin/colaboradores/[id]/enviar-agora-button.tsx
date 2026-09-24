@@ -7,9 +7,11 @@ import { enviarAvaliacaoAgora } from "@/lib/actions/avaliacoes";
 export function EnviarAgoraButton({
   colaboradorId,
   marco,
+  rotulo = "Forçar envio do e-mail",
 }: {
   colaboradorId: string;
   marco: number;
+  rotulo?: string;
 }) {
   const [state, action, pending] = useActionState(enviarAvaliacaoAgora, undefined);
   const [copiado, setCopiado] = useState(false);
@@ -34,7 +36,7 @@ export function EnviarAgoraButton({
         className="flex items-center gap-1.5 rounded-md border border-primary-border px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary-soft disabled:opacity-60"
       >
         <Send className="h-3 w-3" />
-        {pending ? "Enviando..." : "Forçar envio do e-mail"}
+        {pending ? "Enviando..." : rotulo}
       </button>
 
       {state?.success && state.emailEnviado && (

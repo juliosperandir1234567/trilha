@@ -7,7 +7,7 @@ import { deleteColaboradores } from "@/lib/actions/colaboradores";
 import { EnviarAgoraButton } from "./[id]/enviar-agora-button";
 
 const STATUS_LABEL: Record<string, string> = {
-  pendente: "Pendente",
+  pendente: "Não enviada",
   enviada: "Aguardando resposta",
   expirada: "Expirada",
 };

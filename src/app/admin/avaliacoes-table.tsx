@@ -5,7 +5,7 @@ import Link from "next/link";
 import { AlertTriangle, Search } from "lucide-react";
 
 const STATUS_LABEL: Record<string, string> = {
-  pendente: "Pendente",
+  pendente: "Não enviada",
   enviada: "Aguardando resposta",
   respondida: "Respondida",
   expirada: "Expirada",
@@ -22,6 +22,9 @@ export type AvaliacaoLinha = {
   colaboradorNome: string;
   matricula: string | null;
   gestorNome: string;
+  // Período que já chegou mas a avaliação ainda não foi criada pela rotina
+  // (data ISO do período). Entra na tabela como "Não enviada".
+  previstaPara?: string;
 };
 
 export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }) {
@@ -88,9 +91,14 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                   <span className={avaliacao.status === "expirada" ? "text-red-600" : ""}>
                     {STATUS_LABEL[avaliacao.status] ?? avaliacao.status}
                   </span>
+                  {avaliacao.previstaPara && (
+                    <span className="block text-xs text-zinc-400">ainda não criada</span>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-zinc-500">
-                  {avaliacao.status === "respondida"
+                  {avaliacao.previstaPara
+                    ? `Período em ${new Date(avaliacao.previstaPara + "T00:00:00").toLocaleDateString("pt-BR")}`
+                    : avaliacao.status === "respondida"
                     ? avaliacao.dataResposta
                       ? new Date(avaliacao.dataResposta).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
                       : "-"

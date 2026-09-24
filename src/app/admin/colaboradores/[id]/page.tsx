@@ -8,8 +8,8 @@ import { ColaboradorForm } from "../colaborador-form";
 const MARCOS_PADRAO = [30, 60, 90];
 
 const STATUS_LABEL: Record<string, string> = {
-  pendente: "Pendente (aguardando disparo)",
-  enviada: "Enviada — aguardando resposta",
+  pendente: "Não enviada (aguardando disparo)",
+  enviada: "Aguardando resposta",
   respondida: "Respondida",
   expirada: "Expirada (não respondida a tempo)",
 };
