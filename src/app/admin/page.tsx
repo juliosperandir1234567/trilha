@@ -18,6 +18,13 @@ const MARCOS = [30, 60, 90, 120, 180, 270] as const;
 // andamento, vermelho = atrasado. Fixa de propósito, não deve mudar com o tema.
 const STATUS_COLORS = { good: "#0ca30c", warning: "#fab219", critical: "#d03b3b" };
 
+function iniciais(nome: string): string {
+  const partes = nome.trim().split(/\s+/);
+  const primeira = partes[0]?.[0] ?? "";
+  const ultima = partes.length > 1 ? partes[partes.length - 1][0] : "";
+  return (primeira + ultima).toUpperCase();
+}
+
 const STATUS_FILTRO_LABEL: Record<string, string> = {
   aguardando: "Aguardando resposta",
   respondida: "Respondidas",
@@ -112,6 +119,10 @@ export default async function AdminOverviewPage({
     (a) => a.status === "pendente" || a.status === "enviada"
   ).length;
   const totalExpiradas = avaliacoesDoMarco.filter((a) => a.status === "expirada").length;
+
+  const totalDoDonut = totalRespondidas + totalAguardando + totalExpiradas;
+  const pctRespondidas = totalDoDonut ? (totalRespondidas / totalDoDonut) * 100 : 0;
+  const pctAguardando = totalDoDonut ? (totalAguardando / totalDoDonut) * 100 : 0;
 
   const colaboradoresAtivos = marcoNum
     ? new Set(
@@ -252,6 +263,7 @@ export default async function AdminOverviewPage({
           value={colaboradoresAtivos}
           href={hrefFiltro({})}
           ativo={!status && !critico}
+          tone="neutral"
         />
         <Card
           icon={Clock}
@@ -259,6 +271,7 @@ export default async function AdminOverviewPage({
           value={totalAguardando}
           href={status === "aguardando" ? hrefFiltro({}) : hrefFiltro({ status: "aguardando" })}
           ativo={status === "aguardando"}
+          tone="warning"
         />
         <Card
           icon={CheckCircle2}
@@ -266,6 +279,7 @@ export default async function AdminOverviewPage({
           value={totalRespondidas}
           href={status === "respondida" ? hrefFiltro({}) : hrefFiltro({ status: "respondida" })}
           ativo={status === "respondida"}
+          tone="good"
         />
         <Card
           icon={AlertTriangle}
@@ -273,6 +287,7 @@ export default async function AdminOverviewPage({
           value={totalExpiradas}
           href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
           ativo={status === "expirada"}
+          tone="critical"
         />
         <Card
           icon={AlertTriangle}
@@ -280,7 +295,8 @@ export default async function AdminOverviewPage({
           value={colaboradoresComNotaCritica}
           href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
           ativo={!!critico}
-          danger
+          tone="critical"
+          alertaSoSeValor
         />
       </div>
 
@@ -354,20 +370,24 @@ export default async function AdminOverviewPage({
             {itensAtencaoTop.map((item) => (
               <li
                 key={item.avaliacaoId}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white px-3 py-2 text-sm"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm"
               >
-                <div>
-                  <Link
-                    href={`/admin/colaboradores/${item.colaboradorId}`}
-                    className="font-medium text-primary underline underline-offset-2"
-                  >
-                    {item.nome}
-                  </Link>
-                  <span className="text-zinc-500">
-                    {" "}
-                    · {item.matricula ?? "-"}
-                    {item.cargo ? ` · ${item.cargo}` : ""} · {item.marco} dias
+                <div className="flex items-center gap-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
+                    {iniciais(item.nome)}
                   </span>
+                  <div>
+                    <Link
+                      href={`/admin/colaboradores/${item.colaboradorId}`}
+                      className="font-medium text-primary underline underline-offset-2"
+                    >
+                      {item.nome}
+                    </Link>
+                    <div className="text-zinc-500">
+                      {item.matricula ?? "-"}
+                      {item.cargo ? ` · ${item.cargo}` : ""} · {item.marco} dias
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={item.atrasada ? "font-medium text-red-600" : "font-medium text-amber-600"}>
@@ -388,31 +408,69 @@ export default async function AdminOverviewPage({
         </div>
       )}
 
-      <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-medium">Treinamentos indicados{marco ? ` — ${marco} dias` : ""}</h2>
-          <a
-            href={`/admin/categorias/export${marco ? `?marco=${marco}` : ""}`}
-            className="flex items-center gap-2 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
-          >
-            <Download className="h-4 w-4" />
-            Exportar tudo
-          </a>
-        </div>
-        <div className="flex flex-col divide-y divide-primary-border/50 overflow-hidden rounded-lg border border-primary-border">
-          {(categorias ?? []).map((categoria) => (
-            <Link
-              key={categoria.id}
-              href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
-              className="flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-primary-soft/30"
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div>
+          <h2 className="mb-3 font-medium">Status das avaliações{marco ? ` — ${marco} dias` : ""}</h2>
+          <div className="flex flex-col items-center gap-4 rounded-lg border border-primary-border p-4 sm:flex-row sm:justify-center">
+            <div
+              className="relative h-36 w-36 shrink-0 rounded-full"
+              style={{
+                background:
+                  totalDoDonut === 0
+                    ? "#f1f1ef"
+                    : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
+              }}
             >
-              <span className="flex items-center gap-2">
-                <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
-                {categoria.nome}
-              </span>
-              <span className="flex items-center gap-2 text-zinc-500">
-                <span className="font-semibold text-primary">
-                  {contagemPorCategoria.get(categoria.id) ?? 0}
+              <div className="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-white text-center">
+                <span className="text-2xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
+                <span className="text-xs text-zinc-500">avaliaç{totalDoDonut === 1 ? "ão" : "ões"}</span>
+              </div>
+            </div>
+            <ul className="flex flex-col gap-2 text-sm">
+              <li className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.good }} />
+                Concluídas
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalRespondidas}</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.warning }} />
+                Aguardando
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalAguardando}</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.critical }} />
+                Atrasadas
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalExpiradas}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="font-medium">Treinamentos indicados{marco ? ` — ${marco} dias` : ""}</h2>
+            <a
+              href={`/admin/categorias/export${marco ? `?marco=${marco}` : ""}`}
+              className="flex items-center gap-2 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
+            >
+              <Download className="h-4 w-4" />
+              Exportar tudo
+            </a>
+          </div>
+          <div className="flex flex-col divide-y divide-primary-border/50 overflow-hidden rounded-lg border border-primary-border">
+            {(categorias ?? []).map((categoria) => (
+              <Link
+                key={categoria.id}
+                href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
+                className="flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-primary-soft/30"
+              >
+                <span className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
+                  {categoria.nome}
+                </span>
+                <span className="flex items-center gap-2 text-zinc-500">
+                  <span className="font-semibold text-primary">
+                    {contagemPorCategoria.get(categoria.id) ?? 0}
                 </span>
                 <ChevronRight className="h-4 w-4" />
               </span>
@@ -421,6 +479,7 @@ export default async function AdminOverviewPage({
           {(categorias ?? []).length === 0 && (
             <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
           )}
+          </div>
         </div>
       </div>
 
@@ -449,46 +508,74 @@ function LegendaCor({ cor, label }: { cor: string; label: string }) {
   );
 }
 
+type Tom = "neutral" | "good" | "warning" | "critical";
+
+const ESTILO_POR_TOM: Record<
+  Tom,
+  { iconBg: string; iconColor: string; activeBorder: string; activeBg: string }
+> = {
+  neutral: {
+    iconBg: "bg-zinc-100",
+    iconColor: "text-zinc-600",
+    activeBorder: "border-primary",
+    activeBg: "bg-primary-soft",
+  },
+  good: {
+    iconBg: "bg-green-100",
+    iconColor: "text-green-700",
+    activeBorder: "border-green-500",
+    activeBg: "bg-green-50",
+  },
+  warning: {
+    iconBg: "bg-amber-100",
+    iconColor: "text-amber-700",
+    activeBorder: "border-amber-500",
+    activeBg: "bg-amber-50",
+  },
+  critical: {
+    iconBg: "bg-red-100",
+    iconColor: "text-red-700",
+    activeBorder: "border-red-500",
+    activeBg: "bg-red-50",
+  },
+};
+
 function Card({
   icon: Icon,
   label,
   value,
   href,
   ativo,
-  danger,
+  tone = "neutral",
+  alertaSoSeValor,
 }: {
   icon: LucideIcon;
   label: string;
   value: number;
   href: string;
   ativo?: boolean;
-  danger?: boolean;
+  tone?: Tom;
+  // Só aplica a cor de alerta (vermelho) quando value > 0 — zero em algo
+  // ruim (ex: notas críticas) é uma boa notícia, não precisa chamar atenção.
+  alertaSoSeValor?: boolean;
 }) {
-  if (danger && value > 0) {
-    return (
-      <Link
-        href={href}
-        className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-colors ${
-          ativo ? "border-red-500 bg-red-100" : "border-red-300 bg-red-50 hover:border-red-500"
-        }`}
-      >
-        <Icon className="h-4 w-4 shrink-0 text-red-600" />
-        <p className="text-xs text-red-700">{label}</p>
-        <p className="text-xl font-semibold text-red-700">{value}</p>
-      </Link>
-    );
-  }
+  const tomEfetivo: Tom = alertaSoSeValor && value === 0 ? "neutral" : tone;
+  const estilo = ESTILO_POR_TOM[tomEfetivo];
 
   return (
     <Link
       href={href}
-      className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-colors ${
-        ativo ? "border-primary bg-primary-soft" : "border-primary-border/60 bg-primary-soft/40 hover:border-primary"
+      className={`flex flex-col gap-3 rounded-xl border bg-white p-4 transition-colors ${
+        ativo ? `${estilo.activeBorder} ${estilo.activeBg}` : "border-primary-border/60 hover:border-primary"
       }`}
     >
-      <Icon className="h-4 w-4 shrink-0 text-primary" />
-      <p className="text-xs text-zinc-500">{label}</p>
-      <p className="text-xl font-semibold text-primary">{value}</p>
+      <span className={`flex h-10 w-10 items-center justify-center rounded-full ${estilo.iconBg}`}>
+        <Icon className={`h-5 w-5 ${estilo.iconColor}`} />
+      </span>
+      <div>
+        <p className="text-2xl font-bold tabular-nums text-zinc-900">{value}</p>
+        <p className="text-xs text-zinc-500">{label}</p>
+      </div>
     </Link>
   );
 }
