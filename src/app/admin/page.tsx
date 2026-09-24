@@ -248,20 +248,24 @@ export default async function AdminOverviewPage({
         <h1 className="text-xl font-semibold">
           Visão geral{marco ? ` — ${marco} dias` : ""}
         </h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {MARCOS_FILTRO.map((opcao) => {
             const ativo = (marco ?? "") === opcao.valor;
+            const total = opcao.valor
+              ? progressoPorMarco.find((p) => p.marco === Number(opcao.valor))?.total ?? 0
+              : lista.length;
             return (
               <Link
                 key={opcao.label}
                 href={opcao.valor ? `/admin?marco=${opcao.valor}` : "/admin"}
-                className={`rounded-full px-3 py-1 text-sm ${
+                className={`flex flex-col items-center gap-0.5 rounded-xl px-4 py-2 transition-colors ${
                   ativo
                     ? "bg-primary text-primary-foreground"
-                    : "border border-primary-border text-primary hover:bg-primary-soft"
+                    : "bg-primary-soft/50 text-primary hover:bg-primary-soft"
                 }`}
               >
-                {opcao.label}
+                <span className="text-sm font-medium">{opcao.label}</span>
+                <span className="text-lg font-bold tabular-nums">{total}</span>
               </Link>
             );
           })}
@@ -310,9 +314,9 @@ export default async function AdminOverviewPage({
           tone="critical"
           alertaSoSeValor
         />
-        <div className="flex flex-col gap-3 rounded-xl border border-primary-border/60 bg-white p-4">
+        <div className="flex flex-col gap-3 rounded-xl bg-primary-soft/40 p-4">
           <span
-            className="relative h-10 w-10 shrink-0 rounded-full"
+            className="relative h-10 w-10 shrink-0 rounded-lg"
             style={{
               background:
                 totalDoDonut === 0
@@ -320,11 +324,11 @@ export default async function AdminOverviewPage({
                   : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
             }}
           >
-            <span className="absolute inset-[3px] rounded-full bg-white" />
+            <span className="absolute inset-[3px] rounded-md bg-white" />
           </span>
           <div>
             <p className="text-2xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</p>
-            <p className="text-xs text-zinc-500">Status das avaliações</p>
+            <p className="text-xs text-zinc-600">Status das avaliações</p>
           </div>
         </div>
       </div>
@@ -527,31 +531,31 @@ type Tom = "neutral" | "good" | "warning" | "critical";
 
 const ESTILO_POR_TOM: Record<
   Tom,
-  { iconBg: string; iconColor: string; activeBorder: string; activeBg: string }
+  { cardBg: string; iconBg: string; iconColor: string; activeRing: string }
 > = {
   neutral: {
-    iconBg: "bg-zinc-100",
-    iconColor: "text-zinc-600",
-    activeBorder: "border-primary",
-    activeBg: "bg-primary-soft",
+    cardBg: "bg-zinc-100",
+    iconBg: "bg-zinc-200",
+    iconColor: "text-zinc-700",
+    activeRing: "ring-zinc-400",
   },
   good: {
+    cardBg: "bg-green-50",
     iconBg: "bg-green-100",
     iconColor: "text-green-700",
-    activeBorder: "border-green-500",
-    activeBg: "bg-green-50",
+    activeRing: "ring-green-500",
   },
   warning: {
+    cardBg: "bg-amber-50",
     iconBg: "bg-amber-100",
     iconColor: "text-amber-700",
-    activeBorder: "border-amber-500",
-    activeBg: "bg-amber-50",
+    activeRing: "ring-amber-500",
   },
   critical: {
+    cardBg: "bg-red-50",
     iconBg: "bg-red-100",
     iconColor: "text-red-700",
-    activeBorder: "border-red-500",
-    activeBg: "bg-red-50",
+    activeRing: "ring-red-500",
   },
 };
 
@@ -580,16 +584,16 @@ function Card({
   return (
     <Link
       href={href}
-      className={`flex flex-col gap-3 rounded-xl border bg-white p-4 transition-colors ${
-        ativo ? `${estilo.activeBorder} ${estilo.activeBg}` : "border-primary-border/60 hover:border-primary"
+      className={`flex flex-col gap-3 rounded-xl p-4 transition-all ${estilo.cardBg} ${
+        ativo ? `ring-2 ${estilo.activeRing}` : "hover:brightness-[0.97]"
       }`}
     >
-      <span className={`flex h-10 w-10 items-center justify-center rounded-full ${estilo.iconBg}`}>
+      <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${estilo.iconBg}`}>
         <Icon className={`h-5 w-5 ${estilo.iconColor}`} />
       </span>
       <div>
         <p className="text-2xl font-bold tabular-nums text-zinc-900">{value}</p>
-        <p className="text-xs text-zinc-500">{label}</p>
+        <p className="text-xs text-zinc-600">{label}</p>
       </div>
     </Link>
   );
