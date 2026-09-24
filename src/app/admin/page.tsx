@@ -5,18 +5,23 @@ import {
   CheckCircle2,
   AlertTriangle,
   GraduationCap,
+  ChevronRight,
   Download,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { AvaliacoesTable, type AvaliacaoLinha } from "./avaliacoes-table";
 
 const MARCOS = [30, 60, 90, 120, 180, 270] as const;
 
-const STATUS_LABEL: Record<string, string> = {
-  pendente: "Pendente",
-  enviada: "Aguardando resposta",
-  respondida: "Respondida",
-  expirada: "Expirada",
+// Paleta de status (não a cor de marca): verde = concluído, âmbar = em
+// andamento, vermelho = atrasado. Fixa de propósito, não deve mudar com o tema.
+const STATUS_COLORS = { good: "#0ca30c", warning: "#fab219", critical: "#d03b3b" };
+
+const STATUS_FILTRO_LABEL: Record<string, string> = {
+  aguardando: "Aguardando resposta",
+  respondida: "Respondidas",
+  expirada: "Expiradas",
 };
 
 const MARCOS_FILTRO = [
@@ -29,11 +34,7 @@ const MARCOS_FILTRO = [
   { label: "270 dias", valor: "270" },
 ];
 
-const STATUS_FILTRO_LABEL: Record<string, string> = {
-  aguardando: "Aguardando resposta",
-  respondida: "Respondidas",
-  expirada: "Expiradas",
-};
+const DIAS_ALERTA_VENCIMENTO = 3;
 
 export default async function AdminOverviewPage({
   searchParams,
@@ -64,7 +65,7 @@ export default async function AdminOverviewPage({
     supabase
       .from("avaliacoes")
       .select(
-        "id, marco, status, data_envio, data_resposta, colaboradores(id, nome, matricula, gestor_nome, gestor_email), links_avaliacao(expira_em)"
+        "id, marco, status, data_envio, data_resposta, colaboradores(id, nome, matricula, gestor_nome, gestor_email, cargos(nome)), links_avaliacao(expira_em)"
       )
       .order("data_referencia", { ascending: false }),
     supabase.from("categorias_treinamento").select("id, nome").eq("ativo", true).order("nome"),
@@ -138,6 +139,86 @@ export default async function AdminOverviewPage({
     };
   });
 
+  // "Requer atenção": avaliações já expiradas, ou aguardando resposta com o
+  // link vencendo nos próximos dias — pra não depender de ninguém abrir a
+  // tabela completa e reparar sozinho.
+  const agora = Date.now();
+  const limiteAlerta = agora + DIAS_ALERTA_VENCIMENTO * 24 * 60 * 60 * 1000;
+
+  const itensAtencao = avaliacoesDoMarco
+    .map((a) => {
+      const colaborador = a.colaboradores as unknown as {
+        id: string;
+        nome: string;
+        matricula: string | null;
+        cargos: { nome: string } | null;
+      } | null;
+      const link = (a.links_avaliacao as unknown as { expira_em: string }[])[0];
+      if (!colaborador) return null;
+
+      if (a.status === "expirada") {
+        return {
+          avaliacaoId: a.id,
+          colaboradorId: colaborador.id,
+          nome: colaborador.nome,
+          matricula: colaborador.matricula,
+          cargo: colaborador.cargos?.nome ?? null,
+          marco: a.marco,
+          atrasada: true,
+          expiraEm: link?.expira_em ?? null,
+        };
+      }
+
+      if (a.status === "enviada" && link) {
+        const expiraEmMs = new Date(link.expira_em).getTime();
+        if (expiraEmMs <= limiteAlerta) {
+          return {
+            avaliacaoId: a.id,
+            colaboradorId: colaborador.id,
+            nome: colaborador.nome,
+            matricula: colaborador.matricula,
+            cargo: colaborador.cargos?.nome ?? null,
+            marco: a.marco,
+            atrasada: expiraEmMs < agora,
+            expiraEm: link.expira_em,
+          };
+        }
+      }
+
+      return null;
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null)
+    .sort((a, b) => {
+      if (a.atrasada !== b.atrasada) return a.atrasada ? -1 : 1;
+      return new Date(a.expiraEm ?? 0).getTime() - new Date(b.expiraEm ?? 0).getTime();
+    });
+
+  const itensAtencaoTop = itensAtencao.slice(0, 6);
+
+  const avaliacoesParaTabela: AvaliacaoLinha[] = avaliacoesFiltradas.map((a) => {
+    const colaborador = a.colaboradores as unknown as {
+      id: string;
+      nome: string;
+      matricula: string | null;
+      gestor_nome: string;
+      gestor_email: string;
+    } | null;
+    const link = (a.links_avaliacao as unknown as { expira_em: string }[])[0];
+
+    return {
+      id: a.id,
+      marco: a.marco,
+      status: a.status,
+      dataResposta: a.data_resposta,
+      expiraEm: link?.expira_em ?? null,
+      notaCritica: avaliacoesComNotaCritica.has(a.id),
+      colaboradorId: colaborador?.id ?? null,
+      colaboradorNome: colaborador?.nome ?? "",
+      matricula: colaborador?.matricula ?? null,
+      gestorNome: colaborador?.gestor_nome ?? "",
+    };
+  });
+
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -205,43 +286,107 @@ export default async function AdminOverviewPage({
 
       <div>
         <h2 className="mb-3 font-medium">Progresso por período</h2>
-        <div className="overflow-x-auto rounded-lg border border-primary-border">
-          <table className="w-full min-w-[480px] text-left text-sm">
-            <thead>
-              <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
-                <th className="px-4 py-3">Período</th>
-                <th className="px-4 py-3">Total</th>
-                <th className="px-4 py-3">Respondidas</th>
-                <th className="px-4 py-3">Aguardando</th>
-                <th className="px-4 py-3">Expiradas</th>
-              </tr>
-            </thead>
-            <tbody>
-              {progressoPorMarco.map((linha) => (
-                <tr
-                  key={linha.marco}
-                  className={`border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20 ${
-                    linha.marco === marcoNum ? "bg-primary-soft/60" : ""
-                  }`}
-                >
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/admin?marco=${linha.marco}`}
-                      className="text-primary underline underline-offset-2"
-                    >
-                      {linha.marco} dias
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">{linha.total}</td>
-                  <td className="px-4 py-3">{linha.respondidas}</td>
-                  <td className="px-4 py-3">{linha.aguardando}</td>
-                  <td className="px-4 py-3">{linha.expiradas}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex flex-col gap-3 rounded-lg border border-primary-border p-4">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+            <LegendaCor cor={STATUS_COLORS.good} label="Concluídas" />
+            <LegendaCor cor={STATUS_COLORS.warning} label="Aguardando" />
+            <LegendaCor cor={STATUS_COLORS.critical} label="Atrasadas" />
+          </div>
+          {progressoPorMarco.map((linha) => {
+            const pct = (n: number) => (linha.total ? Math.round((n / linha.total) * 100) : 0);
+            return (
+              <Link
+                key={linha.marco}
+                href={`/admin?marco=${linha.marco}`}
+                className={`flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-primary-soft/40 ${
+                  linha.marco === marcoNum ? "bg-primary-soft/60" : ""
+                }`}
+              >
+                <span className="w-16 shrink-0 text-sm text-primary underline-offset-2 hover:underline">
+                  {linha.marco} dias
+                </span>
+                <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-zinc-100">
+                  {linha.total > 0 && (
+                    <>
+                      <div
+                        style={{
+                          width: `${pct(linha.respondidas)}%`,
+                          background: STATUS_COLORS.good,
+                          borderRight: linha.aguardando || linha.expiradas ? "2px solid #fff" : undefined,
+                        }}
+                      />
+                      <div
+                        style={{
+                          width: `${pct(linha.aguardando)}%`,
+                          background: STATUS_COLORS.warning,
+                          borderRight: linha.expiradas ? "2px solid #fff" : undefined,
+                        }}
+                      />
+                      <div style={{ width: `${pct(linha.expiradas)}%`, background: STATUS_COLORS.critical }} />
+                    </>
+                  )}
+                </div>
+                <span className="w-10 shrink-0 text-right text-xs tabular-nums text-zinc-500">
+                  {pct(linha.respondidas)}%
+                </span>
+                <span className="w-16 shrink-0 text-right text-xs tabular-nums text-zinc-400">
+                  {linha.total} total
+                </span>
+              </Link>
+            );
+          })}
         </div>
       </div>
+
+      {itensAtencaoTop.length > 0 && (
+        <div className="rounded-lg border border-red-200 bg-red-50/60 p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-medium text-red-700">
+              <AlertTriangle className="h-4 w-4" />
+              Requer atenção
+            </h2>
+            <span className="text-xs text-red-600">
+              {itensAtencao.length} avaliaç{itensAtencao.length === 1 ? "ão" : "ões"} vencendo ou atrasada
+              {itensAtencao.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <ul className="flex flex-col gap-2">
+            {itensAtencaoTop.map((item) => (
+              <li
+                key={item.avaliacaoId}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-white px-3 py-2 text-sm"
+              >
+                <div>
+                  <Link
+                    href={`/admin/colaboradores/${item.colaboradorId}`}
+                    className="font-medium text-primary underline underline-offset-2"
+                  >
+                    {item.nome}
+                  </Link>
+                  <span className="text-zinc-500">
+                    {" "}
+                    · {item.matricula ?? "-"}
+                    {item.cargo ? ` · ${item.cargo}` : ""} · {item.marco} dias
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={item.atrasada ? "font-medium text-red-600" : "font-medium text-amber-600"}>
+                    {item.atrasada
+                      ? "Atrasada"
+                      : `Vence em ${Math.max(0, Math.ceil((new Date(item.expiraEm ?? 0).getTime() - agora) / (24 * 60 * 60 * 1000)))} dia(s)`}
+                  </span>
+                  <Link
+                    href={`/admin/colaboradores/${item.colaboradorId}`}
+                    className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary-hover"
+                  >
+                    Abrir
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -254,22 +399,27 @@ export default async function AdminOverviewPage({
             Exportar tudo
           </a>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+        <div className="flex flex-col divide-y divide-primary-border/50 overflow-hidden rounded-lg border border-primary-border">
           {(categorias ?? []).map((categoria) => (
             <Link
               key={categoria.id}
               href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
-              className="flex flex-col items-center gap-1 rounded-lg border border-primary-border/60 bg-primary-soft/40 p-3 text-center transition-colors hover:border-primary"
+              className="flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-primary-soft/30"
             >
-              <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
-              <p className="text-xs text-zinc-500">{categoria.nome}</p>
-              <p className="text-xl font-semibold text-primary">
-                {contagemPorCategoria.get(categoria.id) ?? 0}
-              </p>
+              <span className="flex items-center gap-2">
+                <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
+                {categoria.nome}
+              </span>
+              <span className="flex items-center gap-2 text-zinc-500">
+                <span className="font-semibold text-primary">
+                  {contagemPorCategoria.get(categoria.id) ?? 0}
+                </span>
+                <ChevronRight className="h-4 w-4" />
+              </span>
             </Link>
           ))}
           {(categorias ?? []).length === 0 && (
-            <p className="text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
+            <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
           )}
         </div>
       </div>
@@ -280,87 +430,22 @@ export default async function AdminOverviewPage({
           {status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : ""}
           {critico ? " — Notas críticas" : ""}
         </h2>
-
-        <div className="overflow-x-auto rounded-lg border border-primary-border">
-          <table className="w-full min-w-[900px] text-left text-sm">
-            <thead>
-              <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
-                <th className="whitespace-nowrap px-4 py-3">Matrícula</th>
-                <th className="px-4 py-3">Colaborador</th>
-                <th className="whitespace-nowrap px-4 py-3">Período</th>
-                <th className="px-4 py-3">Gestor</th>
-                <th className="whitespace-nowrap px-4 py-3">Status</th>
-                <th className="whitespace-nowrap px-4 py-3">Expira / respondida em</th>
-              </tr>
-            </thead>
-            <tbody>
-              {avaliacoesFiltradas.map((avaliacao) => {
-                const colaborador = avaliacao.colaboradores as unknown as {
-                  id: string;
-                  nome: string;
-                  matricula: string | null;
-                  gestor_nome: string;
-                  gestor_email: string;
-                } | null;
-                const link = (avaliacao.links_avaliacao as unknown as { expira_em: string }[])[0];
-
-                const notaCritica = avaliacoesComNotaCritica.has(avaliacao.id);
-
-                return (
-                  <tr
-                    key={avaliacao.id}
-                    className={`border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20 ${notaCritica ? "bg-red-50 dark:bg-red-950/30" : ""}`}
-                  >
-                    <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{colaborador?.matricula}</td>
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/colaboradores/${colaborador?.id}`}
-                        className="text-primary underline underline-offset-2"
-                      >
-                        {colaborador?.nome}
-                      </Link>
-                      {notaCritica && (
-                        <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-400">
-                          <AlertTriangle className="h-3 w-3" />
-                          Atenção
-                        </span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">{avaliacao.marco} dias</td>
-                    <td className="px-4 py-3 text-zinc-500">{colaborador?.gestor_nome}</td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className={avaliacao.status === "expirada" ? "text-red-600" : ""}>
-                        {STATUS_LABEL[avaliacao.status] ?? avaliacao.status}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
-                      {avaliacao.status === "respondida"
-                        ? avaliacao.data_resposta
-                          ? new Date(avaliacao.data_resposta).toLocaleString("pt-BR")
-                          : "-"
-                        : link
-                          ? new Date(link.expira_em).toLocaleString("pt-BR")
-                          : "-"}
-                    </td>
-                  </tr>
-                );
-              })}
-              {avaliacoesFiltradas.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-zinc-500">
-                    Nenhuma avaliação encontrada.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <AvaliacoesTable avaliacoes={avaliacoesParaTabela} />
       </div>
 
       <Link href="/admin/colaboradores" className="w-fit text-sm text-primary underline underline-offset-2">
         Ver todos os colaboradores →
       </Link>
     </div>
+  );
+}
+
+function LegendaCor({ cor, label }: { cor: string; label: string }) {
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="h-2.5 w-2.5 rounded-full" style={{ background: cor }} />
+      {label}
+    </span>
   );
 }
 
@@ -384,12 +469,12 @@ function Card({
       <Link
         href={href}
         className={`flex flex-col items-center gap-1 rounded-lg border p-3 text-center transition-colors ${
-          ativo ? "border-red-500 bg-red-100 dark:bg-red-950" : "border-red-300 bg-red-50 hover:border-red-500 dark:border-red-900 dark:bg-red-950/40"
+          ativo ? "border-red-500 bg-red-100" : "border-red-300 bg-red-50 hover:border-red-500"
         }`}
       >
         <Icon className="h-4 w-4 shrink-0 text-red-600" />
-        <p className="text-xs text-red-700 dark:text-red-400">{label}</p>
-        <p className="text-xl font-semibold text-red-700 dark:text-red-400">{value}</p>
+        <p className="text-xs text-red-700">{label}</p>
+        <p className="text-xl font-semibold text-red-700">{value}</p>
       </Link>
     );
   }
