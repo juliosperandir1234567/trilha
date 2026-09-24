@@ -42,8 +42,6 @@ const MARCOS_FILTRO = [
   { label: "270 dias", valor: "270" },
 ];
 
-const DIAS_ALERTA_VENCIMENTO = 3;
-
 export default async function AdminOverviewPage({
   searchParams,
 }: {
@@ -172,11 +170,9 @@ export default async function AdminOverviewPage({
     };
   });
 
-  // "Requer atenção": avaliações já expiradas, ou aguardando resposta com o
-  // link vencendo nos próximos dias — pra não depender de ninguém abrir a
-  // tabela completa e reparar sozinho.
+  // "Requer atenção": avaliações já expiradas, ou aguardando resposta —
+  // pra não depender de ninguém abrir a tabela completa e reparar sozinho.
   const agora = Date.now();
-  const limiteAlerta = agora + DIAS_ALERTA_VENCIMENTO * 24 * 60 * 60 * 1000;
 
   const itensAtencao = avaliacoesDoMarco
     .map((a) => {
@@ -204,18 +200,16 @@ export default async function AdminOverviewPage({
 
       if (a.status === "enviada" && link) {
         const expiraEmMs = new Date(link.expira_em).getTime();
-        if (expiraEmMs <= limiteAlerta) {
-          return {
-            avaliacaoId: a.id,
-            colaboradorId: colaborador.id,
-            nome: colaborador.nome,
-            matricula: colaborador.matricula,
-            cargo: colaborador.cargos?.nome ?? null,
-            marco: a.marco,
-            atrasada: expiraEmMs < agora,
-            expiraEm: link.expira_em,
-          };
-        }
+        return {
+          avaliacaoId: a.id,
+          colaboradorId: colaborador.id,
+          nome: colaborador.nome,
+          matricula: colaborador.matricula,
+          cargo: colaborador.cargos?.nome ?? null,
+          marco: a.marco,
+          atrasada: expiraEmMs < agora,
+          expiraEm: link.expira_em,
+        };
       }
 
       return null;
