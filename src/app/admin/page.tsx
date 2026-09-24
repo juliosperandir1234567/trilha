@@ -78,7 +78,9 @@ export default async function AdminOverviewPage({
     supabase.from("categorias_treinamento").select("id, nome").eq("ativo", true).order("nome"),
     supabase
       .from("respostas")
-      .select("categoria_final_id, avaliacoes!inner(marco)")
+      .select(
+        "categoria_final_id, treinamento_final_id, treinamentos:treinamento_final_id(nome), avaliacoes!inner(marco)"
+      )
       .not("categoria_final_id", "is", null),
     supabase.from("respostas").select("avaliacao_id, avaliacoes!inner(marco, colaborador_id)").eq("nota", 1),
   ]);
@@ -109,9 +111,19 @@ export default async function AdminOverviewPage({
     : respostas ?? [];
 
   const contagemPorCategoria = new Map<string, number>();
+  const treinamentosPorCategoria = new Map<string, Map<string, { nome: string; total: number }>>();
   for (const resposta of respostasFiltradas) {
-    const id = resposta.categoria_final_id as string;
-    contagemPorCategoria.set(id, (contagemPorCategoria.get(id) ?? 0) + 1);
+    const categoriaId = resposta.categoria_final_id as string;
+    contagemPorCategoria.set(categoriaId, (contagemPorCategoria.get(categoriaId) ?? 0) + 1);
+
+    const treinamentoId = resposta.treinamento_final_id as string | null;
+    const treinamento = resposta.treinamentos as unknown as { nome: string } | null;
+    if (!treinamentoId || !treinamento) continue;
+
+    if (!treinamentosPorCategoria.has(categoriaId)) treinamentosPorCategoria.set(categoriaId, new Map());
+    const mapaDaCategoria = treinamentosPorCategoria.get(categoriaId)!;
+    const atual = mapaDaCategoria.get(treinamentoId);
+    mapaDaCategoria.set(treinamentoId, { nome: treinamento.nome, total: (atual?.total ?? 0) + 1 });
   }
 
   const totalRespondidas = avaliacoesDoMarco.filter((a) => a.status === "respondida").length;
@@ -256,85 +268,63 @@ export default async function AdminOverviewPage({
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_auto]">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          <Card
-            icon={Users}
-            label={marcoNum ? "Colaboradores neste período" : "Colaboradores ativos"}
-            value={colaboradoresAtivos}
-            href={hrefFiltro({})}
-            ativo={!status && !critico}
-            tone="neutral"
-          />
-          <Card
-            icon={Clock}
-            label="Aguardando resposta"
-            value={totalAguardando}
-            href={status === "aguardando" ? hrefFiltro({}) : hrefFiltro({ status: "aguardando" })}
-            ativo={status === "aguardando"}
-            tone="warning"
-          />
-          <Card
-            icon={CheckCircle2}
-            label="Respondidas"
-            value={totalRespondidas}
-            href={status === "respondida" ? hrefFiltro({}) : hrefFiltro({ status: "respondida" })}
-            ativo={status === "respondida"}
-            tone="good"
-          />
-          <Card
-            icon={AlertTriangle}
-            label="Expiradas"
-            value={totalExpiradas}
-            href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
-            ativo={status === "expirada"}
-            tone="critical"
-          />
-          <Card
-            icon={AlertTriangle}
-            label="Notas críticas"
-            value={colaboradoresComNotaCritica}
-            href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
-            ativo={!!critico}
-            tone="critical"
-            alertaSoSeValor
-          />
-        </div>
-
-        <div className="xl:w-72">
-          <h2 className="mb-3 font-medium">Status das avaliações{marco ? ` — ${marco} dias` : ""}</h2>
-          <div className="flex h-[calc(100%-2rem)] flex-col items-center justify-center gap-4 rounded-lg border border-primary-border p-4">
-            <div
-              className="relative h-28 w-28 shrink-0 rounded-full"
-              style={{
-                background:
-                  totalDoDonut === 0
-                    ? "#f1f1ef"
-                    : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
-              }}
-            >
-              <div className="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-white text-center">
-                <span className="text-xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
-                <span className="text-xs text-zinc-500">avaliaç{totalDoDonut === 1 ? "ão" : "ões"}</span>
-              </div>
-            </div>
-            <ul className="flex w-full flex-col gap-1.5 text-sm">
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.good }} />
-                Concluídas
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalRespondidas}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.warning }} />
-                Aguardando
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalAguardando}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.critical }} />
-                Atrasadas
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalExpiradas}</span>
-              </li>
-            </ul>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Card
+          icon={Users}
+          label={marcoNum ? "Colaboradores neste período" : "Colaboradores ativos"}
+          value={colaboradoresAtivos}
+          href={hrefFiltro({})}
+          ativo={!status && !critico}
+          tone="neutral"
+        />
+        <Card
+          icon={Clock}
+          label="Aguardando resposta"
+          value={totalAguardando}
+          href={status === "aguardando" ? hrefFiltro({}) : hrefFiltro({ status: "aguardando" })}
+          ativo={status === "aguardando"}
+          tone="warning"
+        />
+        <Card
+          icon={CheckCircle2}
+          label="Respondidas"
+          value={totalRespondidas}
+          href={status === "respondida" ? hrefFiltro({}) : hrefFiltro({ status: "respondida" })}
+          ativo={status === "respondida"}
+          tone="good"
+        />
+        <Card
+          icon={AlertTriangle}
+          label="Expiradas"
+          value={totalExpiradas}
+          href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
+          ativo={status === "expirada"}
+          tone="critical"
+        />
+        <Card
+          icon={AlertTriangle}
+          label="Notas críticas"
+          value={colaboradoresComNotaCritica}
+          href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
+          ativo={!!critico}
+          tone="critical"
+          alertaSoSeValor
+        />
+        <div className="flex flex-col gap-3 rounded-xl border border-primary-border/60 bg-white p-4">
+          <span
+            className="relative h-10 w-10 shrink-0 rounded-full"
+            style={{
+              background:
+                totalDoDonut === 0
+                  ? "#f1f1ef"
+                  : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
+            }}
+          >
+            <span className="absolute inset-[3px] rounded-full bg-white" />
+          </span>
+          <div>
+            <p className="text-2xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</p>
+            <p className="text-xs text-zinc-500">Status das avaliações</p>
           </div>
         </div>
       </div>
@@ -467,25 +457,41 @@ export default async function AdminOverviewPage({
             <p className="text-xs text-zinc-500">Indicações de treinamento</p>
           </div>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {(categorias ?? []).map((categoria) => (
-            <Link
-              key={categoria.id}
-              href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
-              className="flex items-center justify-between gap-3 rounded-lg border border-primary-border px-4 py-3 text-sm transition-colors hover:bg-primary-soft/30"
-            >
-              <span className="flex items-center gap-2">
-                <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
-                {categoria.nome}
-              </span>
-              <span className="flex items-center gap-2 text-zinc-500">
-                <span className="font-semibold text-primary">
-                  {contagemPorCategoria.get(categoria.id) ?? 0}
-                </span>
-                <ChevronRight className="h-4 w-4" />
-              </span>
-            </Link>
-          ))}
+        <div className="flex flex-col divide-y divide-primary-border/50 overflow-hidden rounded-lg border border-primary-border">
+          {(categorias ?? []).map((categoria) => {
+            const treinamentos = [...(treinamentosPorCategoria.get(categoria.id)?.values() ?? [])].sort(
+              (a, b) => b.total - a.total
+            );
+            return (
+              <div key={categoria.id} className="px-4 py-3">
+                <Link
+                  href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
+                  className="flex items-center justify-between gap-3 text-sm transition-colors hover:text-primary"
+                >
+                  <span className="flex items-center gap-2 font-medium">
+                    <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
+                    {categoria.nome}
+                  </span>
+                  <span className="flex items-center gap-2 text-zinc-500">
+                    <span className="font-semibold text-primary">
+                      {contagemPorCategoria.get(categoria.id) ?? 0}
+                    </span>
+                    <ChevronRight className="h-4 w-4" />
+                  </span>
+                </Link>
+                {treinamentos.length > 0 && (
+                  <ul className="mt-2 flex flex-col gap-1 pl-6 text-sm text-zinc-600">
+                    {treinamentos.map((t, i) => (
+                      <li key={i} className="flex items-center justify-between gap-3">
+                        <span>{t.nome}</span>
+                        <span className="font-semibold text-primary">{t.total}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
           {(categorias ?? []).length === 0 && (
             <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
           )}
