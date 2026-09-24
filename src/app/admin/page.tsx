@@ -254,7 +254,7 @@ export default async function AdminOverviewPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3">
         <h1 className="text-xl font-semibold">
           Visão geral{marco ? ` — ${marco} dias` : ""}
         </h1>
@@ -327,17 +327,17 @@ export default async function AdminOverviewPage({
           />
         </div>
 
-        <div className="flex flex-col gap-3 rounded-xl bg-primary-soft/40 p-4 xl:w-72">
+        <div className="flex flex-col gap-3 rounded-xl bg-primary-soft/40 p-4 xl:w-96">
           <p className="text-xs font-medium text-zinc-600">
             Status das avaliações{marco ? ` — ${marco} dias` : ""}
           </p>
-          <div className="flex flex-1 flex-col items-center justify-center gap-4 sm:flex-row sm:justify-center">
+          <div className="flex flex-1 flex-col items-center justify-center gap-5 sm:flex-row sm:justify-center">
             <div
-              className="relative h-28 w-28 shrink-0 rounded-full"
+              className="relative h-44 w-44 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
               style={{
                 background:
                   totalDoDonut === 0
-                    ? "#f1f1ef"
+                    ? "#e4e3de"
                     : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
               }}
             >
@@ -346,23 +346,23 @@ export default async function AdminOverviewPage({
                 return (
                   <span
                     key={i}
-                    className="absolute flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-bold text-zinc-900 shadow-sm"
+                    className="absolute flex h-7 min-w-7 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-zinc-900 shadow-sm"
                     style={{
                       top: "50%",
                       left: "50%",
-                      transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-50px) rotate(${-deg}deg)`,
+                      transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-72px) rotate(${-deg}deg)`,
                     }}
                   >
                     {Math.round(rotulo.pct)}%
                   </span>
                 );
               })}
-              <div className="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-white text-center">
-                <span className="text-xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
+              <div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-white text-center">
+                <span className="text-3xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
                 <span className="text-xs text-zinc-500">avaliaç{totalDoDonut === 1 ? "ão" : "ões"}</span>
               </div>
             </div>
-            <ul className="flex w-full flex-col gap-1.5 text-sm sm:w-auto">
+            <ul className="flex w-full flex-col gap-2 text-sm sm:w-auto">
               <li className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.good }} />
                 Concluídas
@@ -380,60 +380,6 @@ export default async function AdminOverviewPage({
               </li>
             </ul>
           </div>
-        </div>
-      </div>
-
-      <div>
-        <h2 className="mb-3 font-medium">Progresso por período</h2>
-        <div className="flex flex-col gap-3 rounded-lg border border-primary-border p-4">
-          <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
-            <LegendaCor cor={STATUS_COLORS.good} label="Concluídas" />
-            <LegendaCor cor={STATUS_COLORS.warning} label="Aguardando" />
-            <LegendaCor cor={STATUS_COLORS.critical} label="Atrasadas" />
-          </div>
-          {progressoPorMarco.map((linha) => {
-            const pct = (n: number) => (linha.total ? Math.round((n / linha.total) * 100) : 0);
-            return (
-              <Link
-                key={linha.marco}
-                href={`/admin?marco=${linha.marco}`}
-                className={`flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-primary-soft/40 ${
-                  linha.marco === marcoNum ? "bg-primary-soft/60" : ""
-                }`}
-              >
-                <span className="w-16 shrink-0 text-sm text-primary underline-offset-2 hover:underline">
-                  {linha.marco} dias
-                </span>
-                <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-zinc-100">
-                  {linha.total > 0 && (
-                    <>
-                      <div
-                        style={{
-                          width: `${pct(linha.respondidas)}%`,
-                          background: STATUS_COLORS.good,
-                          borderRight: linha.aguardando || linha.expiradas ? "2px solid #fff" : undefined,
-                        }}
-                      />
-                      <div
-                        style={{
-                          width: `${pct(linha.aguardando)}%`,
-                          background: STATUS_COLORS.warning,
-                          borderRight: linha.expiradas ? "2px solid #fff" : undefined,
-                        }}
-                      />
-                      <div style={{ width: `${pct(linha.expiradas)}%`, background: STATUS_COLORS.critical }} />
-                    </>
-                  )}
-                </div>
-                <span className="w-10 shrink-0 text-right text-xs tabular-nums text-zinc-500">
-                  {pct(linha.respondidas)}%
-                </span>
-                <span className="w-16 shrink-0 text-right text-xs tabular-nums text-zinc-400">
-                  {linha.total} total
-                </span>
-              </Link>
-            );
-          })}
         </div>
       </div>
 
@@ -515,6 +461,61 @@ export default async function AdminOverviewPage({
         </div>
       )}
 
+      <div className="grid gap-6 lg:grid-cols-2">
+      <div>
+        <h2 className="mb-3 font-medium">Progresso por período</h2>
+        <div className="flex flex-col gap-3 rounded-lg border border-primary-border p-4">
+          <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+            <LegendaCor cor={STATUS_COLORS.good} label="Concluídas" />
+            <LegendaCor cor={STATUS_COLORS.warning} label="Aguardando" />
+            <LegendaCor cor={STATUS_COLORS.critical} label="Atrasadas" />
+          </div>
+          {progressoPorMarco.map((linha) => {
+            const pct = (n: number) => (linha.total ? Math.round((n / linha.total) * 100) : 0);
+            return (
+              <Link
+                key={linha.marco}
+                href={`/admin?marco=${linha.marco}`}
+                className={`flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-primary-soft/40 ${
+                  linha.marco === marcoNum ? "bg-primary-soft/60" : ""
+                }`}
+              >
+                <span className="w-16 shrink-0 text-sm text-primary underline-offset-2 hover:underline">
+                  {linha.marco} dias
+                </span>
+                <div className="flex h-3 flex-1 overflow-hidden rounded-full bg-zinc-100">
+                  {linha.total > 0 && (
+                    <>
+                      <div
+                        style={{
+                          width: `${pct(linha.respondidas)}%`,
+                          background: STATUS_COLORS.good,
+                          borderRight: linha.aguardando || linha.expiradas ? "2px solid #fff" : undefined,
+                        }}
+                      />
+                      <div
+                        style={{
+                          width: `${pct(linha.aguardando)}%`,
+                          background: STATUS_COLORS.warning,
+                          borderRight: linha.expiradas ? "2px solid #fff" : undefined,
+                        }}
+                      />
+                      <div style={{ width: `${pct(linha.expiradas)}%`, background: STATUS_COLORS.critical }} />
+                    </>
+                  )}
+                </div>
+                <span className="w-10 shrink-0 text-right text-xs tabular-nums text-zinc-500">
+                  {pct(linha.respondidas)}%
+                </span>
+                <span className="w-16 shrink-0 text-right text-xs tabular-nums text-zinc-400">
+                  {linha.total} total
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-medium">Treinamentos indicados{marco ? ` — ${marco} dias` : ""}</h2>
@@ -574,6 +575,7 @@ export default async function AdminOverviewPage({
             <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
           )}
         </div>
+      </div>
       </div>
 
       <div>
@@ -658,17 +660,15 @@ function Card({
   return (
     <Link
       href={href}
-      className={`flex flex-col gap-3 rounded-xl p-4 transition-all ${estilo.cardBg} ${
+      className={`flex flex-col items-center gap-2 rounded-xl p-4 text-center transition-all ${estilo.cardBg} ${
         ativo ? `ring-2 ${estilo.activeRing}` : "hover:brightness-[0.97]"
       }`}
     >
       <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${estilo.iconBg}`}>
         <Icon className={`h-5 w-5 ${estilo.iconColor}`} />
       </span>
-      <div>
-        <p className="text-2xl font-bold tabular-nums text-zinc-900">{value}</p>
-        <p className="text-xs text-zinc-600">{label}</p>
-      </div>
+      <p className="text-xs font-medium text-zinc-600">{label}</p>
+      <p className="text-2xl font-bold tabular-nums text-zinc-900">{value}</p>
     </Link>
   );
 }
