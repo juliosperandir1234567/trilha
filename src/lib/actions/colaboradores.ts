@@ -61,7 +61,21 @@ function parseDataAdmissao(valor: string): string | null {
   return null;
 }
 
-export type ColaboradorFormState = { error?: string } | undefined;
+export type ColaboradorFormState = { error?: string; sucesso?: boolean } | undefined;
+
+// Matrícula identifica o colaborador na empresa — duas pessoas com a mesma
+// matrícula confundem a tabela e o export. `ignorarId` é o próprio registro
+// na edição.
+async function matriculaEmUso(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  matricula: string,
+  ignorarId?: string
+) {
+  let query = supabase.from("colaboradores").select("nome").eq("matricula", matricula).limit(1);
+  if (ignorarId) query = query.neq("id", ignorarId);
+  const { data } = await query;
+  return data?.[0]?.nome ?? null;
+}
 
 export async function createColaborador(
   _prevState: ColaboradorFormState,
@@ -81,6 +95,11 @@ export async function createColaborador(
   }
 
   const supabase = await createClient();
+  const donoDaMatricula = await matriculaEmUso(supabase, matricula);
+  if (donoDaMatricula) {
+    return { error: `A matrícula ${matricula} já pertence a ${donoDaMatricula}.` };
+  }
+
   const { error } = await supabase.from("colaboradores").insert({
     nome,
     matricula,
@@ -95,6 +114,54 @@ export async function createColaborador(
   }
 
   revalidatePath("/admin/colaboradores");
+}
+
+export async function updateColaborador(
+  _prevState: ColaboradorFormState,
+  formData: FormData
+): Promise<ColaboradorFormState> {
+  await requireStaff();
+
+  const id = String(formData.get("id") ?? "").trim();
+  const nome = String(formData.get("nome") ?? "").trim();
+  const matricula = String(formData.get("matricula") ?? "").trim();
+  const dataAdmissao = String(formData.get("data_admissao") ?? "").trim();
+  const gestorNome = String(formData.get("gestor_nome") ?? "").trim();
+  const gestorEmail = String(formData.get("gestor_email") ?? "").trim();
+  const cargoId = String(formData.get("cargo_id") ?? "").trim();
+  const ativo = formData.get("ativo") === "on";
+
+  if (!id || !nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail) {
+    return { error: "Preencha todos os campos." };
+  }
+
+  const supabase = await createClient();
+  const donoDaMatricula = await matriculaEmUso(supabase, matricula, id);
+  if (donoDaMatricula) {
+    return { error: `A matrícula ${matricula} já pertence a ${donoDaMatricula}.` };
+  }
+
+  const { error } = await supabase
+    .from("colaboradores")
+    .update({
+      nome,
+      matricula,
+      data_admissao: dataAdmissao,
+      gestor_nome: gestorNome,
+      gestor_email: gestorEmail,
+      cargo_id: cargoId || null,
+      ativo,
+    })
+    .eq("id", id);
+
+  if (error) {
+    return { error: "Não foi possível salvar as alterações." };
+  }
+
+  revalidatePath("/admin/colaboradores");
+  revalidatePath(`/admin/colaboradores/${id}`);
+  revalidatePath("/admin");
+  return { sucesso: true };
 }
 
 export async function importColaboradores(

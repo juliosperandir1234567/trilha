@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { EnviarAgoraButton } from "./enviar-agora-button";
+import { ColaboradorForm } from "../colaborador-form";
 
 const MARCOS_PADRAO = [30, 60, 90];
 
@@ -21,13 +22,16 @@ export default async function ColaboradorDetalhePage({
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: colaborador } = await supabase
-    .from("colaboradores")
-    .select(
-      "id, nome, matricula, email, data_admissao, gestor_nome, gestor_email, ativo, cargos(nome, marcos)"
-    )
-    .eq("id", id)
-    .single();
+  const [{ data: colaborador }, { data: cargos }] = await Promise.all([
+    supabase
+      .from("colaboradores")
+      .select(
+        "id, nome, matricula, email, data_admissao, gestor_nome, gestor_email, ativo, cargo_id, cargos(nome, marcos)"
+      )
+      .eq("id", id)
+      .single(),
+    supabase.from("cargos").select("id, nome").order("nome"),
+  ]);
 
   if (!colaborador) notFound();
 
@@ -70,6 +74,16 @@ export default async function ColaboradorDetalhePage({
           {" · "}{colaborador.ativo ? "Ativo" : "Inativo"}
         </p>
       </div>
+
+      <details className="group">
+        <summary className="flex w-fit cursor-pointer list-none items-center gap-2 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft">
+          <Pencil className="h-4 w-4" />
+          Editar cadastro
+        </summary>
+        <div className="mt-3">
+          <ColaboradorForm cargos={cargos ?? []} colaborador={colaborador} />
+        </div>
+      </details>
 
       {marcos.map((marco) => {
         const avaliacao = avaliacaoPorMarco.get(marco);
