@@ -82,7 +82,15 @@ export async function importColaboradores(
     return { error: "Selecione um arquivo CSV." };
   }
 
-  const texto = await arquivo.text();
+  const buffer = await arquivo.arrayBuffer();
+  let texto = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
+  if (texto.includes("�")) {
+    // O Excel do Windows exporta CSV em ANSI (Windows-1252) por padrão, não em
+    // UTF-8 — isso quebra qualquer acento (ex: "Admissão"), fazendo o cabeçalho
+    // não bater com nada esperado. Tenta de novo assumindo essa codificação.
+    texto = new TextDecoder("windows-1252").decode(buffer);
+  }
+
   const { data: linhas } = Papa.parse<Record<string, string>>(texto, {
     header: true,
     skipEmptyLines: true,
