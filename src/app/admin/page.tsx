@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   XCircle,
+  Hourglass,
+  Timer,
   GraduationCap,
   ChevronRight,
   Download,
@@ -28,7 +30,8 @@ function iniciais(nome: string): string {
 }
 
 const STATUS_FILTRO_LABEL: Record<string, string> = {
-  aguardando: "Aguardando resposta",
+  pendente: "Não enviadas",
+  enviada: "Aguardando resposta",
   respondida: "Respondidas",
   expirada: "Expiradas",
 };
@@ -150,11 +153,7 @@ export default async function AdminOverviewPage({
 
   let avaliacoesFiltradas = avaliacoesDoMarco;
 
-  if (status === "aguardando") {
-    avaliacoesFiltradas = avaliacoesFiltradas.filter(
-      (a) => a.status === "pendente" || a.status === "enviada"
-    );
-  } else if (status === "respondida" || status === "expirada") {
+  if (status === "pendente" || status === "enviada" || status === "respondida" || status === "expirada") {
     avaliacoesFiltradas = avaliacoesFiltradas.filter((a) => a.status === status);
   }
 
@@ -195,10 +194,24 @@ export default async function AdminOverviewPage({
   }
 
   const totalRespondidas = avaliacoesDoMarco.filter((a) => a.status === "respondida").length;
-  const totalAguardando = avaliacoesDoMarco.filter(
-    (a) => a.status === "pendente" || a.status === "enviada"
-  ).length;
+  const totalPendente = avaliacoesDoMarco.filter((a) => a.status === "pendente").length;
+  const totalEnviada = avaliacoesDoMarco.filter((a) => a.status === "enviada").length;
+  const totalAguardando = totalPendente + totalEnviada;
   const totalExpiradas = avaliacoesDoMarco.filter((a) => a.status === "expirada").length;
+
+  // Tempo médio de resposta: só entre quem já respondeu e tem as duas datas
+  // registradas — não dá pra medir tempo de quem ainda está pendente.
+  const respondidasComTempo = avaliacoesDoMarco.filter(
+    (a) => a.status === "respondida" && a.data_envio && a.data_resposta
+  );
+  const tempoMedioRespostaDias = respondidasComTempo.length
+    ? respondidasComTempo.reduce((soma, a) => {
+        const dias =
+          (new Date(a.data_resposta!).getTime() - new Date(a.data_envio!).getTime()) /
+          (24 * 60 * 60 * 1000);
+        return soma + dias;
+      }, 0) / respondidasComTempo.length
+    : null;
 
   const totalDoDonut = totalRespondidas + totalAguardando + totalExpiradas;
   const pctRespondidas = totalDoDonut ? (totalRespondidas / totalDoDonut) * 100 : 0;
@@ -399,7 +412,7 @@ export default async function AdminOverviewPage({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         <Card
           icon={Users}
           label={marcoNum ? "Colaboradores neste período" : "Colaboradores ativos"}
@@ -409,11 +422,19 @@ export default async function AdminOverviewPage({
           tone="neutral"
         />
         <Card
+          icon={Hourglass}
+          label="Não enviadas"
+          value={totalPendente}
+          href={status === "pendente" ? hrefFiltro({}) : hrefFiltro({ status: "pendente" })}
+          ativo={status === "pendente"}
+          tone="neutral"
+        />
+        <Card
           icon={Clock}
           label="Aguardando resposta"
-          value={totalAguardando}
-          href={status === "aguardando" ? hrefFiltro({}) : hrefFiltro({ status: "aguardando" })}
-          ativo={status === "aguardando"}
+          value={totalEnviada}
+          href={status === "enviada" ? hrefFiltro({}) : hrefFiltro({ status: "enviada" })}
+          ativo={status === "enviada"}
           tone="warning"
         />
         <Card
@@ -440,6 +461,12 @@ export default async function AdminOverviewPage({
           ativo={!!critico}
           tone="critical"
           alertaSoSeValor
+        />
+        <Card
+          icon={Timer}
+          label="Tempo médio de resposta"
+          value={tempoMedioRespostaDias === null ? "-" : `${tempoMedioRespostaDias.toFixed(1)}d`}
+          tone="neutral"
         />
       </div>
 
@@ -761,8 +788,8 @@ function Card({
 }: {
   icon: LucideIcon;
   label: string;
-  value: number;
-  href: string;
+  value: number | string;
+  href?: string;
   ativo?: boolean;
   tone?: Tom;
   // Só aplica a cor de alerta (vermelho) quando value > 0 — zero em algo
@@ -771,6 +798,23 @@ function Card({
 }) {
   const tomEfetivo: Tom = alertaSoSeValor && value === 0 ? "neutral" : tone;
   const estilo = ESTILO_POR_TOM[tomEfetivo];
+  const conteudo = (
+    <>
+      <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${estilo.iconBg}`}>
+        <Icon className={`h-6 w-6 ${estilo.iconColor}`} strokeWidth={2} />
+      </span>
+      <p className="text-xs font-medium text-zinc-600">{label}</p>
+      <p className="text-2xl font-bold tabular-nums text-zinc-900">{value}</p>
+    </>
+  );
+
+  if (!href) {
+    return (
+      <div className={`flex flex-col items-center gap-2 rounded-xl p-4 text-center ${estilo.cardBg}`}>
+        {conteudo}
+      </div>
+    );
+  }
 
   return (
     <Link
@@ -779,11 +823,7 @@ function Card({
         ativo ? `ring-2 ${estilo.activeRing}` : "hover:brightness-[0.97]"
       }`}
     >
-      <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${estilo.iconBg}`}>
-        <Icon className={`h-6 w-6 ${estilo.iconColor}`} strokeWidth={2} />
-      </span>
-      <p className="text-xs font-medium text-zinc-600">{label}</p>
-      <p className="text-2xl font-bold tabular-nums text-zinc-900">{value}</p>
+      {conteudo}
     </Link>
   );
 }
