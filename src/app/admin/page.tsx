@@ -464,7 +464,7 @@ export default async function AdminOverviewPage({
         <div className="flex h-[calc(100%-2rem)] flex-col gap-3 rounded-xl bg-primary-soft/40 p-4">
           <div className="flex flex-1 flex-col items-center justify-center gap-5 sm:flex-row sm:justify-center">
             <div
-              className="relative h-40 w-40 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
+              className="relative h-64 w-64 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
               style={{
                 background:
                   totalDoDonut === 0
@@ -477,19 +477,19 @@ export default async function AdminOverviewPage({
                 return (
                   <span
                     key={i}
-                    className="absolute flex h-7 min-w-7 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-zinc-900 shadow-sm"
+                    className="absolute flex h-9 min-w-9 items-center justify-center rounded-full bg-white px-2 text-sm font-bold text-zinc-900 shadow-sm"
                     style={{
                       top: "50%",
                       left: "50%",
-                      transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-64px) rotate(${-deg}deg)`,
+                      transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-104px) rotate(${-deg}deg)`,
                     }}
                   >
                     {Math.round(rotulo.pct)}%
                   </span>
                 );
               })}
-              <div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-white text-center">
-                <span className="text-2xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
+              <div className="absolute inset-11 flex flex-col items-center justify-center rounded-full bg-white text-center">
+                <span className="text-4xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
                 <span className="text-xs text-zinc-500">avaliaç{totalDoDonut === 1 ? "ão" : "ões"}</span>
               </div>
             </div>
