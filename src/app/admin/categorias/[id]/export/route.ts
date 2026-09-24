@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   let query = supabase
     .from("respostas")
     .select(
-      "nota, created_at, avaliacoes!inner(marco, colaboradores(nome, matricula, gestor_nome, gestor_email))"
+      "nota, comentario, created_at, treinamentos:treinamento_final_id(nome), avaliacoes!inner(marco, colaboradores(nome, matricula, gestor_nome, gestor_email))"
     )
     .eq("categoria_final_id", id)
     .order("created_at", { ascending: false });
@@ -32,7 +32,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: respostas } = await query;
 
   const linhas = [
-    ["Matrícula", "Colaborador", "Período", "Nota", "Gestor"].map(escapeCsv).join(";"),
+    ["Matrícula", "Colaborador", "Período", "Nota", "Treinamento", "Comentário", "Gestor"]
+      .map(escapeCsv)
+      .join(";"),
   ];
 
   for (const resposta of respostas ?? []) {
@@ -46,6 +48,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       } | null;
     } | null;
     const colaborador = avaliacao?.colaboradores;
+    const treinamento = resposta.treinamentos as unknown as { nome: string } | null;
 
     linhas.push(
       [
@@ -53,6 +56,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         colaborador?.nome,
         avaliacao ? `${avaliacao.marco} dias` : "",
         resposta.nota,
+        treinamento?.nome,
+        resposta.comentario,
         colaborador?.gestor_nome,
       ]
         .map(escapeCsv)

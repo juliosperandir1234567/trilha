@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("respostas")
     .select(
-      "nota, created_at, categorias_treinamento:categoria_final_id(nome), avaliacoes!inner(marco, colaboradores(nome, matricula, gestor_nome, gestor_email))"
+      "nota, comentario, created_at, categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome), avaliacoes!inner(marco, colaboradores(nome, matricula, gestor_nome, gestor_email))"
     )
     .not("categoria_final_id", "is", null)
     .order("created_at", { ascending: false });
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   const { data: respostas } = await query;
 
   const linhas = [
-    ["Matrícula", "Colaborador", "Período", "Nota", "Gestor", "Treinamento indicado"]
+    ["Matrícula", "Colaborador", "Período", "Nota", "Gestor", "Competência", "Treinamento", "Comentário"]
       .map(escapeCsv)
       .join(";"),
   ];
@@ -42,6 +42,7 @@ export async function GET(request: Request) {
     } | null;
     const colaborador = avaliacao?.colaboradores;
     const categoria = resposta.categorias_treinamento as unknown as { nome: string } | null;
+    const treinamento = resposta.treinamentos as unknown as { nome: string } | null;
 
     linhas.push(
       [
@@ -51,6 +52,8 @@ export async function GET(request: Request) {
         resposta.nota,
         colaborador?.gestor_nome,
         categoria?.nome,
+        treinamento?.nome,
+        resposta.comentario,
       ]
         .map(escapeCsv)
         .join(";")
