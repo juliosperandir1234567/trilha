@@ -7,6 +7,7 @@ import {
   GraduationCap,
   ChevronRight,
   Download,
+  CalendarDays,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -135,6 +136,15 @@ export default async function AdminOverviewPage({
   const totalDoDonut = totalRespondidas + totalAguardando + totalExpiradas;
   const pctRespondidas = totalDoDonut ? (totalRespondidas / totalDoDonut) * 100 : 0;
   const pctAguardando = totalDoDonut ? (totalAguardando / totalDoDonut) * 100 : 0;
+  const pctExpiradasDonut = totalDoDonut ? (totalExpiradas / totalDoDonut) * 100 : 0;
+
+  // Rótulos dentro da rosca: só os fatios grandes o bastante pra caber o
+  // texto sem sobrepor os vizinhos.
+  const donutRotulos = [
+    { pct: pctRespondidas, meio: pctRespondidas / 2 },
+    { pct: pctAguardando, meio: pctRespondidas + pctAguardando / 2 },
+    { pct: pctExpiradasDonut, meio: pctRespondidas + pctAguardando + pctExpiradasDonut / 2 },
+  ].filter((s) => s.pct >= 8);
 
   const colaboradoresAtivos = marcoNum
     ? new Set(
@@ -331,6 +341,22 @@ export default async function AdminOverviewPage({
                     : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
               }}
             >
+              {donutRotulos.map((rotulo, i) => {
+                const deg = (rotulo.meio / 100) * 360;
+                return (
+                  <span
+                    key={i}
+                    className="absolute flex h-6 min-w-6 items-center justify-center rounded-full bg-white px-1.5 text-[10px] font-bold text-zinc-900 shadow-sm"
+                    style={{
+                      top: "50%",
+                      left: "50%",
+                      transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-50px) rotate(${-deg}deg)`,
+                    }}
+                  >
+                    {Math.round(rotulo.pct)}%
+                  </span>
+                );
+              })}
               <div className="absolute inset-3 flex flex-col items-center justify-center rounded-full bg-white text-center">
                 <span className="text-xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
                 <span className="text-xs text-zinc-500">avaliaç{totalDoDonut === 1 ? "ão" : "ões"}</span>
@@ -413,54 +439,78 @@ export default async function AdminOverviewPage({
 
       {itensAtencaoTop.length > 0 && (
         <div className="rounded-lg border border-red-200 bg-red-50/60 p-4">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 font-medium text-red-700">
-              <AlertTriangle className="h-4 w-4" />
-              Requer atenção
-            </h2>
-            <span className="text-xs text-red-600">
-              {itensAtencao.length} avaliaç{itensAtencao.length === 1 ? "ão" : "ões"} vencendo ou atrasada
-              {itensAtencao.length === 1 ? "" : "s"}
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="flex items-center gap-2 font-medium text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                Requer atenção
+              </h2>
+              <p className="text-xs text-red-600/80">
+                Colaboradores com avaliações próximas do vencimento ou atrasadas.
+              </p>
+            </div>
+            <span className="whitespace-nowrap rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700">
+              {itensAtencao.length} no total
             </span>
           </div>
           <ul className="flex flex-col gap-2">
-            {itensAtencaoTop.map((item) => (
-              <li
-                key={item.avaliacaoId}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-white px-3 py-2 text-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
-                    {iniciais(item.nome)}
-                  </span>
-                  <div>
-                    <Link
-                      href={`/admin/colaboradores/${item.colaboradorId}`}
-                      className="font-medium text-primary underline underline-offset-2"
-                    >
-                      {item.nome}
-                    </Link>
-                    <div className="text-zinc-500">
-                      {item.matricula ?? "-"}
-                      {item.cargo ? ` · ${item.cargo}` : ""} · {item.marco} dias
+            {itensAtencaoTop.map((item) => {
+              const diasRestantes = Math.ceil(
+                (new Date(item.expiraEm ?? 0).getTime() - agora) / (24 * 60 * 60 * 1000)
+              );
+              return (
+                <li
+                  key={item.avaliacaoId}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-white px-3 py-2.5 text-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-600">
+                      {iniciais(item.nome)}
+                    </span>
+                    <div>
+                      <Link
+                        href={`/admin/colaboradores/${item.colaboradorId}`}
+                        className="font-semibold text-zinc-900 hover:underline"
+                      >
+                        {item.nome}
+                      </Link>
+                      <div className="text-xs text-zinc-500">
+                        {item.matricula ?? "-"}
+                        {item.cargo ? ` · ${item.cargo}` : ""}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className={item.atrasada ? "font-medium text-red-600" : "font-medium text-amber-600"}>
-                    {item.atrasada
-                      ? "Atrasada"
-                      : `Vence em ${Math.max(0, Math.ceil((new Date(item.expiraEm ?? 0).getTime() - agora) / (24 * 60 * 60 * 1000)))} dia(s)`}
-                  </span>
-                  <Link
-                    href={`/admin/colaboradores/${item.colaboradorId}`}
-                    className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:bg-primary-hover"
-                  >
-                    Abrir
-                  </Link>
-                </div>
-              </li>
-            ))}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span
+                      className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${
+                        item.atrasada ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      Avaliação de {item.marco} dias
+                    </span>
+                    {item.expiraEm && (
+                      <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-zinc-500">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        Vencimento: {new Date(item.expiraEm).toLocaleDateString("pt-BR")}
+                      </span>
+                    )}
+                    <span
+                      className={`whitespace-nowrap font-medium ${item.atrasada ? "text-red-600" : "text-amber-600"}`}
+                    >
+                      {item.atrasada
+                        ? `Atrasada há ${Math.max(1, -diasRestantes)} dia(s)`
+                        : `Faltam ${Math.max(0, diasRestantes)} dia(s)`}
+                    </span>
+                    <Link
+                      href={`/admin/colaboradores/${item.colaboradorId}`}
+                      className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary-hover"
+                    >
+                      Abrir avaliação
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
