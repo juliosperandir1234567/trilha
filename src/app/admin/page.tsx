@@ -94,6 +94,16 @@ export default async function AdminOverviewPage({
     return query ? `/admin?${query}` : "/admin";
   }
 
+  function hrefExportar() {
+    const params = new URLSearchParams();
+    if (marco) params.set("marco", marco);
+    if (status) params.set("status", status);
+    if (critico) params.set("critico", critico);
+    comAdmissao(params);
+    const query = params.toString();
+    return query ? `/admin/categorias/export?${query}` : "/admin/categorias/export";
+  }
+
   // Datas ISO (yyyy-mm-dd) comparam certinho como string, sem precisar
   // converter pra Date.
   function dentroDoPeriodoAdmissao(dataAdmissao: string | null | undefined) {
@@ -104,6 +114,11 @@ export default async function AdminOverviewPage({
   }
 
   const temFiltroAdmissao = !!(admissaoDe || admissaoAte);
+
+  const sufixoFiltrosDosCards =
+    (status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : "") +
+    (critico ? " — Notas críticas" : "");
+  const sufixoFiltros = (marco ? ` — ${marco} dias` : "") + sufixoFiltrosDosCards;
 
   let colaboradoresQuery = supabase
     .from("colaboradores")
@@ -130,7 +145,7 @@ export default async function AdminOverviewPage({
     supabase
       .from("respostas")
       .select(
-        "categoria_final_id, treinamento_final_id, treinamentos:treinamento_final_id(nome), avaliacoes!inner(marco, colaboradores(data_admissao))"
+        "avaliacao_id, categoria_final_id, treinamento_final_id, treinamentos:treinamento_final_id(nome)"
       )
       .not("categoria_final_id", "is", null),
     supabase
@@ -151,31 +166,26 @@ export default async function AdminOverviewPage({
     : listaBase;
   const avaliacoesDoMarco = marcoNum ? lista.filter((a) => a.marco === marcoNum) : lista;
 
-  let avaliacoesFiltradas = avaliacoesDoMarco;
-
-  if (status === "pendente" || status === "enviada" || status === "respondida" || status === "expirada") {
-    avaliacoesFiltradas = avaliacoesFiltradas.filter((a) => a.status === status);
+  // Filtros dos cards (status e notas críticas), aplicados por cima do
+  // período/admissão. Os gráficos usam a mesma função pra acompanhar a tabela.
+  function aplicarFiltrosDosCards(itens: typeof lista) {
+    let resultado = itens;
+    if (status === "pendente" || status === "enviada" || status === "respondida" || status === "expirada") {
+      resultado = resultado.filter((a) => a.status === status);
+    }
+    if (critico) {
+      resultado = resultado.filter((a) => avaliacoesComNotaCritica.has(a.id));
+    }
+    return resultado;
   }
 
-  if (critico) {
-    avaliacoesFiltradas = avaliacoesFiltradas.filter((a) => avaliacoesComNotaCritica.has(a.id));
-  }
+  const avaliacoesFiltradas = aplicarFiltrosDosCards(avaliacoesDoMarco);
 
-  const respostasBase = temFiltroAdmissao
-    ? (respostas ?? []).filter((r) =>
-        dentroDoPeriodoAdmissao(
-          (
-            r.avaliacoes as unknown as {
-              colaboradores: { data_admissao: string } | null;
-            }
-          ).colaboradores?.data_admissao
-        )
-      )
-    : respostas ?? [];
-
-  const respostasFiltradas = marcoNum
-    ? respostasBase.filter((r) => (r.avaliacoes as unknown as { marco: number }).marco === marcoNum)
-    : respostasBase;
+  // Treinamentos seguem exatamente os mesmos filtros da tabela (período,
+  // admissão, status e notas críticas): só conta resposta de avaliação que
+  // está na lista filtrada.
+  const idsAvaliacoesFiltradas = new Set(avaliacoesFiltradas.map((a) => a.id));
+  const respostasFiltradas = (respostas ?? []).filter((r) => idsAvaliacoesFiltradas.has(r.avaliacao_id));
 
   const contagemPorCategoria = new Map<string, number>();
   const treinamentosPorCategoria = new Map<string, Map<string, { nome: string; total: number }>>();
@@ -193,10 +203,17 @@ export default async function AdminOverviewPage({
     mapaDaCategoria.set(treinamentoId, { nome: treinamento.nome, total: (atual?.total ?? 0) + 1 });
   }
 
+  const nomeCategoria = new Map((categorias ?? []).map((c) => [c.id, c.nome]));
+  const rankingTreinamentos = [...treinamentosPorCategoria.entries()]
+    .flatMap(([categoriaId, mapa]) =>
+      [...mapa.values()].map((t) => ({ ...t, categoria: nomeCategoria.get(categoriaId) ?? "" }))
+    )
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 6);
+
   const totalRespondidas = avaliacoesDoMarco.filter((a) => a.status === "respondida").length;
   const totalPendente = avaliacoesDoMarco.filter((a) => a.status === "pendente").length;
   const totalEnviada = avaliacoesDoMarco.filter((a) => a.status === "enviada").length;
-  const totalAguardando = totalPendente + totalEnviada;
   const totalExpiradas = avaliacoesDoMarco.filter((a) => a.status === "expirada").length;
 
   // Tempo médio de resposta: só entre quem já respondeu e tem as duas datas
@@ -213,10 +230,13 @@ export default async function AdminOverviewPage({
       }, 0) / respondidasComTempo.length
     : null;
 
-  const totalDoDonut = totalRespondidas + totalAguardando + totalExpiradas;
-  const pctRespondidas = totalDoDonut ? (totalRespondidas / totalDoDonut) * 100 : 0;
-  const pctAguardando = totalDoDonut ? (totalAguardando / totalDoDonut) * 100 : 0;
-  const pctExpiradasDonut = totalDoDonut ? (totalExpiradas / totalDoDonut) * 100 : 0;
+  const donutRespondidas = avaliacoesFiltradas.filter((a) => a.status === "respondida").length;
+  const donutAguardando = avaliacoesFiltradas.filter((a) => a.status === "pendente" || a.status === "enviada").length;
+  const donutExpiradas = avaliacoesFiltradas.filter((a) => a.status === "expirada").length;
+  const totalDoDonut = donutRespondidas + donutAguardando + donutExpiradas;
+  const pctRespondidas = totalDoDonut ? (donutRespondidas / totalDoDonut) * 100 : 0;
+  const pctAguardando = totalDoDonut ? (donutAguardando / totalDoDonut) * 100 : 0;
+  const pctExpiradasDonut = totalDoDonut ? (donutExpiradas / totalDoDonut) * 100 : 0;
 
   // Rótulos dentro da rosca: só os fatios grandes o bastante pra caber o
   // texto sem sobrepor os vizinhos.
@@ -249,8 +269,9 @@ export default async function AdminOverviewPage({
       .map((a) => a.colaborador_id)
   ).size;
 
+  const listaComFiltrosDosCards = aplicarFiltrosDosCards(lista);
   const progressoPorMarco = MARCOS.map((m) => {
-    const doMarco = lista.filter((a) => a.marco === m);
+    const doMarco = listaComFiltrosDosCards.filter((a) => a.marco === m);
     return {
       marco: m,
       total: doMarco.length,
@@ -262,9 +283,12 @@ export default async function AdminOverviewPage({
 
   // "Requer atenção": avaliações já expiradas, ou aguardando resposta —
   // pra não depender de ninguém abrir a tabela completa e reparar sozinho.
+  // Server Component: roda uma vez por requisição, então ler o relógio aqui
+  // é estável — não existe re-render no cliente pra dar valor diferente.
+  // eslint-disable-next-line react-hooks/purity
   const agora = Date.now();
 
-  const itensAtencao = avaliacoesDoMarco
+  const itensAtencao = avaliacoesFiltradas
     .map((a) => {
       const colaborador = a.colaboradores as unknown as {
         id: string;
@@ -310,7 +334,6 @@ export default async function AdminOverviewPage({
       return new Date(a.expiraEm ?? 0).getTime() - new Date(b.expiraEm ?? 0).getTime();
     });
 
-  const itensAtencaoTop = itensAtencao.slice(0, 6);
 
   const avaliacoesParaTabela: AvaliacaoLinha[] = avaliacoesFiltradas.map((a) => {
     const colaborador = a.colaboradores as unknown as {
@@ -338,12 +361,35 @@ export default async function AdminOverviewPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="-mt-2 flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col gap-2">
           <h1 className="text-xl font-semibold">
             Visão geral{marco ? ` — ${marco} dias` : ""}
           </h1>
-          <form method="get" action="/admin" className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-wrap gap-2">
+            {MARCOS_FILTRO.map((opcao) => {
+              const ativo = (marco ?? "") === opcao.valor;
+              const total = opcao.valor
+                ? lista.filter((a) => a.marco === Number(opcao.valor)).length
+                : lista.length;
+              return (
+                <Link
+                  key={opcao.label}
+                  href={hrefMarco(opcao.valor)}
+                  className={`flex min-w-24 flex-col items-center gap-0.5 rounded-xl px-6 py-3 transition-colors ${
+                    ativo
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-primary-soft/50 text-primary hover:bg-primary-soft"
+                  }`}
+                >
+                  <span className="text-sm font-medium">{opcao.label}</span>
+                  <span className="text-2xl font-bold tabular-nums">{total}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+        <form method="get" action="/admin" className="flex flex-wrap items-end gap-2">
             {marco && <input type="hidden" name="marco" value={marco} />}
             {status && <input type="hidden" name="status" value={status} />}
             {critico && <input type="hidden" name="critico" value={critico} />}
@@ -387,29 +433,6 @@ export default async function AdminOverviewPage({
               </Link>
             )}
           </form>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {MARCOS_FILTRO.map((opcao) => {
-            const ativo = (marco ?? "") === opcao.valor;
-            const total = opcao.valor
-              ? progressoPorMarco.find((p) => p.marco === Number(opcao.valor))?.total ?? 0
-              : lista.length;
-            return (
-              <Link
-                key={opcao.label}
-                href={hrefMarco(opcao.valor)}
-                className={`flex flex-col items-center gap-0.5 rounded-xl px-4 py-2 transition-colors ${
-                  ativo
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-primary-soft/50 text-primary hover:bg-primary-soft"
-                }`}
-              >
-                <span className="text-sm font-medium">{opcao.label}</span>
-                <span className="text-lg font-bold tabular-nums">{total}</span>
-              </Link>
-            );
-          })}
-        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
@@ -419,7 +442,7 @@ export default async function AdminOverviewPage({
           value={colaboradoresAtivos}
           href={hrefFiltro({})}
           ativo={!status && !critico}
-          tone="neutral"
+          tone="blue"
         />
         <Card
           icon={Hourglass}
@@ -427,7 +450,7 @@ export default async function AdminOverviewPage({
           value={totalPendente}
           href={status === "pendente" ? hrefFiltro({}) : hrefFiltro({ status: "pendente" })}
           ativo={status === "pendente"}
-          tone="neutral"
+          tone="violet"
         />
         <Card
           icon={Clock}
@@ -435,7 +458,7 @@ export default async function AdminOverviewPage({
           value={totalEnviada}
           href={status === "enviada" ? hrefFiltro({}) : hrefFiltro({ status: "enviada" })}
           ativo={status === "enviada"}
-          tone="warning"
+          tone="amber"
         />
         <Card
           icon={CheckCircle2}
@@ -443,7 +466,7 @@ export default async function AdminOverviewPage({
           value={totalRespondidas}
           href={status === "respondida" ? hrefFiltro({}) : hrefFiltro({ status: "respondida" })}
           ativo={status === "respondida"}
-          tone="good"
+          tone="green"
         />
         <Card
           icon={XCircle}
@@ -451,7 +474,7 @@ export default async function AdminOverviewPage({
           value={totalExpiradas}
           href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
           ativo={status === "expirada"}
-          tone="critical"
+          tone="orange"
         />
         <Card
           icon={AlertTriangle}
@@ -459,98 +482,20 @@ export default async function AdminOverviewPage({
           value={colaboradoresComNotaCritica}
           href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
           ativo={!!critico}
-          tone="critical"
+          tone="red"
           alertaSoSeValor
         />
         <Card
           icon={Timer}
           label="Tempo médio de resposta"
           value={tempoMedioRespostaDias === null ? "-" : `${tempoMedioRespostaDias.toFixed(1)}d`}
-          tone="neutral"
+          tone="teal"
         />
       </div>
 
-      {itensAtencaoTop.length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50/60 p-4">
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <h2 className="flex items-center gap-2 font-medium text-red-700">
-                <AlertTriangle className="h-4 w-4" />
-                Requer atenção
-              </h2>
-              <p className="text-xs text-red-600/80">
-                Colaboradores com avaliações próximas do vencimento ou atrasadas.
-              </p>
-            </div>
-            <span className="whitespace-nowrap rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700">
-              {itensAtencao.length} no total
-            </span>
-          </div>
-          <ul className="flex flex-col gap-2">
-            {itensAtencaoTop.map((item) => {
-              const diasRestantes = Math.ceil(
-                (new Date(item.expiraEm ?? 0).getTime() - agora) / (24 * 60 * 60 * 1000)
-              );
-              return (
-                <li
-                  key={item.avaliacaoId}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-white px-3 py-2.5 text-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-600">
-                      {iniciais(item.nome)}
-                    </span>
-                    <div>
-                      <Link
-                        href={`/admin/colaboradores/${item.colaboradorId}`}
-                        className="font-semibold text-zinc-900 hover:underline"
-                      >
-                        {item.nome}
-                      </Link>
-                      <div className="text-xs text-zinc-500">
-                        {item.matricula ?? "-"}
-                        {item.cargo ? ` · ${item.cargo}` : ""}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span
-                      className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${
-                        item.atrasada ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
-                      }`}
-                    >
-                      Avaliação de {item.marco} dias
-                    </span>
-                    {item.expiraEm && (
-                      <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-zinc-500">
-                        <CalendarDays className="h-3.5 w-3.5" />
-                        Vencimento: {new Date(item.expiraEm).toLocaleDateString("pt-BR")}
-                      </span>
-                    )}
-                    <span
-                      className={`whitespace-nowrap font-medium ${item.atrasada ? "text-red-600" : "text-amber-600"}`}
-                    >
-                      {item.atrasada
-                        ? `Atrasada há ${Math.max(1, -diasRestantes)} dia(s)`
-                        : `Faltam ${Math.max(0, diasRestantes)} dia(s)`}
-                    </span>
-                    <Link
-                      href={`/admin/colaboradores/${item.colaboradorId}`}
-                      className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary-hover"
-                    >
-                      Abrir avaliação
-                    </Link>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
       <div className="grid gap-6 lg:grid-cols-2">
       <div>
-        <h2 className="mb-3 font-medium">Progresso por período</h2>
+        <h2 className="mb-3 font-medium">Progresso por período{sufixoFiltrosDosCards}</h2>
         <div className="flex flex-col gap-3 rounded-lg border border-primary-border p-4">
           <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500">
             <LegendaCor cor={STATUS_COLORS.good} label="Concluídas" />
@@ -604,7 +549,7 @@ export default async function AdminOverviewPage({
       </div>
 
       <div>
-        <h2 className="mb-3 font-medium">Status das avaliações{marco ? ` — ${marco} dias` : ""}</h2>
+        <h2 className="mb-3 font-medium">Status das avaliações{sufixoFiltros}</h2>
         <div className="flex h-[calc(100%-2rem)] flex-col gap-3 rounded-xl bg-primary-soft/40 p-4">
           <div className="flex flex-1 flex-col items-center justify-center gap-5 sm:flex-row sm:justify-center">
             <div
@@ -641,17 +586,17 @@ export default async function AdminOverviewPage({
               <li className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.good }} />
                 Concluídas
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalRespondidas}</span>
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{donutRespondidas}</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.warning }} />
                 Aguardando
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalAguardando}</span>
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{donutAguardando}</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.critical }} />
                 Atrasadas
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalExpiradas}</span>
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{donutExpiradas}</span>
               </li>
             </ul>
           </div>
@@ -659,18 +604,112 @@ export default async function AdminOverviewPage({
       </div>
       </div>
 
+      {/* Altura fixa no desktop: os dois lados ficam do mesmo tamanho e cada um
+          rola por dentro quando tiver mais gente. */}
+      <div className={`grid gap-6 lg:h-[560px] ${itensAtencao.length > 0 ? "lg:grid-cols-[2fr_3fr]" : ""}`}>
+      {itensAtencao.length > 0 && (
+        <div className="flex min-h-0 min-w-0 flex-col rounded-lg border border-red-200 bg-red-50/60 p-4">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="flex items-center gap-2 font-medium text-red-700">
+                <AlertTriangle className="h-4 w-4" />
+                Requer atenção
+              </h2>
+              <p className="text-xs text-red-600/80">
+                Colaboradores com avaliações próximas do vencimento ou atrasadas.
+              </p>
+            </div>
+            <span className="whitespace-nowrap rounded-full border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700">
+              {itensAtencao.length} no total
+            </span>
+          </div>
+          <ul className="flex max-h-[480px] min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none">
+            {itensAtencao.map((item) => {
+              const diasRestantes = Math.ceil(
+                (new Date(item.expiraEm ?? 0).getTime() - agora) / (24 * 60 * 60 * 1000)
+              );
+              return (
+                <li
+                  key={item.avaliacaoId}
+                  className="flex shrink-0 flex-col gap-2 rounded-md bg-white px-3 py-2.5 text-sm"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-600">
+                      {iniciais(item.nome)}
+                    </span>
+                    <div>
+                      <Link
+                        href={`/admin/colaboradores/${item.colaboradorId}`}
+                        className="font-semibold text-zinc-900 hover:underline"
+                      >
+                        {item.nome}
+                      </Link>
+                      <div className="text-xs text-zinc-500">
+                        {item.matricula ?? "-"}
+                        {item.cargo ? ` · ${item.cargo}` : ""}
+                      </div>
+                    </div>
+                  </div>
+                    <Link
+                      href={`/admin/colaboradores/${item.colaboradorId}`}
+                      className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary-hover"
+                    >
+                      Abrir avaliação
+                    </Link>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-12">
+                    <span
+                      className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${
+                        item.atrasada ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      Avaliação de {item.marco} dias
+                    </span>
+                    {item.expiraEm && (
+                      <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-zinc-500">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        Vencimento: {new Date(item.expiraEm).toLocaleDateString("pt-BR")}
+                      </span>
+                    )}
+                    <span
+                      className={`whitespace-nowrap font-medium ${item.atrasada ? "text-red-600" : "text-amber-600"}`}
+                    >
+                      {item.atrasada
+                        ? `Atrasada há ${Math.max(1, -diasRestantes)} dia(s)`
+                        : `Faltam ${Math.max(0, diasRestantes)} dia(s)`}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex min-h-0 min-w-0 flex-col">
+        <h2 className="mb-3 font-medium">
+          Avaliações{marco ? ` de ${marco} dias` : ""}
+          {status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : ""}
+          {critico ? " — Notas críticas" : ""}
+        </h2>
+        <AvaliacoesTable avaliacoes={avaliacoesParaTabela} />
+      </div>
+      </div>
+
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-medium">Treinamentos indicados{marco ? ` — ${marco} dias` : ""}</h2>
+          <h2 className="font-medium">Treinamentos indicados{sufixoFiltros}</h2>
           <a
-            href={`/admin/categorias/export${marco ? `?marco=${marco}` : ""}`}
+            href={hrefExportar()}
             className="flex items-center gap-2 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
           >
             <Download className="h-4 w-4" />
             Exportar tudo
           </a>
         </div>
-        <div className="flex flex-col gap-3 lg:max-w-2xl">
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="flex flex-col gap-3">
           <div className="flex items-center gap-3 rounded-lg border border-primary-border bg-primary-soft/40 px-4 py-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft">
               <GraduationCap className="h-5 w-5 text-primary" />
@@ -719,17 +758,45 @@ export default async function AdminOverviewPage({
               <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
             )}
           </div>
+          </div>
+
+          <div className="flex flex-col gap-4 rounded-xl bg-primary-soft/40 p-4">
+            <div>
+              <h3 className="font-medium">Treinamentos mais indicados</h3>
+              <p className="text-xs text-zinc-500">Ranking de todos os treinamentos, independente da competência.</p>
+            </div>
+            {rankingTreinamentos.length === 0 ? (
+              <p className="text-sm text-zinc-500">Nenhum treinamento indicado ainda.</p>
+            ) : (
+              <ol className="flex flex-col gap-3">
+                {rankingTreinamentos.map((t, i) => (
+                  <li key={i} className="flex flex-col gap-1.5 rounded-md bg-white px-3 py-2.5 text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
+                          {i + 1}
+                        </span>
+                        <span className="truncate font-medium text-zinc-900">{t.nome}</span>
+                      </span>
+                      <span className="shrink-0 font-semibold tabular-nums text-primary">{t.total}</span>
+                    </div>
+                    <div className="flex items-center gap-2 pl-8">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${(t.total / rankingTreinamentos[0].total) * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-28 shrink-0 truncate text-right text-xs text-zinc-500">{t.categoria}</span>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
         </div>
       </div>
 
-      <div>
-        <h2 className="mb-3 font-medium">
-          Avaliações{marco ? ` de ${marco} dias` : ""}
-          {status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : ""}
-          {critico ? " — Notas críticas" : ""}
-        </h2>
-        <AvaliacoesTable avaliacoes={avaliacoesParaTabela} />
-      </div>
 
       <Link href="/admin/colaboradores" className="w-fit text-sm text-primary underline underline-offset-2">
         Ver todos os colaboradores →
@@ -747,35 +814,61 @@ function LegendaCor({ cor, label }: { cor: string; label: string }) {
   );
 }
 
-type Tom = "neutral" | "good" | "warning" | "critical";
+// Cada card tem uma cor própria pra não repetir fundo lado a lado; o ícone
+// vai em cor sólida pra destacar. "neutral" só aparece quando alertaSoSeValor zera.
+type Tom = "neutral" | "blue" | "violet" | "amber" | "green" | "orange" | "red" | "teal";
 
 const ESTILO_POR_TOM: Record<
   Tom,
   { cardBg: string; iconBg: string; iconColor: string; activeRing: string }
 > = {
   neutral: {
-    cardBg: "bg-zinc-100",
-    iconBg: "bg-zinc-200",
-    iconColor: "text-zinc-700",
-    activeRing: "ring-zinc-400",
+    cardBg: "bg-zinc-50",
+    iconBg: "bg-zinc-500",
+    iconColor: "text-white",
+    activeRing: "ring-zinc-500",
   },
-  good: {
-    cardBg: "bg-green-50",
-    iconBg: "bg-green-100",
-    iconColor: "text-green-700",
-    activeRing: "ring-green-500",
+  blue: {
+    cardBg: "bg-blue-50",
+    iconBg: "bg-blue-500",
+    iconColor: "text-white",
+    activeRing: "ring-blue-500",
   },
-  warning: {
+  violet: {
+    cardBg: "bg-violet-50",
+    iconBg: "bg-violet-500",
+    iconColor: "text-white",
+    activeRing: "ring-violet-500",
+  },
+  amber: {
     cardBg: "bg-amber-50",
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-700",
+    iconBg: "bg-amber-500",
+    iconColor: "text-white",
     activeRing: "ring-amber-500",
   },
-  critical: {
+  green: {
+    cardBg: "bg-green-50",
+    iconBg: "bg-green-500",
+    iconColor: "text-white",
+    activeRing: "ring-green-500",
+  },
+  orange: {
+    cardBg: "bg-orange-50",
+    iconBg: "bg-orange-500",
+    iconColor: "text-white",
+    activeRing: "ring-orange-500",
+  },
+  red: {
     cardBg: "bg-red-50",
-    iconBg: "bg-red-100",
-    iconColor: "text-red-700",
+    iconBg: "bg-red-500",
+    iconColor: "text-white",
     activeRing: "ring-red-500",
+  },
+  teal: {
+    cardBg: "bg-teal-50",
+    iconBg: "bg-teal-500",
+    iconColor: "text-white",
+    activeRing: "ring-teal-500",
   },
 };
 
@@ -802,17 +895,19 @@ function Card({
   const estilo = ESTILO_POR_TOM[tomEfetivo];
   const conteudo = (
     <>
-      <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${estilo.iconBg}`}>
-        <Icon className={`h-6 w-6 ${estilo.iconColor}`} strokeWidth={2} />
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${estilo.iconBg}`}>
+        <Icon className={`h-5 w-5 ${estilo.iconColor}`} strokeWidth={2} />
       </span>
-      <p className="text-xs font-medium text-zinc-600">{label}</p>
-      <p className="text-2xl font-bold tabular-nums text-zinc-900">{value}</p>
+      <div className="min-w-0">
+        <p className="text-xs font-medium leading-tight text-zinc-600">{label}</p>
+        <p className="text-xl font-bold tabular-nums text-zinc-900">{value}</p>
+      </div>
     </>
   );
 
   if (!href) {
     return (
-      <div className={`flex flex-col items-center gap-2 rounded-xl p-4 text-center ${estilo.cardBg}`}>
+      <div className={`flex items-center gap-3 rounded-xl px-3 py-3 ${estilo.cardBg}`}>
         {conteudo}
       </div>
     );
@@ -821,7 +916,7 @@ function Card({
   return (
     <Link
       href={href}
-      className={`flex flex-col items-center gap-2 rounded-xl p-4 text-center transition-all ${estilo.cardBg} ${
+      className={`flex items-center gap-3 rounded-xl px-3 py-3 transition-all ${estilo.cardBg} ${
         ativo ? `ring-2 ${estilo.activeRing}` : "hover:brightness-[0.97]"
       }`}
     >

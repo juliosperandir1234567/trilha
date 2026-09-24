@@ -38,7 +38,7 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
     : avaliacoes;
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="relative max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
         <input
@@ -49,16 +49,16 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
         />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-primary-border">
-        <table className="w-full min-w-[900px] text-left text-sm">
-          <thead>
+      <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-primary-border">
+        <table className="w-full text-left text-sm">
+          <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
-              <th className="whitespace-nowrap px-4 py-3">Matrícula</th>
-              <th className="px-4 py-3">Colaborador</th>
-              <th className="whitespace-nowrap px-4 py-3">Período</th>
-              <th className="px-4 py-3">Gestor</th>
-              <th className="whitespace-nowrap px-4 py-3">Status</th>
-              <th className="whitespace-nowrap px-4 py-3">Expira / respondida em</th>
+              <th className="whitespace-nowrap px-3 py-3">Matrícula</th>
+              <th className="px-3 py-3">Colaborador</th>
+              <th className="whitespace-nowrap px-3 py-3">Período</th>
+              <th className="px-3 py-3">Gestor</th>
+              <th className="whitespace-nowrap px-3 py-3">Status</th>
+              <th className="px-3 py-3">Expira / respondida em</th>
             </tr>
           </thead>
           <tbody>
@@ -67,8 +67,8 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                 key={avaliacao.id}
                 className={`border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20 ${avaliacao.notaCritica ? "bg-red-50" : ""}`}
               >
-                <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{avaliacao.matricula}</td>
-                <td className="px-4 py-3">
+                <td className="whitespace-nowrap px-3 py-3 text-zinc-500">{avaliacao.matricula}</td>
+                <td className="px-3 py-3">
                   <Link
                     href={`/admin/colaboradores/${avaliacao.colaboradorId}`}
                     className="text-primary underline underline-offset-2"
@@ -82,20 +82,20 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                     </span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3">{avaliacao.marco} dias</td>
-                <td className="px-4 py-3 text-zinc-500">{avaliacao.gestorNome}</td>
-                <td className="whitespace-nowrap px-4 py-3">
+                <td className="whitespace-nowrap px-3 py-3">{avaliacao.marco} dias</td>
+                <td className="px-3 py-3 text-zinc-500">{avaliacao.gestorNome}</td>
+                <td className="whitespace-nowrap px-3 py-3">
                   <span className={avaliacao.status === "expirada" ? "text-red-600" : ""}>
                     {STATUS_LABEL[avaliacao.status] ?? avaliacao.status}
                   </span>
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
+                <td className="whitespace-nowrap px-3 py-3 text-zinc-500">
                   {avaliacao.status === "respondida"
                     ? avaliacao.dataResposta
-                      ? new Date(avaliacao.dataResposta).toLocaleString("pt-BR")
+                      ? new Date(avaliacao.dataResposta).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
                       : "-"
                     : avaliacao.expiraEm
-                      ? new Date(avaliacao.expiraEm).toLocaleString("pt-BR")
+                      ? new Date(avaliacao.expiraEm).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
                       : "-"}
                 </td>
               </tr>
