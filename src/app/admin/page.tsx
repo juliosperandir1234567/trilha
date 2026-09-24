@@ -4,6 +4,7 @@ import {
   Clock,
   CheckCircle2,
   AlertTriangle,
+  XCircle,
   GraduationCap,
   ChevronRight,
   Download,
@@ -424,7 +425,7 @@ export default async function AdminOverviewPage({
           tone="good"
         />
         <Card
-          icon={AlertTriangle}
+          icon={XCircle}
           label="Expiradas"
           value={totalExpiradas}
           href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
@@ -778,8 +779,8 @@ function Card({
         ativo ? `ring-2 ${estilo.activeRing}` : "hover:brightness-[0.97]"
       }`}
     >
-      <span className={`flex h-10 w-10 items-center justify-center rounded-lg ${estilo.iconBg}`}>
-        <Icon className={`h-5 w-5 ${estilo.iconColor}`} />
+      <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${estilo.iconBg}`}>
+        <Icon className={`h-6 w-6 ${estilo.iconColor}`} strokeWidth={2} />
       </span>
       <p className="text-xs font-medium text-zinc-600">{label}</p>
       <p className="text-2xl font-bold tabular-nums text-zinc-900">{value}</p>
