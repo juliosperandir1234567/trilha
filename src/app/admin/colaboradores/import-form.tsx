@@ -11,16 +11,21 @@ export function ImportForm() {
     <form action={action} className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
         <label htmlFor="planilha" className="text-sm font-medium">
-          Planilha (CSV)
+          Planilha (.xlsx ou .csv)
         </label>
-        <input id="planilha" name="planilha" type="file" accept=".csv,text/csv" className="text-sm" />
+        <input
+          id="planilha"
+          name="planilha"
+          type="file"
+          accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          className="text-sm"
+        />
         <p className="text-xs text-zinc-500">
           Colunas esperadas: <code>matricula</code>, <code>nome</code>,{" "}
           <code>data_admissao</code> (dd/mm/aaaa ou aaaa-mm-dd),{" "}
           <code>cargo</code> (opcional — precisa bater com o nome de um cargo já cadastrado
-          em Cargos), <code>matricula do gestor</code>, <code>gestor</code>,{" "}
-          <code>email do gestor</code>. Exporte sua planilha do Excel/Google Sheets como CSV
-          antes de importar.
+          em Cargos), <code>gestor</code>, <code>email do gestor</code>. Pode enviar direto o
+          arquivo do Excel (.xlsx) ou exportar como CSV.
         </p>
       </div>
 

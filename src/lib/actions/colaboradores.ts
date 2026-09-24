@@ -1,6 +1,7 @@
 "use server";
 
 import Papa from "papaparse";
+import ExcelJS from "exceljs";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +17,33 @@ function normalizeHeader(header: string) {
     .replace(/[̀-ͯ]/g, "")
     .trim()
     .toLowerCase();
+}
+
+function celulaParaTexto(valor: ExcelJS.CellValue): string {
+  if (valor === null || valor === undefined) return "";
+  if (valor instanceof Date) {
+    // Datas do Excel não têm fuso — usa os getters UTC pra não escorregar um
+    // dia por causa do fuso local do servidor.
+    const dia = String(valor.getUTCDate()).padStart(2, "0");
+    const mes = String(valor.getUTCMonth() + 1).padStart(2, "0");
+    const ano = valor.getUTCFullYear();
+    return `${dia}/${mes}/${ano}`;
+  }
+  if (typeof valor === "object") {
+    if ("richText" in valor) {
+      return valor.richText.map((parte) => parte.text).join("");
+    }
+    if ("text" in valor && typeof valor.text === "string") {
+      return valor.text;
+    }
+    if ("result" in valor) {
+      return celulaParaTexto(valor.result as ExcelJS.CellValue);
+    }
+    if ("hyperlink" in valor && "text" in valor) {
+      return String(valor.text ?? "");
+    }
+  }
+  return String(valor).trim();
 }
 
 function parseDataAdmissao(valor: string): string | null {
@@ -46,10 +74,9 @@ export async function createColaborador(
   const dataAdmissao = String(formData.get("data_admissao") ?? "").trim();
   const gestorNome = String(formData.get("gestor_nome") ?? "").trim();
   const gestorEmail = String(formData.get("gestor_email") ?? "").trim();
-  const gestorMatricula = String(formData.get("gestor_matricula") ?? "").trim();
   const cargoId = String(formData.get("cargo_id") ?? "").trim();
 
-  if (!nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail || !gestorMatricula) {
+  if (!nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail) {
     return { error: "Preencha todos os campos." };
   }
 
@@ -60,7 +87,6 @@ export async function createColaborador(
     data_admissao: dataAdmissao,
     gestor_nome: gestorNome,
     gestor_email: gestorEmail,
-    gestor_matricula: gestorMatricula,
     cargo_id: cargoId || null,
   });
 
@@ -79,23 +105,59 @@ export async function importColaboradores(
 
   const arquivo = formData.get("planilha") as File | null;
   if (!arquivo || arquivo.size === 0) {
-    return { error: "Selecione um arquivo CSV." };
+    return { error: "Selecione uma planilha." };
   }
 
   const buffer = await arquivo.arrayBuffer();
-  let texto = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
-  if (texto.includes("�")) {
-    // O Excel do Windows exporta CSV em ANSI (Windows-1252) por padrão, não em
-    // UTF-8 — isso quebra qualquer acento (ex: "Admissão"), fazendo o cabeçalho
-    // não bater com nada esperado. Tenta de novo assumindo essa codificação.
-    texto = new TextDecoder("windows-1252").decode(buffer);
-  }
+  const nomeArquivo = arquivo.name.toLowerCase();
+  const ehExcel = nomeArquivo.endsWith(".xlsx");
 
-  const { data: linhas } = Papa.parse<Record<string, string>>(texto, {
-    header: true,
-    skipEmptyLines: true,
-    transformHeader: normalizeHeader,
-  });
+  let linhas: Record<string, string>[];
+
+  if (ehExcel) {
+    const workbook = new ExcelJS.Workbook();
+    try {
+      await workbook.xlsx.load(buffer);
+    } catch {
+      return { error: "Não foi possível ler esse arquivo. Salve como .xlsx (Excel) ou .csv e tente de novo." };
+    }
+    const planilha = workbook.worksheets[0];
+    if (!planilha) {
+      return { error: "A planilha está vazia." };
+    }
+
+    const cabecalhos: string[] = [];
+    planilha.getRow(1).eachCell({ includeEmpty: false }, (celula, coluna) => {
+      cabecalhos[coluna] = normalizeHeader(String(celula.value ?? ""));
+    });
+
+    linhas = [];
+    planilha.eachRow((linhaExcel, numeroLinha) => {
+      if (numeroLinha === 1) return;
+      const linha: Record<string, string> = {};
+      linhaExcel.eachCell({ includeEmpty: false }, (celula, coluna) => {
+        const chave = cabecalhos[coluna];
+        if (!chave) return;
+        linha[chave] = celulaParaTexto(celula.value);
+      });
+      linhas.push(linha);
+    });
+  } else {
+    let texto = new TextDecoder("utf-8", { fatal: false }).decode(buffer);
+    if (texto.includes("�")) {
+      // O Excel do Windows exporta CSV em ANSI (Windows-1252) por padrão, não em
+      // UTF-8 — isso quebra qualquer acento (ex: "Admissão"), fazendo o cabeçalho
+      // não bater com nada esperado. Tenta de novo assumindo essa codificação.
+      texto = new TextDecoder("windows-1252").decode(buffer);
+    }
+
+    const { data } = Papa.parse<Record<string, string>>(texto, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: normalizeHeader,
+    });
+    linhas = data;
+  }
 
   const registros: {
     nome: string;
@@ -103,7 +165,6 @@ export async function importColaboradores(
     data_admissao: string;
     gestor_nome: string;
     gestor_email: string;
-    gestor_matricula: string;
     cargo_nome: string;
   }[] = [];
   let ignorados = 0;
@@ -143,18 +204,11 @@ export async function importColaboradores(
       linha["e-mail"] ??
       ""
     ).trim();
-    const gestorMatricula = (
-      linha["matricula do gestor"] ??
-      linha["matrícula do gestor"] ??
-      linha["matricula gestor"] ??
-      linha["gestor_matricula"] ??
-      ""
-    ).trim();
     const cargoNome = (linha["cargo"] ?? "").trim();
 
     const dataAdmissao = dataBruta ? parseDataAdmissao(dataBruta) : null;
 
-    if (!nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail || !gestorMatricula) {
+    if (!nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail) {
       ignorados += 1;
       continue;
     }
@@ -165,7 +219,6 @@ export async function importColaboradores(
       data_admissao: dataAdmissao,
       gestor_nome: gestorNome,
       gestor_email: gestorEmail,
-      gestor_matricula: gestorMatricula,
       cargo_nome: cargoNome,
     });
   }
@@ -173,7 +226,7 @@ export async function importColaboradores(
   if (registros.length === 0) {
     return {
       error:
-        "Nenhuma linha válida encontrada. Confira as colunas: nome, matricula, data_admissao, gestor, matricula do gestor, email do gestor.",
+        "Nenhuma linha válida encontrada. Confira as colunas: nome, matricula, data_admissao, gestor, email do gestor.",
     };
   }
 

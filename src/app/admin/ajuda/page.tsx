@@ -311,7 +311,8 @@ const SECOES = [
         </li>
         <li>
           <strong>Colaboradores</strong>: formulário de cadastro individual e outro pra
-          importar uma planilha CSV em lote. A listagem mostra matrícula, cargo, data de
+          importar uma planilha em lote (aceita .xlsx direto do Excel ou .csv). A listagem
+          mostra matrícula, cargo, data de
           admissão, gestor responsável, status (ativo/inativo) e o próximo período pendente
           daquele colaborador, com o botão de forçar envio do e-mail. Clicar no nome abre o
           histórico completo de todos os períodos daquele colaborador (que variam conforme

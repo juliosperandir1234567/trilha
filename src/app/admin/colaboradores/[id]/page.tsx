@@ -24,7 +24,7 @@ export default async function ColaboradorDetalhePage({
   const { data: colaborador } = await supabase
     .from("colaboradores")
     .select(
-      "id, nome, matricula, email, data_admissao, gestor_nome, gestor_email, gestor_matricula, ativo, cargos(nome, marcos)"
+      "id, nome, matricula, email, data_admissao, gestor_nome, gestor_email, ativo, cargos(nome, marcos)"
     )
     .eq("id", id)
     .single();
@@ -66,8 +66,7 @@ export default async function ColaboradorDetalhePage({
         <p className="text-sm text-zinc-500">
           {cargo ? <>Cargo: {cargo.nome} · </> : null}Admissão em{" "}
           {new Date(colaborador.data_admissao + "T00:00:00").toLocaleDateString("pt-BR")}
-          {" · "}Gestor: {colaborador.gestor_matricula} — {colaborador.gestor_nome} (
-          {colaborador.gestor_email})
+          {" · "}Gestor: {colaborador.gestor_nome} ({colaborador.gestor_email})
           {" · "}{colaborador.ativo ? "Ativo" : "Inativo"}
         </p>
       </div>

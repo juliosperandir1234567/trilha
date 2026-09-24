@@ -68,18 +68,6 @@ export function ColaboradorForm({ cargos }: { cargos: Cargo[] }) {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="gestor_matricula" className="text-sm font-medium">
-            Matrícula do gestor
-          </label>
-          <input
-            id="gestor_matricula"
-            name="gestor_matricula"
-            required
-            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
           <label htmlFor="gestor_nome" className="text-sm font-medium">
             Nome do gestor
           </label>
