@@ -1,9 +1,10 @@
 "use server";
 
 import Papa from "papaparse";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff } from "@/lib/supabase/dal";
+import { requireAdmin, requireStaff } from "@/lib/supabase/dal";
 
 export type ImportFormState =
   | { error?: string; inseridos?: number; ignorados?: number }
@@ -196,4 +197,49 @@ export async function importColaboradores(
 
   revalidatePath("/admin/colaboradores");
   return { inseridos: paraInserir.length, ignorados };
+}
+
+export type DeleteColaboradoresFormState = { error?: string } | undefined;
+
+export async function deleteColaboradores(
+  _prevState: DeleteColaboradoresFormState,
+  formData: FormData
+): Promise<DeleteColaboradoresFormState> {
+  const { user } = await requireAdmin();
+
+  const ids = formData.getAll("ids").map(String).filter(Boolean);
+  const senha = String(formData.get("senha") ?? "");
+
+  if (ids.length === 0) {
+    return { error: "Selecione ao menos um colaborador." };
+  }
+  if (!senha) {
+    return { error: "Informe sua senha para confirmar." };
+  }
+
+  const verificador = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+  );
+  const { error: senhaInvalida } = await verificador.auth.signInWithPassword({
+    email: user.email!,
+    password: senha,
+  });
+
+  if (senhaInvalida) {
+    return { error: "Senha incorreta." };
+  }
+
+  const supabase = await createClient();
+  // Exclui em cascata as avaliações, respostas e links desses colaboradores
+  // (constraint ON DELETE CASCADE) — ação irreversível de propósito, por
+  // isso exige senha de admin.
+  const { error } = await supabase.from("colaboradores").delete().in("id", ids);
+
+  if (error) {
+    return { error: "Não foi possível excluir os colaboradores selecionados." };
+  }
+
+  revalidatePath("/admin/colaboradores");
+  revalidatePath("/admin");
 }
