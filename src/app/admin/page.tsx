@@ -457,6 +457,15 @@ export default async function AdminOverviewPage({
               Exportar tudo
             </a>
           </div>
+          <div className="mb-3 flex items-center gap-3 rounded-lg border border-primary-border bg-primary-soft/40 px-4 py-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft">
+              <GraduationCap className="h-5 w-5 text-primary" />
+            </span>
+            <div>
+              <p className="text-2xl font-bold tabular-nums text-zinc-900">{respostasFiltradas.length}</p>
+              <p className="text-xs text-zinc-500">Indicações de treinamento</p>
+            </div>
+          </div>
           <div className="flex flex-col divide-y divide-primary-border/50 overflow-hidden rounded-lg border border-primary-border">
             {(categorias ?? []).map((categoria) => (
               <Link
