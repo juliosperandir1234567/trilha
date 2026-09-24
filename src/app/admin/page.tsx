@@ -282,105 +282,48 @@ export default async function AdminOverviewPage({
         </div>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_auto]">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-          <Card
-            icon={Users}
-            label={marcoNum ? "Colaboradores neste período" : "Colaboradores ativos"}
-            value={colaboradoresAtivos}
-            href={hrefFiltro({})}
-            ativo={!status && !critico}
-            tone="neutral"
-          />
-          <Card
-            icon={Clock}
-            label="Aguardando resposta"
-            value={totalAguardando}
-            href={status === "aguardando" ? hrefFiltro({}) : hrefFiltro({ status: "aguardando" })}
-            ativo={status === "aguardando"}
-            tone="warning"
-          />
-          <Card
-            icon={CheckCircle2}
-            label="Respondidas"
-            value={totalRespondidas}
-            href={status === "respondida" ? hrefFiltro({}) : hrefFiltro({ status: "respondida" })}
-            ativo={status === "respondida"}
-            tone="good"
-          />
-          <Card
-            icon={AlertTriangle}
-            label="Expiradas"
-            value={totalExpiradas}
-            href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
-            ativo={status === "expirada"}
-            tone="critical"
-          />
-          <Card
-            icon={AlertTriangle}
-            label="Notas críticas"
-            value={colaboradoresComNotaCritica}
-            href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
-            ativo={!!critico}
-            tone="critical"
-            alertaSoSeValor
-          />
-        </div>
-
-        <div className="flex flex-col gap-3 rounded-xl bg-primary-soft/40 p-4 xl:w-96">
-          <p className="text-xs font-medium text-zinc-600">
-            Status das avaliações{marco ? ` — ${marco} dias` : ""}
-          </p>
-          <div className="flex flex-1 flex-col items-center justify-center gap-5 sm:flex-row sm:justify-center">
-            <div
-              className="relative h-44 w-44 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
-              style={{
-                background:
-                  totalDoDonut === 0
-                    ? "#e4e3de"
-                    : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
-              }}
-            >
-              {donutRotulos.map((rotulo, i) => {
-                const deg = (rotulo.meio / 100) * 360;
-                return (
-                  <span
-                    key={i}
-                    className="absolute flex h-7 min-w-7 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-zinc-900 shadow-sm"
-                    style={{
-                      top: "50%",
-                      left: "50%",
-                      transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-72px) rotate(${-deg}deg)`,
-                    }}
-                  >
-                    {Math.round(rotulo.pct)}%
-                  </span>
-                );
-              })}
-              <div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-white text-center">
-                <span className="text-3xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
-                <span className="text-xs text-zinc-500">avaliaç{totalDoDonut === 1 ? "ão" : "ões"}</span>
-              </div>
-            </div>
-            <ul className="flex w-full flex-col gap-2 text-sm sm:w-auto">
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.good }} />
-                Concluídas
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalRespondidas}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.warning }} />
-                Aguardando
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalAguardando}</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.critical }} />
-                Atrasadas
-                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalExpiradas}</span>
-              </li>
-            </ul>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <Card
+          icon={Users}
+          label={marcoNum ? "Colaboradores neste período" : "Colaboradores ativos"}
+          value={colaboradoresAtivos}
+          href={hrefFiltro({})}
+          ativo={!status && !critico}
+          tone="neutral"
+        />
+        <Card
+          icon={Clock}
+          label="Aguardando resposta"
+          value={totalAguardando}
+          href={status === "aguardando" ? hrefFiltro({}) : hrefFiltro({ status: "aguardando" })}
+          ativo={status === "aguardando"}
+          tone="warning"
+        />
+        <Card
+          icon={CheckCircle2}
+          label="Respondidas"
+          value={totalRespondidas}
+          href={status === "respondida" ? hrefFiltro({}) : hrefFiltro({ status: "respondida" })}
+          ativo={status === "respondida"}
+          tone="good"
+        />
+        <Card
+          icon={AlertTriangle}
+          label="Expiradas"
+          value={totalExpiradas}
+          href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
+          ativo={status === "expirada"}
+          tone="critical"
+        />
+        <Card
+          icon={AlertTriangle}
+          label="Notas críticas"
+          value={colaboradoresComNotaCritica}
+          href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
+          ativo={!!critico}
+          tone="critical"
+          alertaSoSeValor
+        />
       </div>
 
       {itensAtencaoTop.length > 0 && (
@@ -517,6 +460,62 @@ export default async function AdminOverviewPage({
       </div>
 
       <div>
+        <h2 className="mb-3 font-medium">Status das avaliações{marco ? ` — ${marco} dias` : ""}</h2>
+        <div className="flex h-[calc(100%-2rem)] flex-col gap-3 rounded-xl bg-primary-soft/40 p-4">
+          <div className="flex flex-1 flex-col items-center justify-center gap-5 sm:flex-row sm:justify-center">
+            <div
+              className="relative h-40 w-40 shrink-0 rounded-full ring-1 ring-inset ring-black/10"
+              style={{
+                background:
+                  totalDoDonut === 0
+                    ? "#e4e3de"
+                    : `conic-gradient(${STATUS_COLORS.good} 0% ${pctRespondidas}%, ${STATUS_COLORS.warning} ${pctRespondidas}% ${pctRespondidas + pctAguardando}%, ${STATUS_COLORS.critical} ${pctRespondidas + pctAguardando}% 100%)`,
+              }}
+            >
+              {donutRotulos.map((rotulo, i) => {
+                const deg = (rotulo.meio / 100) * 360;
+                return (
+                  <span
+                    key={i}
+                    className="absolute flex h-7 min-w-7 items-center justify-center rounded-full bg-white px-1.5 text-xs font-bold text-zinc-900 shadow-sm"
+                    style={{
+                      top: "50%",
+                      left: "50%",
+                      transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-64px) rotate(${-deg}deg)`,
+                    }}
+                  >
+                    {Math.round(rotulo.pct)}%
+                  </span>
+                );
+              })}
+              <div className="absolute inset-4 flex flex-col items-center justify-center rounded-full bg-white text-center">
+                <span className="text-2xl font-bold tabular-nums text-zinc-900">{totalDoDonut}</span>
+                <span className="text-xs text-zinc-500">avaliaç{totalDoDonut === 1 ? "ão" : "ões"}</span>
+              </div>
+            </div>
+            <ul className="flex w-full flex-col gap-2 text-sm sm:w-auto">
+              <li className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.good }} />
+                Concluídas
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalRespondidas}</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.warning }} />
+                Aguardando
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalAguardando}</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: STATUS_COLORS.critical }} />
+                Atrasadas
+                <span className="ml-auto pl-4 font-semibold tabular-nums text-zinc-700">{totalExpiradas}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      </div>
+
+      <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-medium">Treinamentos indicados{marco ? ` — ${marco} dias` : ""}</h2>
           <a
@@ -575,7 +574,6 @@ export default async function AdminOverviewPage({
             <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
           )}
         </div>
-      </div>
       </div>
 
       <div>
