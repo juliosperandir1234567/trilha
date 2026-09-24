@@ -670,53 +670,55 @@ export default async function AdminOverviewPage({
             Exportar tudo
           </a>
         </div>
-        <div className="mb-3 flex items-center gap-3 rounded-lg border border-primary-border bg-primary-soft/40 px-4 py-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft">
-            <GraduationCap className="h-5 w-5 text-primary" />
-          </span>
-          <div>
-            <p className="text-2xl font-bold tabular-nums text-zinc-900">{respostasFiltradas.length}</p>
-            <p className="text-xs text-zinc-500">Indicações de treinamento</p>
+        <div className="flex flex-col gap-3 lg:max-w-2xl">
+          <div className="flex items-center gap-3 rounded-lg border border-primary-border bg-primary-soft/40 px-4 py-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft">
+              <GraduationCap className="h-5 w-5 text-primary" />
+            </span>
+            <div>
+              <p className="text-2xl font-bold tabular-nums text-zinc-900">{respostasFiltradas.length}</p>
+              <p className="text-xs text-zinc-500">Indicações de treinamento</p>
+            </div>
           </div>
-        </div>
-        <div className="flex flex-col divide-y divide-primary-border/50 overflow-hidden rounded-lg border border-primary-border">
-          {(categorias ?? []).map((categoria) => {
-            const treinamentos = [...(treinamentosPorCategoria.get(categoria.id)?.values() ?? [])].sort(
-              (a, b) => b.total - a.total
-            );
-            return (
-              <div key={categoria.id} className="px-4 py-3">
-                <Link
-                  href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
-                  className="flex items-center justify-between gap-3 text-sm transition-colors hover:text-primary"
-                >
-                  <span className="flex items-center gap-2 font-medium">
-                    <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
-                    {categoria.nome}
-                  </span>
-                  <span className="flex items-center gap-2 text-zinc-500">
-                    <span className="font-semibold text-primary">
-                      {contagemPorCategoria.get(categoria.id) ?? 0}
+          <div className="flex flex-col divide-y divide-primary-border/50 overflow-hidden rounded-lg border border-primary-border">
+            {(categorias ?? []).map((categoria) => {
+              const treinamentos = [...(treinamentosPorCategoria.get(categoria.id)?.values() ?? [])].sort(
+                (a, b) => b.total - a.total
+              );
+              return (
+                <div key={categoria.id} className="px-4 py-3">
+                  <Link
+                    href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
+                    className="flex items-center justify-between gap-3 text-sm transition-colors hover:text-primary"
+                  >
+                    <span className="flex items-center gap-2 font-medium">
+                      <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
+                      {categoria.nome}
                     </span>
-                    <ChevronRight className="h-4 w-4" />
-                  </span>
-                </Link>
-                {treinamentos.length > 0 && (
-                  <ul className="mt-2 flex flex-col gap-1 pl-6 text-sm text-zinc-600">
-                    {treinamentos.map((t, i) => (
-                      <li key={i} className="flex items-center justify-between gap-3">
-                        <span>{t.nome}</span>
-                        <span className="font-semibold text-primary">{t.total}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-          {(categorias ?? []).length === 0 && (
-            <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
-          )}
+                    <span className="flex items-center gap-2 text-zinc-500">
+                      <span className="font-semibold text-primary">
+                        {contagemPorCategoria.get(categoria.id) ?? 0}
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
+                    </span>
+                  </Link>
+                  {treinamentos.length > 0 && (
+                    <ul className="mt-2 flex flex-col gap-1 pl-6 text-sm text-zinc-600">
+                      {treinamentos.map((t, i) => (
+                        <li key={i} className="flex items-center justify-between gap-3">
+                          <span>{t.nome}</span>
+                          <span className="font-semibold text-primary">{t.total}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+            {(categorias ?? []).length === 0 && (
+              <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
+            )}
+          </div>
         </div>
       </div>
 

@@ -59,7 +59,9 @@ export default async function AdminLayout({
             {perfil?.nome} · {perfil?.papel}
           </span>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-6">
+          <div className="mx-auto w-full max-w-[1440px]">{children}</div>
+        </main>
       </div>
     </div>
   );
