@@ -572,7 +572,11 @@ export default async function AdminOverviewPage({
           <h1 className="text-xl font-semibold">
             Visão geral{marco ? ` — ${marco} dias` : ""}
           </h1>
-          <div className="flex flex-wrap gap-2">
+          {/* No celular os botões ficam numa linha só, rolando pro lado, e o
+              quadro de filtros desce. A partir de sm, "contents" devolve os
+              botões pro flex de fora e tudo fica na mesma linha. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 sm:contents">
             {MARCOS_FILTRO.map((opcao) => {
               const ativo = (marco ?? "") === opcao.valor;
               const total = opcao.valor
@@ -583,20 +587,21 @@ export default async function AdminOverviewPage({
                 <Link
                   key={opcao.label}
                   href={hrefMarco(opcao.valor)}
-                  className={`flex min-w-24 flex-col items-center gap-0.5 rounded-xl px-6 py-3 transition-colors ${
+                  className={`flex min-w-18 shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-2 transition-colors sm:min-w-24 sm:px-6 sm:py-3 ${
                     ativo
                       ? "bg-primary text-primary-foreground"
                       : "bg-primary-soft/50 text-primary hover:bg-primary-soft"
                   }`}
                 >
                   <span className="text-sm font-medium">{opcao.label}</span>
-                  <span className="text-2xl font-bold tabular-nums">{total}</span>
+                  <span className="text-lg font-bold tabular-nums sm:text-2xl">{total}</span>
                 </Link>
               );
             })}
+          </div>
             {/* Fica sempre visível ao lado dos períodos; os filtros aparecem
                 aqui conforme são aplicados, cada um com ✕ pra remover. */}
-            <div className="flex min-w-56 flex-col justify-center gap-1.5 rounded-xl border border-dashed border-primary-border px-4 py-2">
+            <div className="flex flex-col justify-center sm:min-w-56 gap-1.5 rounded-xl border border-dashed border-primary-border px-4 py-2">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-xs font-medium text-zinc-500">Filtros ativos</span>
                 {filtrosAtivos.length > 1 && (
@@ -1055,7 +1060,13 @@ function BarraStatus({
               borderRight: i < visiveis.length - 1 ? "2px solid #fff" : undefined,
             }}
           >
-            {pct(st.valor) >= 8 && `${Math.round(pct(st.valor))}%`}
+            {/* Pedaço estreito corta o número no celular: entre 8% e 15% ele
+                só aparece a partir de sm (o valor fica no title). */}
+            {pct(st.valor) >= 8 && (
+              <span className={pct(st.valor) < 15 ? "hidden sm:inline" : undefined}>
+                {Math.round(pct(st.valor))}%
+              </span>
+            )}
           </div>
         ))}
       </div>

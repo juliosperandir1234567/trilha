@@ -56,10 +56,11 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
         <table className="w-full text-left text-sm">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
-              <th className="whitespace-nowrap px-3 py-3">Matrícula</th>
+              {/* Matrícula e Gestor saem no celular pra Status caber; a busca continua achando por eles. */}
+              <th className="hidden whitespace-nowrap px-3 py-3 sm:table-cell">Matrícula</th>
               <th className="px-3 py-3">Colaborador</th>
               <th className="whitespace-nowrap px-3 py-3">Período</th>
-              <th className="px-3 py-3">Gestor</th>
+              <th className="hidden px-3 py-3 sm:table-cell">Gestor</th>
               <th className="whitespace-nowrap px-3 py-3">Status</th>
               <th className="px-3 py-3">Expira / respondida em</th>
             </tr>
@@ -70,7 +71,7 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                 key={avaliacao.id}
                 className={`border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20 ${avaliacao.notaCritica ? "bg-red-50" : ""}`}
               >
-                <td className="whitespace-nowrap px-3 py-3 text-zinc-500">{avaliacao.matricula}</td>
+                <td className="hidden whitespace-nowrap px-3 py-3 text-zinc-500 sm:table-cell">{avaliacao.matricula}</td>
                 <td className="px-3 py-3">
                   <Link
                     href={`/admin/colaboradores/${avaliacao.colaboradorId}`}
@@ -86,7 +87,7 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                   )}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3">{avaliacao.marco} dias</td>
-                <td className="px-3 py-3 text-zinc-500">{avaliacao.gestorNome}</td>
+                <td className="hidden px-3 py-3 text-zinc-500 sm:table-cell">{avaliacao.gestorNome}</td>
                 <td className="whitespace-nowrap px-3 py-3">
                   <span className={avaliacao.status === "expirada" ? "text-red-600" : ""}>
                     {STATUS_LABEL[avaliacao.status] ?? avaliacao.status}
