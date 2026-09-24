@@ -45,20 +45,68 @@ const MARCOS_FILTRO = [
 export default async function AdminOverviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ marco?: string; status?: string; critico?: string }>;
+  searchParams: Promise<{
+    marco?: string;
+    status?: string;
+    critico?: string;
+    admissao_de?: string;
+    admissao_ate?: string;
+  }>;
 }) {
-  const { marco, status, critico } = await searchParams;
+  const { marco, status, critico, admissao_de: admissaoDe, admissao_ate: admissaoAte } = await searchParams;
   const marcoNum = marco ? Number(marco) : null;
   const supabase = await createClient();
+
+  function comAdmissao(params: URLSearchParams) {
+    if (admissaoDe) params.set("admissao_de", admissaoDe);
+    if (admissaoAte) params.set("admissao_ate", admissaoAte);
+    return params;
+  }
 
   function hrefFiltro(extra: { status?: string; critico?: string }) {
     const params = new URLSearchParams();
     if (marco) params.set("marco", marco);
     if (extra.status) params.set("status", extra.status);
     if (extra.critico) params.set("critico", extra.critico);
+    comAdmissao(params);
     const query = params.toString();
     return query ? `/admin?${query}` : "/admin";
   }
+
+  function hrefMarco(m: string) {
+    const params = new URLSearchParams();
+    if (m) params.set("marco", m);
+    comAdmissao(params);
+    const query = params.toString();
+    return query ? `/admin?${query}` : "/admin";
+  }
+
+  function hrefSemAdmissao() {
+    const params = new URLSearchParams();
+    if (marco) params.set("marco", marco);
+    if (status) params.set("status", status);
+    if (critico) params.set("critico", critico);
+    const query = params.toString();
+    return query ? `/admin?${query}` : "/admin";
+  }
+
+  // Datas ISO (yyyy-mm-dd) comparam certinho como string, sem precisar
+  // converter pra Date.
+  function dentroDoPeriodoAdmissao(dataAdmissao: string | null | undefined) {
+    if (!dataAdmissao) return false;
+    if (admissaoDe && dataAdmissao < admissaoDe) return false;
+    if (admissaoAte && dataAdmissao > admissaoAte) return false;
+    return true;
+  }
+
+  const temFiltroAdmissao = !!(admissaoDe || admissaoAte);
+
+  let colaboradoresQuery = supabase
+    .from("colaboradores")
+    .select("*", { count: "exact", head: true })
+    .eq("ativo", true);
+  if (admissaoDe) colaboradoresQuery = colaboradoresQuery.gte("data_admissao", admissaoDe);
+  if (admissaoAte) colaboradoresQuery = colaboradoresQuery.lte("data_admissao", admissaoAte);
 
   const [
     { count: colaboradoresAtivosTotal },
@@ -67,26 +115,36 @@ export default async function AdminOverviewPage({
     { data: respostas },
     { data: notasCriticas },
   ] = await Promise.all([
-    supabase.from("colaboradores").select("*", { count: "exact", head: true }).eq("ativo", true),
+    colaboradoresQuery,
     supabase
       .from("avaliacoes")
       .select(
-        "id, marco, status, data_envio, data_resposta, colaboradores(id, nome, matricula, gestor_nome, gestor_email, cargos(nome)), links_avaliacao(expira_em)"
+        "id, marco, status, data_envio, data_resposta, colaboradores(id, nome, matricula, data_admissao, gestor_nome, gestor_email, cargos(nome)), links_avaliacao(expira_em)"
       )
       .order("data_referencia", { ascending: false }),
     supabase.from("categorias_treinamento").select("id, nome").eq("ativo", true).order("nome"),
     supabase
       .from("respostas")
       .select(
-        "categoria_final_id, treinamento_final_id, treinamentos:treinamento_final_id(nome), avaliacoes!inner(marco)"
+        "categoria_final_id, treinamento_final_id, treinamentos:treinamento_final_id(nome), avaliacoes!inner(marco, colaboradores(data_admissao))"
       )
       .not("categoria_final_id", "is", null),
-    supabase.from("respostas").select("avaliacao_id, avaliacoes!inner(marco, colaborador_id)").eq("nota", 1),
+    supabase
+      .from("respostas")
+      .select("avaliacao_id, avaliacoes!inner(marco, colaborador_id, colaboradores(data_admissao))")
+      .eq("nota", 1),
   ]);
 
   const avaliacoesComNotaCritica = new Set((notasCriticas ?? []).map((r) => r.avaliacao_id));
 
-  const lista = avaliacoes ?? [];
+  const listaBase = avaliacoes ?? [];
+  const lista = temFiltroAdmissao
+    ? listaBase.filter((a) =>
+        dentroDoPeriodoAdmissao(
+          (a.colaboradores as unknown as { data_admissao: string } | null)?.data_admissao
+        )
+      )
+    : listaBase;
   const avaliacoesDoMarco = marcoNum ? lista.filter((a) => a.marco === marcoNum) : lista;
 
   let avaliacoesFiltradas = avaliacoesDoMarco;
@@ -103,11 +161,21 @@ export default async function AdminOverviewPage({
     avaliacoesFiltradas = avaliacoesFiltradas.filter((a) => avaliacoesComNotaCritica.has(a.id));
   }
 
-  const respostasFiltradas = marcoNum
-    ? (respostas ?? []).filter(
-        (r) => (r.avaliacoes as unknown as { marco: number }).marco === marcoNum
+  const respostasBase = temFiltroAdmissao
+    ? (respostas ?? []).filter((r) =>
+        dentroDoPeriodoAdmissao(
+          (
+            r.avaliacoes as unknown as {
+              colaboradores: { data_admissao: string } | null;
+            }
+          ).colaboradores?.data_admissao
+        )
       )
     : respostas ?? [];
+
+  const respostasFiltradas = marcoNum
+    ? respostasBase.filter((r) => (r.avaliacoes as unknown as { marco: number }).marco === marcoNum)
+    : respostasBase;
 
   const contagemPorCategoria = new Map<string, number>();
   const treinamentosPorCategoria = new Map<string, Map<string, { nome: string; total: number }>>();
@@ -154,8 +222,16 @@ export default async function AdminOverviewPage({
 
   const colaboradoresComNotaCritica = new Set(
     (notasCriticas ?? [])
-      .map((r) => r.avaliacoes as unknown as { marco: number; colaborador_id: string })
+      .map(
+        (r) =>
+          r.avaliacoes as unknown as {
+            marco: number;
+            colaborador_id: string;
+            colaboradores: { data_admissao: string } | null;
+          }
+      )
       .filter((a) => !marcoNum || a.marco === marcoNum)
+      .filter((a) => !temFiltroAdmissao || dentroDoPeriodoAdmissao(a.colaboradores?.data_admissao))
       .map((a) => a.colaborador_id)
   ).size;
 
@@ -249,9 +325,55 @@ export default async function AdminOverviewPage({
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
-        <h1 className="text-xl font-semibold">
-          Visão geral{marco ? ` — ${marco} dias` : ""}
-        </h1>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h1 className="text-xl font-semibold">
+            Visão geral{marco ? ` — ${marco} dias` : ""}
+          </h1>
+          <form method="get" action="/admin" className="flex flex-wrap items-end gap-2">
+            {marco && <input type="hidden" name="marco" value={marco} />}
+            {status && <input type="hidden" name="status" value={status} />}
+            {critico && <input type="hidden" name="critico" value={critico} />}
+            <div className="flex flex-col gap-1">
+              <label htmlFor="admissao_de" className="text-xs text-zinc-500">
+                Admissão de
+              </label>
+              <input
+                id="admissao_de"
+                type="date"
+                name="admissao_de"
+                defaultValue={admissaoDe ?? ""}
+                className="rounded-md border border-black/15 px-2 py-1.5 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label htmlFor="admissao_ate" className="text-xs text-zinc-500">
+                até
+              </label>
+              <input
+                id="admissao_ate"
+                type="date"
+                name="admissao_ate"
+                defaultValue={admissaoAte ?? ""}
+                className="rounded-md border border-black/15 px-2 py-1.5 text-sm outline-none focus:border-primary"
+              />
+            </div>
+            <button
+              type="submit"
+              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary-hover"
+            >
+              <CalendarDays className="h-4 w-4" />
+              Filtrar
+            </button>
+            {temFiltroAdmissao && (
+              <Link
+                href={hrefSemAdmissao()}
+                className="rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
+              >
+                Limpar
+              </Link>
+            )}
+          </form>
+        </div>
         <div className="flex flex-wrap gap-2">
           {MARCOS_FILTRO.map((opcao) => {
             const ativo = (marco ?? "") === opcao.valor;
@@ -261,7 +383,7 @@ export default async function AdminOverviewPage({
             return (
               <Link
                 key={opcao.label}
-                href={opcao.valor ? `/admin?marco=${opcao.valor}` : "/admin"}
+                href={hrefMarco(opcao.valor)}
                 className={`flex flex-col items-center gap-0.5 rounded-xl px-4 py-2 transition-colors ${
                   ativo
                     ? "bg-primary text-primary-foreground"
@@ -412,7 +534,7 @@ export default async function AdminOverviewPage({
             return (
               <Link
                 key={linha.marco}
-                href={`/admin?marco=${linha.marco}`}
+                href={hrefMarco(String(linha.marco))}
                 className={`flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-primary-soft/40 ${
                   linha.marco === marcoNum ? "bg-primary-soft/60" : ""
                 }`}
