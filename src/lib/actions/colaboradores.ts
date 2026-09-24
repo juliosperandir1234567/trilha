@@ -126,6 +126,8 @@ export async function importColaboradores(
     const gestorEmail = (
       linha["email do gestor"] ??
       linha["e-mail do gestor"] ??
+      linha["email gestor"] ??
+      linha["e-mail gestor"] ??
       linha["gestor_email"] ??
       linha["email do analista"] ??
       linha["e-mail do analista"] ??
@@ -136,6 +138,7 @@ export async function importColaboradores(
     const gestorMatricula = (
       linha["matricula do gestor"] ??
       linha["matrícula do gestor"] ??
+      linha["matricula gestor"] ??
       linha["gestor_matricula"] ??
       ""
     ).trim();
