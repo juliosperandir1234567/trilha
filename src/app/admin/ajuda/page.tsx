@@ -41,8 +41,10 @@ const SECOES = [
       <ol className="list-decimal space-y-1 pl-5">
         <li>
           Admin ou analista cadastra o colaborador (individualmente ou importando uma
-          planilha CSV) com nome, matrícula, data de admissão e os dados do gestor
-          responsável.
+          planilha CSV) com nome, matrícula, tipo e os dados do gestor responsável. O tipo
+          define de onde os períodos contam: <strong>Novato</strong> usa a data de
+          admissão; <strong>Capacitação</strong> (mudança de cargo) usa a data em que ele
+          mudou de cargo. É um calendário só no cadastro, e a Visão geral filtra por tipo.
         </li>
         <li>
           Todo dia, uma rotina automática (pg_cron + Edge Function no Supabase) verifica

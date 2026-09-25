@@ -63,6 +63,14 @@ function parseDataAdmissao(valor: string): string | null {
 
 export type ColaboradorFormState = { error?: string; sucesso?: boolean } | undefined;
 
+// Novato conta os períodos da admissão; capacitação (mudança de cargo), da
+// data em que mudou de cargo. As duas ficam em data_admissao — é a data de
+// início da trilha; o formulário só troca o nome do campo.
+function lerTipo(formData: FormData) {
+  const tipo = String(formData.get("tipo") ?? "novato").trim();
+  return tipo === "capacitacao" ? "capacitacao" : "novato";
+}
+
 // Matrícula identifica o colaborador na empresa — duas pessoas com a mesma
 // matrícula confundem a tabela e o export. `ignorarId` é o próprio registro
 // na edição.
@@ -89,6 +97,7 @@ export async function createColaborador(
   const gestorNome = String(formData.get("gestor_nome") ?? "").trim();
   const gestorEmail = String(formData.get("gestor_email") ?? "").trim();
   const cargoId = String(formData.get("cargo_id") ?? "").trim();
+  const tipo = lerTipo(formData);
 
   if (!nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail) {
     return { error: "Preencha todos os campos." };
@@ -107,6 +116,7 @@ export async function createColaborador(
     gestor_nome: gestorNome,
     gestor_email: gestorEmail,
     cargo_id: cargoId || null,
+    tipo,
   });
 
   if (error) {
@@ -129,6 +139,7 @@ export async function updateColaborador(
   const gestorNome = String(formData.get("gestor_nome") ?? "").trim();
   const gestorEmail = String(formData.get("gestor_email") ?? "").trim();
   const cargoId = String(formData.get("cargo_id") ?? "").trim();
+  const tipo = lerTipo(formData);
   const ativo = formData.get("ativo") === "on";
 
   if (!id || !nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail) {
@@ -150,6 +161,7 @@ export async function updateColaborador(
       gestor_nome: gestorNome,
       gestor_email: gestorEmail,
       cargo_id: cargoId || null,
+      tipo,
       ativo,
     })
     .eq("id", id);
@@ -233,6 +245,7 @@ export async function importColaboradores(
     gestor_nome: string;
     gestor_email: string;
     cargo_nome: string;
+    tipo: string;
   }[] = [];
   let ignorados = 0;
 
@@ -249,6 +262,9 @@ export async function importColaboradores(
       linha["data de admissao"] ??
       linha["data admissao"] ??
       linha["admissao"] ??
+      linha["data_alteracao_cargo"] ??
+      linha["data de alteracao de cargo"] ??
+      linha["data de inicio"] ??
       ""
     ).trim();
     const gestorNome = (
@@ -272,6 +288,8 @@ export async function importColaboradores(
       ""
     ).trim();
     const cargoNome = (linha["cargo"] ?? "").trim();
+    const tipoBruto = (linha["tipo"] ?? linha["novato ou capacitacao"] ?? "novato").trim().toLowerCase();
+    const tipo = tipoBruto.startsWith("capacit") ? "capacitacao" : "novato";
 
     const dataAdmissao = dataBruta ? parseDataAdmissao(dataBruta) : null;
 
@@ -287,6 +305,7 @@ export async function importColaboradores(
       gestor_nome: gestorNome,
       gestor_email: gestorEmail,
       cargo_nome: cargoNome,
+      tipo,
     });
   }
 

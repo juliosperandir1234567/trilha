@@ -22,7 +22,9 @@ export function ImportForm() {
         />
         <p className="text-xs text-zinc-500">
           Colunas esperadas: <code>matricula</code>, <code>nome</code>,{" "}
-          <code>data_admissao</code> (dd/mm/aaaa ou aaaa-mm-dd),{" "}
+          <code>data_admissao</code> (dd/mm/aaaa ou aaaa-mm-dd; pra capacitação, a data da
+          mudança de cargo), <code>tipo</code> (<code>novato</code> ou{" "}
+          <code>capacitacao</code>, opcional — padrão novato),{" "}
           <code>cargo</code> (opcional — precisa bater com o nome de um cargo já cadastrado
           em Cargos), <code>gestor</code>, <code>email do gestor</code>. Pode enviar direto o
           arquivo do Excel (.xlsx) ou exportar como CSV.

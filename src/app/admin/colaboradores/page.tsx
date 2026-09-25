@@ -15,7 +15,7 @@ export default async function ColaboradoresPage() {
       supabase
         .from("colaboradores")
         .select(
-          "id, nome, matricula, data_admissao, cargos(nome, marcos), gestor_nome, gestor_email, ativo"
+          "id, nome, matricula, data_admissao, tipo, cargos(nome, marcos), gestor_nome, gestor_email, ativo"
         )
         .order("created_at", { ascending: false })
         .limit(50),
@@ -50,6 +50,7 @@ export default async function ColaboradoresPage() {
       nome: colaborador.nome,
       cargoNome: cargo?.nome ?? null,
       dataAdmissao: colaborador.data_admissao,
+      tipo: colaborador.tipo,
       gestorNome: colaborador.gestor_nome,
       gestorEmail: colaborador.gestor_email,
       ativo: colaborador.ativo,

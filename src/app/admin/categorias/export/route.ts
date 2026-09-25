@@ -15,6 +15,7 @@ export async function GET(request: Request) {
   const critico = params.get("critico");
   const admissaoDe = params.get("admissao_de");
   const admissaoAte = params.get("admissao_ate");
+  const tipo = params.get("tipo");
   // "pendentes=1": só o que ainda não foi exportado nenhuma vez.
   const soPendentes = params.get("pendentes") === "1";
   const supabase = await createClient();
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   let query = supabase
     .from("respostas")
     .select(
-      "id, nota, comentario, created_at, exportado_em, categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome), avaliacao_id, avaliacoes!inner(marco, status, colaboradores(data_admissao, nome, matricula, gestor_nome, gestor_email))"
+      "id, nota, comentario, created_at, exportado_em, categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome), avaliacao_id, avaliacoes!inner(marco, status, colaboradores(data_admissao, tipo, nome, matricula, gestor_nome, gestor_email))"
     )
     .not("categoria_final_id", "is", null)
     .order("created_at", { ascending: false });
@@ -45,19 +46,21 @@ export async function GET(request: Request) {
   const avaliacoesCriticas = new Set((notasCriticas ?? []).map((r) => r.avaliacao_id));
   const respostas = (respostasBrutas ?? []).filter((r) => {
     if (critico && !avaliacoesCriticas.has(r.avaliacao_id)) return false;
-    const dataAdmissao = (
-      r.avaliacoes as unknown as { colaboradores: { data_admissao: string | null } | null }
-    ).colaboradores?.data_admissao;
+    const colaborador = (
+      r.avaliacoes as unknown as { colaboradores: { data_admissao: string | null; tipo: string } | null }
+    ).colaboradores;
+    const dataAdmissao = colaborador?.data_admissao;
     if (admissaoDe || admissaoAte) {
       if (!dataAdmissao) return false;
       if (admissaoDe && dataAdmissao < admissaoDe) return false;
       if (admissaoAte && dataAdmissao > admissaoAte) return false;
     }
+    if (tipo && colaborador?.tipo !== tipo) return false;
     return true;
   });
 
   const linhas = [
-    ["Matrícula", "Colaborador", "Período", "Nota", "Gestor", "Competência", "Treinamento", "Comentário", "Exportado antes em"]
+    ["Matrícula", "Colaborador", "Tipo", "Período", "Nota", "Gestor", "Competência", "Treinamento", "Comentário", "Exportado antes em"]
       .map(escapeCsv)
       .join(";"),
   ];
@@ -67,6 +70,7 @@ export async function GET(request: Request) {
       marco: number;
       colaboradores: {
         nome: string;
+        tipo: string;
         matricula: string | null;
         gestor_nome: string;
         gestor_email: string;
@@ -80,6 +84,7 @@ export async function GET(request: Request) {
       [
         colaborador?.matricula,
         colaborador?.nome,
+        colaborador?.tipo === "capacitacao" ? "Capacitação" : "Novato",
         avaliacao ? `${avaliacao.marco} dias` : "",
         resposta.nota,
         colaborador?.gestor_nome,

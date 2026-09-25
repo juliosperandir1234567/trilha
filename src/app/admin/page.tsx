@@ -92,16 +92,42 @@ export default async function AdminOverviewPage({
     critico?: string;
     admissao_de?: string;
     admissao_ate?: string;
+    tipo?: string;
   }>;
 }) {
-  const { marco, status, critico, admissao_de: admissaoDe, admissao_ate: admissaoAte } = await searchParams;
+  const {
+    marco,
+    status,
+    critico,
+    admissao_de: admissaoDe,
+    admissao_ate: admissaoAte,
+    tipo: tipoBruto,
+  } = await searchParams;
   const marcoNum = marco ? Number(marco) : null;
+  // Novato ou capacitação (mudança de cargo); sem filtro = os dois.
+  const tipo = tipoBruto === "novato" || tipoBruto === "capacitacao" ? tipoBruto : undefined;
   const supabase = await createClient();
 
-  function comAdmissao(params: URLSearchParams) {
-    if (admissaoDe) params.set("admissao_de", admissaoDe);
-    if (admissaoAte) params.set("admissao_ate", admissaoAte);
+  // Filtros sobre o colaborador (data de início e tipo) acompanham todos os
+  // links da página; `sem` tira algum deles (usado no "Limpar").
+  function comAdmissao(params: URLSearchParams, sem: ("admissao" | "tipo")[] = []) {
+    if (!sem.includes("admissao")) {
+      if (admissaoDe) params.set("admissao_de", admissaoDe);
+      if (admissaoAte) params.set("admissao_ate", admissaoAte);
+    }
+    if (tipo && !sem.includes("tipo")) params.set("tipo", tipo);
     return params;
+  }
+
+  function hrefTipo(novoTipo: string) {
+    const params = new URLSearchParams();
+    if (marco) params.set("marco", marco);
+    if (status) params.set("status", status);
+    if (critico) params.set("critico", critico);
+    comAdmissao(params, ["tipo"]);
+    if (novoTipo) params.set("tipo", novoTipo);
+    const query = params.toString();
+    return query ? `/admin?${query}` : "/admin";
   }
 
   function hrefFiltro(extra: { status?: string; critico?: string }) {
@@ -132,7 +158,7 @@ export default async function AdminOverviewPage({
     return query ? `/admin?${query}` : "/admin";
   }
 
-  type ChaveFiltro = "marco" | "status" | "critico" | "admissao";
+  type ChaveFiltro = "marco" | "status" | "critico" | "admissao" | "tipo";
 
   // Mesma página, tirando só os filtros pedidos — usado no "✕" de cada
   // filtro ativo e no "Limpar tudo".
@@ -141,7 +167,10 @@ export default async function AdminOverviewPage({
     if (marco && !remover.includes("marco")) params.set("marco", marco);
     if (status && !remover.includes("status")) params.set("status", status);
     if (critico && !remover.includes("critico")) params.set("critico", critico);
-    if (!remover.includes("admissao")) comAdmissao(params);
+    comAdmissao(
+      params,
+      remover.filter((r): r is "admissao" | "tipo" => r === "admissao" || r === "tipo")
+    );
     const query = params.toString();
     return query ? `/admin?${query}` : "/admin";
   }
@@ -158,15 +187,20 @@ export default async function AdminOverviewPage({
   }
 
   // Datas ISO (yyyy-mm-dd) comparam certinho como string, sem precisar
-  // converter pra Date.
-  function dentroDoPeriodoAdmissao(dataAdmissao: string | null | undefined) {
+  // converter pra Date. data_admissao é a data de início da trilha (admissão
+  // do novato ou mudança de cargo da capacitação).
+  function dentroDoPeriodoAdmissao(
+    colaborador: { data_admissao: string | null; tipo?: string | null } | null | undefined
+  ) {
+    const dataAdmissao = colaborador?.data_admissao;
     if (!dataAdmissao) return false;
     if (admissaoDe && dataAdmissao < admissaoDe) return false;
     if (admissaoAte && dataAdmissao > admissaoAte) return false;
+    if (tipo && (colaborador?.tipo ?? "novato") !== tipo) return false;
     return true;
   }
 
-  const temFiltroAdmissao = !!(admissaoDe || admissaoAte);
+  const temFiltroAdmissao = !!(admissaoDe || admissaoAte || tipo);
 
   const dataBR = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString("pt-BR");
   const filtrosAtivos: { chave: ChaveFiltro; rotulo: string }[] = [
@@ -175,18 +209,21 @@ export default async function AdminOverviewPage({
       ? [{ chave: "status" as const, rotulo: `Status: ${STATUS_FILTRO_LABEL[status]}` }]
       : []),
     ...(critico ? [{ chave: "critico" as const, rotulo: "Notas críticas" }] : []),
-    ...(temFiltroAdmissao
+    ...(admissaoDe || admissaoAte
       ? [
           {
             chave: "admissao" as const,
             rotulo:
               admissaoDe && admissaoAte
-                ? `Admissão: ${dataBR(admissaoDe)} a ${dataBR(admissaoAte)}`
+                ? `Início: ${dataBR(admissaoDe)} a ${dataBR(admissaoAte)}`
                 : admissaoDe
-                  ? `Admissão a partir de ${dataBR(admissaoDe)}`
-                  : `Admissão até ${dataBR(admissaoAte!)}`,
+                  ? `Início a partir de ${dataBR(admissaoDe)}`
+                  : `Início até ${dataBR(admissaoAte!)}`,
           },
         ]
+      : []),
+    ...(tipo
+      ? [{ chave: "tipo" as const, rotulo: tipo === "capacitacao" ? "Capacitação" : "Novato" }]
       : []),
   ];
 
@@ -201,6 +238,7 @@ export default async function AdminOverviewPage({
     .eq("ativo", true);
   if (admissaoDe) colaboradoresQuery = colaboradoresQuery.gte("data_admissao", admissaoDe);
   if (admissaoAte) colaboradoresQuery = colaboradoresQuery.lte("data_admissao", admissaoAte);
+  if (tipo) colaboradoresQuery = colaboradoresQuery.eq("tipo", tipo);
 
   const [
     { count: colaboradoresAtivosTotal },
@@ -214,7 +252,7 @@ export default async function AdminOverviewPage({
     supabase
       .from("avaliacoes")
       .select(
-        "id, marco, status, data_envio, data_resposta, colaboradores(id, nome, matricula, data_admissao, gestor_nome, gestor_email, cargos(nome)), links_avaliacao(expira_em)"
+        "id, marco, status, data_envio, data_resposta, colaboradores(id, nome, matricula, data_admissao, tipo, gestor_nome, gestor_email, cargos(nome)), links_avaliacao(expira_em)"
       )
       .order("data_referencia", { ascending: false }),
     supabase.from("categorias_treinamento").select("id, nome").eq("ativo", true).order("nome"),
@@ -226,11 +264,11 @@ export default async function AdminOverviewPage({
       .not("categoria_final_id", "is", null),
     supabase
       .from("respostas")
-      .select("avaliacao_id, avaliacoes!inner(marco, colaborador_id, colaboradores(data_admissao))")
+      .select("avaliacao_id, avaliacoes!inner(marco, colaborador_id, colaboradores(data_admissao, tipo))")
       .eq("nota", 1),
     supabase
       .from("colaboradores")
-      .select("id, nome, matricula, gestor_nome, data_admissao, cargos(nome, marcos)")
+      .select("id, nome, matricula, gestor_nome, data_admissao, tipo, cargos(nome, marcos)")
       .eq("ativo", true),
   ]);
 
@@ -240,7 +278,7 @@ export default async function AdminOverviewPage({
   const lista = temFiltroAdmissao
     ? listaBase.filter((a) =>
         dentroDoPeriodoAdmissao(
-          (a.colaboradores as unknown as { data_admissao: string } | null)?.data_admissao
+          a.colaboradores as unknown as { data_admissao: string; tipo: string } | null
         )
       )
     : listaBase;
@@ -336,7 +374,7 @@ export default async function AdminOverviewPage({
     listaBase.map((a) => `${(a.colaboradores as unknown as { id: string } | null)?.id}:${a.marco}`)
   );
   const marcosPrevistos = (colaboradoresParaMarcos ?? [])
-    .filter((c) => !temFiltroAdmissao || dentroDoPeriodoAdmissao(c.data_admissao))
+    .filter((c) => !temFiltroAdmissao || dentroDoPeriodoAdmissao(c))
     .flatMap((c) => {
       const cargo = c.cargos as unknown as { nome: string; marcos: number[] | null } | null;
       return (cargo?.marcos ?? MARCOS_PADRAO)
@@ -430,11 +468,11 @@ export default async function AdminOverviewPage({
           r.avaliacoes as unknown as {
             marco: number;
             colaborador_id: string;
-            colaboradores: { data_admissao: string } | null;
+            colaboradores: { data_admissao: string; tipo: string } | null;
           }
       )
       .filter((a) => !marcoNum || a.marco === marcoNum)
-      .filter((a) => !temFiltroAdmissao || dentroDoPeriodoAdmissao(a.colaboradores?.data_admissao))
+      .filter((a) => !temFiltroAdmissao || dentroDoPeriodoAdmissao(a.colaboradores))
       .map((a) => a.colaborador_id)
   ).size;
 
@@ -603,7 +641,7 @@ export default async function AdminOverviewPage({
       {/* O menu já diz em que página está; o título fica só pro leitor de tela. */}
       <h1 className="sr-only">Visão geral</h1>
 
-      {/* Tudo numa linha: períodos, filtro de admissão e filtros ativos. Em
+      {/* Tudo numa linha: períodos, tipo, filtro de data de início e filtros ativos. Em
           tela menor quebra; no celular só a linha de botões rola pro lado. */}
       <div className="-mt-2 flex flex-wrap items-end gap-3">
         <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto">
@@ -634,13 +672,41 @@ export default async function AdminOverviewPage({
             })}
           </div>
         </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-zinc-500">Tipo</span>
+          <div className="flex overflow-hidden rounded-lg border border-primary-border text-xs font-medium">
+            {[
+              { valor: "", rotulo: "Todos" },
+              { valor: "novato", rotulo: "Novato" },
+              { valor: "capacitacao", rotulo: "Capacitação" },
+            ].map((opcao) => (
+              <Link
+                key={opcao.rotulo}
+                href={hrefTipo(opcao.valor)}
+                className={`px-2.5 py-2 transition-colors ${
+                  (tipo ?? "") === opcao.valor
+                    ? "bg-primary text-primary-foreground"
+                    : "text-primary hover:bg-primary-soft"
+                }`}
+              >
+                {opcao.rotulo}
+              </Link>
+            ))}
+          </div>
+        </div>
         <form method="get" action="/admin" className="flex flex-wrap items-end gap-2">
           {marco && <input type="hidden" name="marco" value={marco} />}
           {status && <input type="hidden" name="status" value={status} />}
           {critico && <input type="hidden" name="critico" value={critico} />}
+          {tipo && <input type="hidden" name="tipo" value={tipo} />}
           <div className="flex flex-col gap-1">
-            <label htmlFor="admissao_de" className="text-xs text-zinc-500">
-              Admissão de
+            {/* Data de início: admissão (novato) ou mudança de cargo (capacitação). */}
+            <label
+              htmlFor="admissao_de"
+              title="Data de admissão (novato) ou de mudança de cargo (capacitação)"
+              className="text-xs text-zinc-500"
+            >
+              Início de
             </label>
             <input
               id="admissao_de"
@@ -673,7 +739,7 @@ export default async function AdminOverviewPage({
               admissão) mostra o botão; ele volta a página sem filtro nenhum. */}
           {filtrosAtivos.length > 0 && (
             <Link
-              href={hrefSem(["marco", "status", "critico", "admissao"])}
+              href={hrefSem(["marco", "status", "critico", "admissao", "tipo"])}
               className="flex items-center gap-1.5 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
             >
               <X className="h-4 w-4" />

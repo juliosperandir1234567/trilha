@@ -30,7 +30,7 @@ export default async function ColaboradorDetalhePage({
     supabase
       .from("colaboradores")
       .select(
-        "id, nome, matricula, email, data_admissao, gestor_nome, gestor_email, ativo, cargo_id, cargos(nome, marcos)"
+        "id, nome, matricula, email, data_admissao, tipo, gestor_nome, gestor_email, ativo, cargo_id, cargos(nome, marcos)"
       )
       .eq("id", id)
       .single(),
@@ -72,7 +72,9 @@ export default async function ColaboradorDetalhePage({
           )}
         </h1>
         <p className="text-sm text-zinc-500">
-          {cargo ? <>Cargo: {cargo.nome} · </> : null}Admissão em{" "}
+          {colaborador.tipo === "capacitacao" ? "Capacitação" : "Novato"} ·{" "}
+          {cargo ? <>Cargo: {cargo.nome} · </> : null}
+          {colaborador.tipo === "capacitacao" ? "Mudou de cargo em" : "Admissão em"}{" "}
           {new Date(colaborador.data_admissao + "T00:00:00").toLocaleDateString("pt-BR")}
           {" · "}Gestor: {colaborador.gestor_nome} ({colaborador.gestor_email})
           {" · "}{colaborador.ativo ? "Ativo" : "Inativo"}

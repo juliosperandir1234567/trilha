@@ -18,6 +18,8 @@ export type ColaboradorLinha = {
   nome: string;
   cargoNome: string | null;
   dataAdmissao: string;
+  // novato: dataAdmissao é a admissão; capacitacao: a mudança de cargo.
+  tipo: string;
   gestorNome: string;
   gestorEmail: string;
   ativo: boolean;
@@ -136,7 +138,7 @@ export function ColaboradoresTable({
               <th className="whitespace-nowrap px-4 py-3">Matrícula</th>
               <th className="whitespace-nowrap px-4 py-3">Nome</th>
               <th className="whitespace-nowrap px-4 py-3">Cargo</th>
-              <th className="whitespace-nowrap px-4 py-3">Admissão</th>
+              <th className="whitespace-nowrap px-4 py-3">Início</th>
               <th className="px-4 py-3">Gestor</th>
               <th className="whitespace-nowrap px-4 py-3">Status</th>
               <th className="px-4 py-3">Avaliação</th>
@@ -178,6 +180,9 @@ export function ColaboradoresTable({
                 <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{colaborador.cargoNome ?? "-"}</td>
                 <td className="whitespace-nowrap px-4 py-3">
                   {new Date(colaborador.dataAdmissao + "T00:00:00").toLocaleDateString("pt-BR")}
+                  <span className="block text-[11px] text-zinc-500">
+                    {colaborador.tipo === "capacitacao" ? "Capacitação" : "Novato"}
+                  </span>
                 </td>
                 <td className="px-4 py-3 text-zinc-500">
                   <div className="flex flex-col">
