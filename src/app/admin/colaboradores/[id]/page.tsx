@@ -46,7 +46,7 @@ export default async function ColaboradorDetalhePage({
   const { data: avaliacoes } = await supabase
     .from("avaliacoes")
     .select(
-      "id, marco, status, data_referencia, data_envio, data_resposta, rascunho_salvo_em, motivo_nao_avaliada, observacao_nao_avaliada, respostas(nota, comentario, perguntas(texto), categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome))"
+      "id, marco, status, data_referencia, data_envio, data_resposta, rascunho_salvo_em, motivo_nao_avaliada, observacao_nao_avaliada, ultimo_envio_em, lembretes_enviados, respostas(nota, comentario, perguntas(texto), categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome))"
     )
     .eq("colaborador_id", id)
     .order("marco");
@@ -174,6 +174,9 @@ export default async function ColaboradorDetalhePage({
                 {avaliacao.data_envio
                   ? `E-mail enviado em ${new Date(avaliacao.data_envio).toLocaleString("pt-BR")}`
                   : "Ainda não enviado."}
+                {avaliacao.lembretes_enviados > 0 &&
+                  avaliacao.ultimo_envio_em &&
+                  ` · ${avaliacao.lembretes_enviados} lembrete(s), o último em ${new Date(avaliacao.ultimo_envio_em).toLocaleString("pt-BR")}`}
                 {avaliacao.rascunho_salvo_em &&
                   ` · Rascunho do gestor salvo em ${new Date(avaliacao.rascunho_salvo_em).toLocaleString("pt-BR")}`}
               </p>

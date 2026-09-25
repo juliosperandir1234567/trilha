@@ -93,6 +93,16 @@ const SECOES = [
           <li>
             <strong>Expirada</strong>: passou do prazo configurado em{" "}
             <strong>Configurações → Validade do link de avaliação</strong> sem resposta.
+            Normalmente dura pouco: a rotina manda um lembrete (ver abaixo) e ela volta
+            pra &quot;Aguardando resposta&quot;. Fica expirada de vez só se o colaborador
+            estiver inativo.
+          </li>
+          <li>
+            <strong>Lembrete automático</strong>: enquanto o gestor não responde, a rotina
+            diária manda um link novo por e-mail <strong>a cada 5 dias</strong>, sem limite,
+            até ele responder (ou usar &quot;Não é possível avaliar&quot;). O rascunho que
+            ele tiver salvo continua no link novo. A página do colaborador mostra quantos
+            lembretes já foram e quando saiu o último.
           </li>
           <li>
             <strong>Não avaliada</strong>: o gestor usou &quot;Não é possível avaliar este

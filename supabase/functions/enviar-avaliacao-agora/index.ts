@@ -86,7 +86,7 @@ Deno.serve(async (req: Request) => {
 
   let { data: avaliacao } = await supabase
     .from("avaliacoes")
-    .select("id, status")
+    .select("id, status, data_envio")
     .eq("colaborador_id", colaboradorId)
     .eq("marco", marco)
     .maybeSingle();
@@ -114,9 +114,12 @@ Deno.serve(async (req: Request) => {
         rascunho_salvo_em: respostasAnteriores?.length ? new Date().toISOString() : null,
         motivo_nao_avaliada: null,
         observacao_nao_avaliada: null,
+        // Reaberta começa um ciclo novo de envio e lembretes.
+        data_envio: null,
+        lembretes_enviados: 0,
       })
       .eq("id", avaliacao.id);
-    avaliacao = { ...avaliacao, status: "pendente" };
+    avaliacao = { ...avaliacao, status: "pendente", data_envio: null };
   } else if (avaliacao?.status === "respondida") {
     return json({ error: "Esta avaliação já foi respondida, não é possível reenviar." }, 400);
   } else if (avaliacao?.status === "nao_avaliada") {
@@ -132,7 +135,7 @@ Deno.serve(async (req: Request) => {
         status: "pendente",
         data_referencia: new Date().toISOString().slice(0, 10),
       })
-      .select("id, status")
+      .select("id, status, data_envio")
       .single();
 
     if (erroAvaliacao || !novaAvaliacao) {
@@ -209,7 +212,13 @@ Deno.serve(async (req: Request) => {
 
   await supabase
     .from("avaliacoes")
-    .update({ status: "enviada", data_envio: new Date().toISOString() })
+    .update({
+      status: "enviada",
+      // data_envio fica sendo o 1º envio (base do tempo médio de resposta);
+      // ultimo_envio_em conta pro próximo lembrete automático (a cada 5 dias).
+      data_envio: avaliacao.data_envio ?? new Date().toISOString(),
+      ultimo_envio_em: new Date().toISOString(),
+    })
     .eq("id", avaliacao.id);
 
   return json({

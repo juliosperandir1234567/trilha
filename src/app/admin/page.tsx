@@ -60,14 +60,12 @@ const STATUS_VISUAL = [
 // Até quantos dias antes do vencimento uma avaliação em aberto é urgente.
 const DIAS_URGENCIA = 2;
 
-// Abaixo de um dia, mostrar "0,2 dias" parece erro — vira horas.
+// Sempre em dias. Abaixo de um dia, "0,2 dias" parece erro — vira "< 1 dia".
 function formatarTempoResposta(dias: number | null): string {
   if (dias === null) return "-";
-  if (dias < 1) {
-    const horas = Math.round(dias * 24);
-    return horas < 1 ? "< 1h" : `${horas}h`;
-  }
-  return `${dias.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} dias`;
+  if (dias < 1) return "< 1 dia";
+  const texto = dias.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  return `${texto} ${texto === "1" ? "dia" : "dias"}`;
 }
 
 const STATUS_FILTRO_LABEL: Record<string, string> = {

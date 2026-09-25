@@ -5,9 +5,18 @@ import { SMTPClient } from "https://deno.land/x/denomailer/mod.ts";
 const MARCOS_PADRAO = [30, 60, 90];
 const DIAS_RETENTATIVA = 3;
 const DIAS_CATCHUP = 30;
+// Gestor que não respondeu recebe o link de novo a cada DIAS_LEMBRETE dias,
+// até responder. A folga cobre a rotina rodar alguns minutos antes do
+// horário do envio anterior (senão o lembrete escorregaria um dia).
+const DIAS_LEMBRETE = 5;
+const FOLGA_LEMBRETE_HORAS = 2;
 
 function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+function agoraISO(): string {
+  return new Date().toISOString();
 }
 
 function somarDias(dataISO: string, dias: number): string {
@@ -77,7 +86,7 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  const resultado = { criadas: 0, enviadas: 0, falhasEnvio: 0, reenviadas: 0, expiradas: 0 };
+  const resultado = { criadas: 0, enviadas: 0, falhasEnvio: 0, reenviadas: 0, lembretes: 0, expiradas: 0 };
 
   async function enviarEmail(params: {
     nome: string;
@@ -85,6 +94,7 @@ Deno.serve(async (req: Request) => {
     gestorEmail: string;
     marco: number;
     token: string;
+    lembrete?: boolean;
   }): Promise<boolean> {
     if (!smtpClient || !emailRemetente) return false;
     const urlAvaliacao = `${siteUrl}/avaliar/${params.token}`;
@@ -92,8 +102,12 @@ Deno.serve(async (req: Request) => {
       await smtpClient.send({
         from: `${nomeRemetente} <${emailRemetente}>`,
         to: params.gestorEmail,
-        subject: `Avaliação de ${params.marco} dias — ${params.nome}`,
-        html: `<p>Olá, ${params.gestorNome}.</p><p>É hora de avaliar <strong>${params.nome}</strong> no marco de <strong>${params.marco} dias</strong>.</p><p><a href="${urlAvaliacao}">Responder avaliação</a></p><p>Este link expira em ${validadeHoras} horas.</p>`,
+        subject: params.lembrete
+          ? `Lembrete: avaliação de ${params.marco} dias — ${params.nome}`
+          : `Avaliação de ${params.marco} dias — ${params.nome}`,
+        html: params.lembrete
+          ? `<p>Olá, ${params.gestorNome}.</p><p>A avaliação de <strong>${params.nome}</strong> no período de <strong>${params.marco} dias</strong> ainda está esperando sua resposta.</p><p><a href="${urlAvaliacao}">Responder avaliação</a></p><p>Este link expira em ${validadeHoras} horas. Enquanto não houver resposta, um novo lembrete é enviado a cada ${DIAS_LEMBRETE} dias.</p>`
+          : `<p>Olá, ${params.gestorNome}.</p><p>É hora de avaliar <strong>${params.nome}</strong> no período de <strong>${params.marco} dias</strong>.</p><p><a href="${urlAvaliacao}">Responder avaliação</a></p><p>Este link expira em ${validadeHoras} horas.</p>`,
       });
       return true;
     } catch {
@@ -160,7 +174,7 @@ Deno.serve(async (req: Request) => {
         resultado.enviadas += 1;
         await supabase
           .from("avaliacoes")
-          .update({ status: "enviada", data_envio: new Date().toISOString() })
+          .update({ status: "enviada", data_envio: agoraISO(), ultimo_envio_em: agoraISO() })
           .eq("id", avaliacao.id);
       } else {
         resultado.falhasEnvio += 1;
@@ -225,8 +239,65 @@ Deno.serve(async (req: Request) => {
       resultado.reenviadas += 1;
       await supabase
         .from("avaliacoes")
-        .update({ status: "enviada", data_envio: new Date().toISOString() })
+        .update({ status: "enviada", data_envio: agoraISO(), ultimo_envio_em: agoraISO() })
         .eq("id", pendente.id);
+    } else {
+      resultado.falhasEnvio += 1;
+    }
+  }
+
+  // Lembrete: avaliação enviada (ou que chegou a expirar) sem resposta há
+  // DIAS_LEMBRETE dias ou mais recebe um link novo e outro e-mail. Colaborador
+  // inativo fica de fora. O rascunho do gestor fica na avaliação, não no
+  // link, então continua lá no link novo.
+  // Compara em milissegundos: o banco devolve "+00:00" e o JS gera "Z", então
+  // comparar as strings pode errar.
+  const limiteLembrete = Date.now() - (DIAS_LEMBRETE * 24 - FOLGA_LEMBRETE_HORAS) * 60 * 60 * 1000;
+  const { data: semResposta } = await supabase
+    .from("avaliacoes")
+    .select(
+      "id, marco, data_envio, ultimo_envio_em, lembretes_enviados, colaboradores!inner(nome, gestor_nome, gestor_email, ativo)"
+    )
+    .in("status", ["enviada", "expirada"])
+    .eq("colaboradores.ativo", true);
+
+  for (const avaliacao of semResposta ?? []) {
+    const ultimoEnvio = avaliacao.ultimo_envio_em ?? avaliacao.data_envio;
+    if (!ultimoEnvio || new Date(ultimoEnvio).getTime() > limiteLembrete) continue;
+
+    const colaborador = avaliacao.colaboradores as unknown as {
+      nome: string;
+      gestor_nome: string;
+      gestor_email: string;
+    };
+
+    const expiraEm = new Date(Date.now() + validadeHoras * 60 * 60 * 1000).toISOString();
+    const { data: novoLink } = await supabase
+      .from("links_avaliacao")
+      .insert({ avaliacao_id: avaliacao.id, expira_em: expiraEm })
+      .select("token")
+      .single();
+    if (!novoLink) continue;
+
+    const emailEnviado = await enviarEmail({
+      nome: colaborador.nome,
+      gestorNome: colaborador.gestor_nome,
+      gestorEmail: colaborador.gestor_email,
+      marco: avaliacao.marco,
+      token: novoLink.token,
+      lembrete: true,
+    });
+
+    if (emailEnviado) {
+      resultado.lembretes += 1;
+      await supabase
+        .from("avaliacoes")
+        .update({
+          status: "enviada",
+          ultimo_envio_em: agoraISO(),
+          lembretes_enviados: (avaliacao.lembretes_enviados ?? 0) + 1,
+        })
+        .eq("id", avaliacao.id);
     } else {
       resultado.falhasEnvio += 1;
     }
@@ -240,15 +311,19 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const { data: linksExpirados } = await supabase
-    .from("links_avaliacao")
-    .select("avaliacao_id, avaliacoes!inner(status)")
-    .lt("expira_em", new Date().toISOString())
-    .is("usado_em", null)
-    .eq("avaliacoes.status", "enviada");
+  // Expira só quem não tem NENHUM link ainda válido — depois de um lembrete
+  // ou "Forçar envio" o link antigo vence, mas o novo continua valendo.
+  const { data: enviadas } = await supabase
+    .from("avaliacoes")
+    .select("id, links_avaliacao(expira_em, usado_em)")
+    .eq("status", "enviada");
 
-  for (const item of linksExpirados ?? []) {
-    await supabase.from("avaliacoes").update({ status: "expirada" }).eq("id", item.avaliacao_id);
+  const agora = Date.now();
+  for (const avaliacao of enviadas ?? []) {
+    const links = (avaliacao.links_avaliacao ?? []) as { expira_em: string; usado_em: string | null }[];
+    const temLinkValido = links.some((l) => !l.usado_em && new Date(l.expira_em).getTime() > agora);
+    if (links.length === 0 || temLinkValido) continue;
+    await supabase.from("avaliacoes").update({ status: "expirada" }).eq("id", avaliacao.id);
     resultado.expiradas += 1;
   }
 
