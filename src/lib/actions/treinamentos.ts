@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, requireStaff } from "@/lib/supabase/dal";
 
-export type TreinamentoFormState = { error?: string } | undefined;
+export type TreinamentoFormState = { error?: string; success?: string } | undefined;
 
 export async function createTreinamento(
   _prevState: TreinamentoFormState,
@@ -16,8 +16,8 @@ export async function createTreinamento(
   const categoriaId = String(formData.get("categoria_id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
   const descricao = String(formData.get("descricao") ?? "").trim();
-  // Vazio = "Todos os cargos".
-  const cargoId = String(formData.get("cargo_id") ?? "") || null;
+  // Um treinamento por cargo marcado; nenhum marcado = um só, pra todos os cargos.
+  const cargoIds = formData.getAll("cargo_ids").map(String).filter(Boolean);
 
   if (!categoriaId) {
     return { error: "Selecione a categoria." };
@@ -27,18 +27,26 @@ export async function createTreinamento(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.from("treinamentos").insert({
-    categoria_id: categoriaId,
-    cargo_id: cargoId,
-    nome,
-    descricao: descricao || null,
-  });
+  const { error } = await supabase.from("treinamentos").insert(
+    (cargoIds.length > 0 ? cargoIds : [null]).map((cargoId) => ({
+      categoria_id: categoriaId,
+      cargo_id: cargoId,
+      nome,
+      descricao: descricao || null,
+    }))
+  );
 
   if (error) {
     return { error: "Não foi possível criar o treinamento." };
   }
 
   revalidatePath("/admin/categorias");
+  return {
+    success:
+      cargoIds.length > 1
+        ? `${cargoIds.length} treinamentos criados, um para cada cargo.`
+        : "Treinamento criado.",
+  };
 }
 
 export async function toggleTreinamentoAtivo(formData: FormData) {

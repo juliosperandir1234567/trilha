@@ -34,24 +34,6 @@ export function TreinamentoForm({ categorias, cargos }: { categorias: Categoria[
         </select>
       </div>
 
-      <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[180px]">
-        <label htmlFor="cargo_id_treinamento" className="text-sm font-medium">
-          Cargo
-        </label>
-        <select
-          id="cargo_id_treinamento"
-          name="cargo_id"
-          className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
-        >
-          <option value="">Todos os cargos</option>
-          {cargos.map((cargo) => (
-            <option key={cargo.id} value={cargo.id}>
-              {cargo.nome}
-            </option>
-          ))}
-        </select>
-      </div>
-
       <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[200px]">
         <label htmlFor="nome_treinamento" className="text-sm font-medium">
           Nome do treinamento
@@ -75,6 +57,23 @@ export function TreinamentoForm({ categorias, cargos }: { categorias: Categoria[
         />
       </div>
 
+      {/* Atalho de cadastro: cada cargo marcado vira um treinamento separado
+          (mesmo nome e descrição), que depois se edita sozinho. */}
+      <fieldset className="flex w-full flex-col gap-1.5">
+        <legend className="text-sm font-medium">Cargos</legend>
+        <p className="text-xs text-zinc-500">
+          Cada cargo marcado ganha o seu próprio treinamento. Nenhum marcado = vale pra todos os cargos.
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 pt-1">
+          {cargos.map((cargo) => (
+            <label key={cargo.id} className="flex items-center gap-1.5 text-sm">
+              <input type="checkbox" name="cargo_ids" value={cargo.id} className="h-4 w-4 accent-primary" />
+              {cargo.nome}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <button
         type="submit"
         disabled={pending}
@@ -84,6 +83,7 @@ export function TreinamentoForm({ categorias, cargos }: { categorias: Categoria[
         {pending ? "Adicionando..." : "Adicionar treinamento"}
       </button>
       {state?.error && <p className="w-full text-sm text-red-600">{state.error}</p>}
+      {state?.success && <p className="w-full text-sm text-primary">{state.success}</p>}
     </form>
   );
 }
