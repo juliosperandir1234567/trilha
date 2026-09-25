@@ -567,76 +567,14 @@ export default async function AdminOverviewPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="-mt-2 flex flex-wrap items-start justify-between gap-4">
-        {/* w-full + min-w-0 no celular: sem isso a coluna cresce até a largura
-            dos botões e a página inteira passa da tela, em vez de só a linha
-            de botões rolar. */}
-        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto">
+      <div className="-mt-2 flex flex-col gap-3">
+        {/* Título e filtro de admissão na mesma linha; em notebook os
+            botões de período + filtro de data não cabem juntos numa linha. */}
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <h1 className="text-xl font-semibold">
             Visão geral{marco ? ` — ${marco} dias` : ""}
           </h1>
-          {/* No celular os botões ficam numa linha só, rolando pro lado, e o
-              quadro de filtros desce. A partir de sm, "contents" devolve os
-              botões pro flex de fora e tudo fica na mesma linha. */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <div className="flex gap-2 overflow-x-auto pb-1 sm:contents">
-            {MARCOS_FILTRO.map((opcao) => {
-              const ativo = (marco ?? "") === opcao.valor;
-              const total = opcao.valor
-                ? lista.filter((a) => a.marco === Number(opcao.valor)).length +
-                  periodosSemAvaliacao.filter((p) => p.marco === Number(opcao.valor)).length
-                : lista.length + periodosSemAvaliacao.length;
-              return (
-                <Link
-                  key={opcao.label}
-                  href={hrefMarco(opcao.valor)}
-                  className={`flex min-w-18 shrink-0 flex-col items-center gap-0.5 rounded-xl px-3 py-2 transition-colors sm:min-w-24 sm:px-6 sm:py-3 ${
-                    ativo
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-primary-soft/50 text-primary hover:bg-primary-soft"
-                  }`}
-                >
-                  <span className="text-sm font-medium">{opcao.label}</span>
-                  <span className="text-lg font-bold tabular-nums sm:text-2xl">{total}</span>
-                </Link>
-              );
-            })}
-          </div>
-            {/* Fica sempre visível ao lado dos períodos; os filtros aparecem
-                aqui conforme são aplicados, cada um com ✕ pra remover. */}
-            <div className="flex flex-col justify-center sm:min-w-56 gap-1.5 rounded-xl border border-dashed border-primary-border px-4 py-2">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-medium text-zinc-500">Filtros ativos</span>
-                {filtrosAtivos.length > 1 && (
-                  <Link
-                    href={hrefSem(["marco", "status", "critico", "admissao"])}
-                    className="text-xs text-zinc-500 underline underline-offset-2 hover:text-primary"
-                  >
-                    Limpar tudo
-                  </Link>
-                )}
-              </div>
-              {filtrosAtivos.length === 0 ? (
-                <span className="text-sm text-zinc-400">Nenhum</span>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {filtrosAtivos.map((filtro) => (
-                    <Link
-                      key={filtro.chave}
-                      href={hrefSem([filtro.chave])}
-                      title="Remover este filtro"
-                      className="flex items-center gap-1 rounded-full border border-primary-border bg-white py-0.5 pl-2.5 pr-1.5 text-xs font-medium text-primary hover:bg-primary-soft"
-                    >
-                      {filtro.rotulo}
-                      <X className="h-3.5 w-3.5" />
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        <form method="get" action="/admin" className="flex flex-wrap items-end gap-2">
+          <form method="get" action="/admin" className="flex flex-wrap items-end gap-2">
             {marco && <input type="hidden" name="marco" value={marco} />}
             {status && <input type="hidden" name="status" value={status} />}
             {critico && <input type="hidden" name="critico" value={critico} />}
@@ -680,6 +618,72 @@ export default async function AdminOverviewPage({
               </Link>
             )}
           </form>
+        </div>
+        {/* min-w-0: sem isso a coluna cresce até a largura dos botões e, no
+            celular, a página inteira passa da tela em vez de só a linha de
+            botões rolar. */}
+        <div className="flex w-full min-w-0 flex-col gap-2">
+          {/* No celular os botões ficam numa linha só, rolando pro lado, e o
+              quadro de filtros desce. A partir de sm, "contents" devolve os
+              botões pro flex de fora e tudo fica na mesma linha. */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 sm:contents">
+            {MARCOS_FILTRO.map((opcao) => {
+              const ativo = (marco ?? "") === opcao.valor;
+              const total = opcao.valor
+                ? lista.filter((a) => a.marco === Number(opcao.valor)).length +
+                  periodosSemAvaliacao.filter((p) => p.marco === Number(opcao.valor)).length
+                : lista.length + periodosSemAvaliacao.length;
+              return (
+                <Link
+                  key={opcao.label}
+                  href={hrefMarco(opcao.valor)}
+                  className={`flex min-w-16 shrink-0 flex-col items-center rounded-xl px-3 py-1.5 transition-colors sm:min-w-20 sm:px-4 sm:py-2 ${
+                    ativo
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-primary-soft/50 text-primary hover:bg-primary-soft"
+                  }`}
+                >
+                  <span className="text-xs font-medium sm:text-sm">{opcao.label}</span>
+                  <span className="text-lg font-bold tabular-nums sm:text-xl">{total}</span>
+                </Link>
+              );
+            })}
+          </div>
+            {/* Fica sempre visível ao lado dos períodos; os filtros aparecem
+                aqui conforme são aplicados, cada um com ✕ pra remover. */}
+            <div className="flex flex-col justify-center gap-1 rounded-xl border border-dashed border-primary-border px-3 py-1.5 sm:min-w-56">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-medium text-zinc-500">Filtros ativos</span>
+                {filtrosAtivos.length > 1 && (
+                  <Link
+                    href={hrefSem(["marco", "status", "critico", "admissao"])}
+                    className="text-xs text-zinc-500 underline underline-offset-2 hover:text-primary"
+                  >
+                    Limpar tudo
+                  </Link>
+                )}
+              </div>
+              {filtrosAtivos.length === 0 ? (
+                <span className="text-sm text-zinc-400">Nenhum</span>
+              ) : (
+                <div className="flex flex-wrap gap-1.5">
+                  {filtrosAtivos.map((filtro) => (
+                    <Link
+                      key={filtro.chave}
+                      href={hrefSem([filtro.chave])}
+                      title="Remover este filtro"
+                      className="flex items-center gap-1 rounded-full border border-primary-border bg-white py-0.5 pl-2.5 pr-1.5 text-xs font-medium text-primary hover:bg-primary-soft"
+                    >
+                      {filtro.rotulo}
+                      <X className="h-3.5 w-3.5" />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
@@ -1182,19 +1186,19 @@ function Card({
   const estilo = ESTILO_POR_TOM[tomEfetivo];
   const conteudo = (
     <>
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${estilo.iconBg}`}>
-        <Icon className={`h-5 w-5 ${estilo.iconColor}`} strokeWidth={2} />
+      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${estilo.iconBg}`}>
+        <Icon className={`h-4 w-4 ${estilo.iconColor}`} strokeWidth={2} />
       </span>
       <div className="min-w-0">
         <p className="text-xs font-medium leading-tight text-zinc-600">{label}</p>
-        <p className="text-xl font-bold tabular-nums text-zinc-900">{value}</p>
+        <p className="text-lg font-bold leading-tight tabular-nums text-zinc-900">{value}</p>
       </div>
     </>
   );
 
   if (!href) {
     return (
-      <div className={`flex items-center gap-3 rounded-xl px-3 py-3 ${estilo.cardBg}`}>
+      <div className={`flex items-center gap-2.5 rounded-xl px-3 py-2 ${estilo.cardBg}`}>
         {conteudo}
       </div>
     );
@@ -1203,7 +1207,7 @@ function Card({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 rounded-xl px-3 py-3 transition-all ${estilo.cardBg} ${
+      className={`flex items-center gap-2.5 rounded-xl px-3 py-2 transition-all ${estilo.cardBg} ${
         ativo ? `ring-2 ${estilo.activeRing}` : "hover:brightness-[0.97]"
       }`}
     >
