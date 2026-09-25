@@ -567,7 +567,9 @@ export default async function AdminOverviewPage({
           tela menor quebra; no celular só a linha de botões rola pro lado. */}
       <div className="-mt-2 flex flex-wrap items-end gap-3">
         <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto">
-          <span className="text-xs text-zinc-500">Período</span>
+          {/* Os números dos botões são avaliações, não pessoas — quem já
+              passou de mais de um período conta mais de uma vez. */}
+          <span className="text-xs text-zinc-500">Avaliações por período</span>
           <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             {MARCOS_FILTRO.map((opcao) => {
               const ativo = (marco ?? "") === opcao.valor;
