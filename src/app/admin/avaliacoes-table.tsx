@@ -22,6 +22,9 @@ export type AvaliacaoLinha = {
   colaboradorNome: string;
   matricula: string | null;
   gestorNome: string;
+  cargo: string | null;
+  // Prazo de resposta de avaliação enviada/expirada; urgente fica vermelho.
+  prazo: { texto: string; urgente: boolean } | null;
   // Período que já chegou mas a avaliação ainda não foi criada pela rotina
   // (data ISO do período). Entra na tabela como "Não enviada".
   previstaPara?: string;
@@ -64,6 +67,7 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
               <th className="hidden px-2.5 py-2 sm:table-cell">Gestor</th>
               <th className="whitespace-nowrap px-2.5 py-2">Status</th>
               <th className="px-2.5 py-2">Expira / respondida em</th>
+              <th className="whitespace-nowrap px-2.5 py-2">Prazo</th>
             </tr>
           </thead>
           <tbody>
@@ -85,6 +89,9 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                       <AlertTriangle className="h-3 w-3" />
                       Atenção
                     </span>
+                  )}
+                  {avaliacao.cargo && (
+                    <span className="block text-[11px] text-zinc-500">{avaliacao.cargo}</span>
                   )}
                 </td>
                 <td className="whitespace-nowrap px-2.5 py-2">{avaliacao.marco} dias</td>
@@ -108,11 +115,20 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                       ? new Date(avaliacao.expiraEm).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
                       : "-"}
                 </td>
+                <td className="whitespace-nowrap px-2.5 py-2">
+                  {avaliacao.prazo ? (
+                    <span className={avaliacao.prazo.urgente ? "font-medium text-red-600" : "text-zinc-600"}>
+                      {avaliacao.prazo.texto}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-300">-</span>
+                  )}
+                </td>
               </tr>
             ))}
             {filtradas.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-zinc-500">
+                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
                   {avaliacoes.length === 0
                     ? "Nenhuma avaliação encontrada."
                     : "Nenhum resultado pra essa busca."}

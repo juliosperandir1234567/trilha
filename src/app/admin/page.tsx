@@ -44,15 +44,16 @@ function diferencaDias(deISO: string, ateISO: string): number {
 }
 
 // Um status tem sempre o mesmo nome e a mesma cor em toda a página: card,
-// rosca e barras. Os hex batem com o -500 do Tailwind usado no ícone do card.
+// barras e tabela. Os hex batem com a cor do ícone do card de cada status
+// (green-700, orange-500, blue-600, red-500).
 const STATUS_VISUAL = [
-  { chave: "respondida", label: "Respondidas", cor: "#22c55e" },
-  { chave: "enviada", label: "Aguardando resposta", cor: "#f59e0b" },
-  { chave: "pendente", label: "Não enviadas", cor: "#8b5cf6" },
+  { chave: "respondida", label: "Respondidas", cor: "#15803d" },
+  { chave: "enviada", label: "Aguardando resposta", cor: "#f97316" },
+  { chave: "pendente", label: "Não enviadas", cor: "#2563eb" },
   { chave: "expirada", label: "Expiradas", cor: "#ef4444" },
 ] as const;
 
-// Até quantos dias antes do vencimento um item do "Requer atenção" é urgente.
+// Até quantos dias antes do vencimento uma avaliação em aberto é urgente.
 const DIAS_URGENCIA = 2;
 
 // Abaixo de um dia, mostrar "0,2 dias" parece erro — vira horas.
@@ -63,13 +64,6 @@ function formatarTempoResposta(dias: number | null): string {
     return horas < 1 ? "< 1h" : `${horas}h`;
   }
   return `${dias.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} dias`;
-}
-
-function iniciais(nome: string): string {
-  const partes = nome.trim().split(/\s+/);
-  const primeira = partes[0]?.[0] ?? "";
-  const ultima = partes.length > 1 ? partes[partes.length - 1][0] : "";
-  return (primeira + ultima).toUpperCase();
 }
 
 const STATUS_FILTRO_LABEL: Record<string, string> = {
@@ -120,6 +114,16 @@ export default async function AdminOverviewPage({
     return query ? `/admin?${query}` : "/admin";
   }
 
+  // Clique num pedaço da barra: filtra por aquele status. Na linha de um
+  // período, filtra também pelo período; na linha "Total", por todos.
+  function hrefStatusNoPeriodo(chaveStatus: string, periodo?: number) {
+    const params = new URLSearchParams();
+    if (periodo) params.set("marco", String(periodo));
+    params.set("status", chaveStatus);
+    comAdmissao(params);
+    return `/admin?${params.toString()}`;
+  }
+
   function hrefMarco(m: string) {
     const params = new URLSearchParams();
     if (m) params.set("marco", m);
@@ -138,15 +142,6 @@ export default async function AdminOverviewPage({
     if (status && !remover.includes("status")) params.set("status", status);
     if (critico && !remover.includes("critico")) params.set("critico", critico);
     if (!remover.includes("admissao")) comAdmissao(params);
-    const query = params.toString();
-    return query ? `/admin?${query}` : "/admin";
-  }
-
-  function hrefSemAdmissao() {
-    const params = new URLSearchParams();
-    if (marco) params.set("marco", marco);
-    if (status) params.set("status", status);
-    if (critico) params.set("critico", critico);
     const query = params.toString();
     return query ? `/admin?${query}` : "/admin";
   }
@@ -234,7 +229,7 @@ export default async function AdminOverviewPage({
       .eq("nota", 1),
     supabase
       .from("colaboradores")
-      .select("id, nome, matricula, gestor_nome, data_admissao, cargos(marcos)")
+      .select("id, nome, matricula, gestor_nome, data_admissao, cargos(nome, marcos)")
       .eq("ativo", true),
   ]);
 
@@ -309,7 +304,7 @@ export default async function AdminOverviewPage({
   const marcosPrevistos = (colaboradoresParaMarcos ?? [])
     .filter((c) => !temFiltroAdmissao || dentroDoPeriodoAdmissao(c.data_admissao))
     .flatMap((c) => {
-      const cargo = c.cargos as unknown as { marcos: number[] | null } | null;
+      const cargo = c.cargos as unknown as { nome: string; marcos: number[] | null } | null;
       return (cargo?.marcos ?? MARCOS_PADRAO)
         .filter((m) => !marcosComAvaliacao.has(`${c.id}:${m}`))
         .map((m) => {
@@ -320,6 +315,7 @@ export default async function AdminOverviewPage({
             nome: c.nome,
             matricula: c.matricula as string | null,
             gestorNome: c.gestor_nome as string,
+            cargo: cargo?.nome ?? null,
             marco: m,
             dataMarco,
             diasAteMarco,
@@ -345,12 +341,25 @@ export default async function AdminOverviewPage({
   const previstosVencidosDoMarco = (m: number | null) =>
     previstosVencidos.filter((p) => !m || p.marco === m).length;
 
-  const proximasAvaliacoes = (incluirPrevistos ? marcosPrevistos : [])
+  // "Próximas avaliações" só aparece com o filtro "Não enviadas" (card lá em
+  // cima ou pedaço violeta do gráfico). Fora dele, só os casos que a rotina
+  // não vai gerar sozinha viram um alerta, pra não passarem despercebidos.
+  const mostrarProximas = status === "pendente" && !critico;
+  const precisamEnvioManual = marcosPrevistos.filter(
+    (p) => p.naoSeraGerada && (!marcoNum || p.marco === marcoNum)
+  ).length;
+
+  const proximasAvaliacoesTodas = (incluirPrevistos ? marcosPrevistos : [])
     .filter((p) => !marcoNum || p.marco === marcoNum)
     .sort((a, b) => {
       if (a.naoSeraGerada !== b.naoSeraGerada) return a.naoSeraGerada ? -1 : 1;
       return a.diasAteMarco - b.diasAteMarco;
     });
+
+  // "Já chegaram" são as mesmas que o card e a tabela contam como "Não
+  // enviadas"; "nos próximos dias" ainda não era pra ter saído e fica à parte.
+  const proximasJaChegaram = proximasAvaliacoesTodas.filter((p) => p.diasAteMarco <= 0);
+  const proximasFuturas = proximasAvaliacoesTodas.filter((p) => p.diasAteMarco > 0);
 
   const totalRespondidas = avaliacoesDoMarco.filter((a) => a.status === "respondida").length;
   const totalPendente =
@@ -410,6 +419,10 @@ export default async function AdminOverviewPage({
     };
   });
 
+  // Período sem nenhuma avaliação não entra no gráfico (vai aparecendo
+  // conforme surgem avaliações). O período filtrado fica mesmo zerado.
+  const periodosNoGrafico = progressoPorMarco.filter((l) => l.total > 0 || l.marco === marcoNum);
+
   // Linha "Total" no topo das barras: soma de todos os períodos.
   const progressoTotal = {
     total: listaComFiltrosDosCards.length + previstosVencidos.length,
@@ -421,60 +434,19 @@ export default async function AdminOverviewPage({
     })),
   };
 
-  // "Requer atenção": avaliações já expiradas, ou aguardando resposta —
-  // pra não depender de ninguém abrir a tabela completa e reparar sozinho.
-  // Tudo que está em aberto aparece, mas só é "urgente" (vermelho) o que já
-  // expirou ou vence em até DIAS_URGENCIA dias — senão tudo vira alerta.
-  const itensAtencao = avaliacoesFiltradas
-    .map((a) => {
-      const colaborador = a.colaboradores as unknown as {
-        id: string;
-        nome: string;
-        matricula: string | null;
-        cargos: { nome: string } | null;
-      } | null;
-      const link = (a.links_avaliacao as unknown as { expira_em: string }[])[0];
-      if (!colaborador) return null;
-
-      if (a.status === "expirada") {
-        return {
-          avaliacaoId: a.id,
-          colaboradorId: colaborador.id,
-          nome: colaborador.nome,
-          matricula: colaborador.matricula,
-          cargo: colaborador.cargos?.nome ?? null,
-          marco: a.marco,
-          atrasada: true,
-          urgente: true,
-          expiraEm: link?.expira_em ?? null,
-        };
-      }
-
-      if (a.status === "enviada" && link) {
-        const expiraEmMs = new Date(link.expira_em).getTime();
-        return {
-          avaliacaoId: a.id,
-          colaboradorId: colaborador.id,
-          nome: colaborador.nome,
-          matricula: colaborador.matricula,
-          cargo: colaborador.cargos?.nome ?? null,
-          marco: a.marco,
-          atrasada: expiraEmMs < agora,
-          urgente: expiraEmMs - agora <= DIAS_URGENCIA * 24 * 60 * 60 * 1000,
-          expiraEm: link.expira_em,
-        };
-      }
-
-      return null;
-    })
-    .filter((item): item is NonNullable<typeof item> => item !== null)
-    .sort((a, b) => {
-      if (a.atrasada !== b.atrasada) return a.atrasada ? -1 : 1;
-      return new Date(a.expiraEm ?? 0).getTime() - new Date(b.expiraEm ?? 0).getTime();
-    });
-
-
-  const totalUrgentes = itensAtencao.filter((i) => i.urgente).length;
+  // Prazo de resposta (antes ficava no card "Requer atenção", agora é uma
+  // coluna da tabela). Só existe pra avaliação enviada ou expirada. Urgente =
+  // já expirou ou vence em até DIAS_URGENCIA dias.
+  const DIA_MS = 24 * 60 * 60 * 1000;
+  function prazoDe(statusAvaliacao: string, expiraEm: string | null) {
+    if (!expiraEm || (statusAvaliacao !== "enviada" && statusAvaliacao !== "expirada")) return null;
+    const expiraEmMs = new Date(expiraEm).getTime();
+    const dias = Math.ceil((expiraEmMs - agora) / DIA_MS);
+    if (statusAvaliacao === "expirada" || expiraEmMs < agora) {
+      return { texto: `Expirou há ${Math.max(1, -dias)} dia(s)`, urgente: true };
+    }
+    return { texto: `Faltam ${Math.max(0, dias)} dia(s)`, urgente: expiraEmMs - agora <= DIAS_URGENCIA * DIA_MS };
+  }
 
   const avaliacoesCriadasParaTabela: AvaliacaoLinha[] = avaliacoesFiltradas.map((a) => {
     const colaborador = a.colaboradores as unknown as {
@@ -483,21 +455,38 @@ export default async function AdminOverviewPage({
       matricula: string | null;
       gestor_nome: string;
       gestor_email: string;
+      cargos: { nome: string } | null;
     } | null;
     const link = (a.links_avaliacao as unknown as { expira_em: string }[])[0];
+    const expiraEm = link?.expira_em ?? null;
 
     return {
       id: a.id,
       marco: a.marco,
       status: a.status,
       dataResposta: a.data_resposta,
-      expiraEm: link?.expira_em ?? null,
+      expiraEm,
       notaCritica: avaliacoesComNotaCritica.has(a.id),
       colaboradorId: colaborador?.id ?? null,
       colaboradorNome: colaborador?.nome ?? "",
       matricula: colaborador?.matricula ?? null,
       gestorNome: colaborador?.gestor_nome ?? "",
+      cargo: colaborador?.cargos?.nome ?? null,
+      prazo: prazoDe(a.status, expiraEm),
     };
+  });
+
+  // O que precisa de ação vem primeiro: urgentes, não enviadas, aguardando
+  // (vencimento mais próximo antes) e, por fim, o resto na ordem original.
+  const ordemDaLinha = (l: AvaliacaoLinha) =>
+    l.prazo?.urgente ? 0 : l.status === "pendente" ? 1 : l.status === "enviada" ? 2 : 3;
+  avaliacoesCriadasParaTabela.sort((a, b) => {
+    const diferenca = ordemDaLinha(a) - ordemDaLinha(b);
+    if (diferenca !== 0) return diferenca;
+    if (ordemDaLinha(a) <= 2) {
+      return new Date(a.expiraEm ?? 0).getTime() - new Date(b.expiraEm ?? 0).getTime();
+    }
+    return 0;
   });
 
   // Os mesmos períodos que o card "Não enviadas" conta sem avaliação criada
@@ -517,6 +506,8 @@ export default async function AdminOverviewPage({
         colaboradorNome: p.nome,
         matricula: p.matricula,
         gestorNome: p.gestorNome,
+        cargo: p.cargo,
+        prazo: null,
         previstaPara: p.dataMarco,
       })),
     ...avaliacoesCriadasParaTabela,
@@ -535,24 +526,24 @@ export default async function AdminOverviewPage({
       (a, b) => b.total - a.total
     );
     return (
-      <div key={categoria.id} className="px-4 py-3">
+      <div key={categoria.id} className="px-3 py-2">
         <Link
           href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
-          className="flex items-center justify-between gap-3 text-sm transition-colors hover:text-primary"
+          className="flex items-center justify-between gap-3 text-[13px] transition-colors hover:text-primary"
         >
           <span className="flex items-center gap-2 font-medium">
-            <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
+            <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary" />
             {categoria.nome}
           </span>
           <span className="flex items-center gap-2 text-zinc-500">
             <span className="font-semibold text-primary">
               {contagemPorCategoria.get(categoria.id) ?? 0}
             </span>
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-3.5 w-3.5" />
           </span>
         </Link>
         {treinamentos.length > 0 && (
-          <ul className="mt-2 flex flex-col gap-1 pl-6 text-sm text-zinc-600">
+          <ul className="mt-1 flex flex-col gap-0.5 pl-5.5 text-xs text-zinc-600">
             {treinamentos.map((t, i) => (
               <li key={i} className="flex items-center justify-between gap-3">
                 <span>{t.nome}</span>
@@ -565,69 +556,19 @@ export default async function AdminOverviewPage({
     );
   }
 
+  const totalUrgentes = avaliacoesParaTabela.filter((l) => l.prazo?.urgente).length;
+
   return (
     <div className="flex flex-col gap-8">
-      <div className="-mt-2 flex flex-col gap-3">
-        {/* Título e filtro de admissão na mesma linha; em notebook os
-            botões de período + filtro de data não cabem juntos numa linha. */}
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h1 className="text-xl font-semibold">
-            Visão geral{marco ? ` — ${marco} dias` : ""}
-          </h1>
-          <form method="get" action="/admin" className="flex flex-wrap items-end gap-2">
-            {marco && <input type="hidden" name="marco" value={marco} />}
-            {status && <input type="hidden" name="status" value={status} />}
-            {critico && <input type="hidden" name="critico" value={critico} />}
-            <div className="flex flex-col gap-1">
-              <label htmlFor="admissao_de" className="text-xs text-zinc-500">
-                Admissão de
-              </label>
-              <input
-                id="admissao_de"
-                type="date"
-                name="admissao_de"
-                defaultValue={admissaoDe ?? ""}
-                className="rounded-md border border-black/15 px-2 py-1.5 text-sm outline-none focus:border-primary"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label htmlFor="admissao_ate" className="text-xs text-zinc-500">
-                até
-              </label>
-              <input
-                id="admissao_ate"
-                type="date"
-                name="admissao_ate"
-                defaultValue={admissaoAte ?? ""}
-                className="rounded-md border border-black/15 px-2 py-1.5 text-sm outline-none focus:border-primary"
-              />
-            </div>
-            <button
-              type="submit"
-              className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary-hover"
-            >
-              <CalendarDays className="h-4 w-4" />
-              Filtrar
-            </button>
-            {temFiltroAdmissao && (
-              <Link
-                href={hrefSemAdmissao()}
-                className="rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
-              >
-                Limpar
-              </Link>
-            )}
-          </form>
-        </div>
-        {/* min-w-0: sem isso a coluna cresce até a largura dos botões e, no
-            celular, a página inteira passa da tela em vez de só a linha de
-            botões rolar. */}
-        <div className="flex w-full min-w-0 flex-col gap-2">
-          {/* No celular os botões ficam numa linha só, rolando pro lado, e o
-              quadro de filtros desce. A partir de sm, "contents" devolve os
-              botões pro flex de fora e tudo fica na mesma linha. */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <div className="flex gap-2 overflow-x-auto pb-1 sm:contents">
+      {/* O menu já diz em que página está; o título fica só pro leitor de tela. */}
+      <h1 className="sr-only">Visão geral</h1>
+
+      {/* Tudo numa linha: períodos, filtro de admissão e filtros ativos. Em
+          tela menor quebra; no celular só a linha de botões rola pro lado. */}
+      <div className="-mt-2 flex flex-wrap items-end gap-3">
+        <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto">
+          <span className="text-xs text-zinc-500">Período</span>
+          <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
             {MARCOS_FILTRO.map((opcao) => {
               const ativo = (marco ?? "") === opcao.valor;
               const total = opcao.valor
@@ -638,52 +579,66 @@ export default async function AdminOverviewPage({
                 <Link
                   key={opcao.label}
                   href={hrefMarco(opcao.valor)}
-                  className={`flex min-w-16 shrink-0 flex-col items-center rounded-xl px-3 py-1.5 transition-colors sm:min-w-20 sm:px-4 sm:py-2 ${
+                  className={`flex min-w-14 shrink-0 flex-col items-center rounded-lg px-2.5 py-1 transition-colors sm:min-w-16 ${
                     ativo
                       ? "bg-primary text-primary-foreground"
                       : "bg-primary-soft/50 text-primary hover:bg-primary-soft"
                   }`}
                 >
-                  <span className="text-xs font-medium sm:text-sm">{opcao.label}</span>
-                  <span className="text-lg font-bold tabular-nums sm:text-xl">{total}</span>
+                  <span className="text-[11px] font-medium">{opcao.label}</span>
+                  <span className="text-base font-bold leading-tight tabular-nums">{total}</span>
                 </Link>
               );
             })}
           </div>
-            {/* Fica sempre visível ao lado dos períodos; os filtros aparecem
-                aqui conforme são aplicados, cada um com ✕ pra remover. */}
-            <div className="flex flex-col justify-center gap-1 rounded-xl border border-dashed border-primary-border px-3 py-1.5 sm:min-w-56">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-xs font-medium text-zinc-500">Filtros ativos</span>
-                {filtrosAtivos.length > 1 && (
-                  <Link
-                    href={hrefSem(["marco", "status", "critico", "admissao"])}
-                    className="text-xs text-zinc-500 underline underline-offset-2 hover:text-primary"
-                  >
-                    Limpar tudo
-                  </Link>
-                )}
-              </div>
-              {filtrosAtivos.length === 0 ? (
-                <span className="text-sm text-zinc-400">Nenhum</span>
-              ) : (
-                <div className="flex flex-wrap gap-1.5">
-                  {filtrosAtivos.map((filtro) => (
-                    <Link
-                      key={filtro.chave}
-                      href={hrefSem([filtro.chave])}
-                      title="Remover este filtro"
-                      className="flex items-center gap-1 rounded-full border border-primary-border bg-white py-0.5 pl-2.5 pr-1.5 text-xs font-medium text-primary hover:bg-primary-soft"
-                    >
-                      {filtro.rotulo}
-                      <X className="h-3.5 w-3.5" />
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
+        <form method="get" action="/admin" className="flex flex-wrap items-end gap-2">
+          {marco && <input type="hidden" name="marco" value={marco} />}
+          {status && <input type="hidden" name="status" value={status} />}
+          {critico && <input type="hidden" name="critico" value={critico} />}
+          <div className="flex flex-col gap-1">
+            <label htmlFor="admissao_de" className="text-xs text-zinc-500">
+              Admissão de
+            </label>
+            <input
+              id="admissao_de"
+              type="date"
+              name="admissao_de"
+              defaultValue={admissaoDe ?? ""}
+              className="w-36 rounded-md border border-black/15 px-2 py-1.5 text-sm outline-none focus:border-primary"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="admissao_ate" className="text-xs text-zinc-500">
+              até
+            </label>
+            <input
+              id="admissao_ate"
+              type="date"
+              name="admissao_ate"
+              defaultValue={admissaoAte ?? ""}
+              className="w-36 rounded-md border border-black/15 px-2 py-1.5 text-sm outline-none focus:border-primary"
+            />
+          </div>
+          <button
+            type="submit"
+            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary-hover"
+          >
+            <CalendarDays className="h-4 w-4" />
+            Filtrar
+          </button>
+          {/* Qualquer filtro ligado (período, status, notas críticas ou
+              admissão) mostra o botão; ele volta a página sem filtro nenhum. */}
+          {filtrosAtivos.length > 0 && (
+            <Link
+              href={hrefSem(["marco", "status", "critico", "admissao"])}
+              className="flex items-center gap-1.5 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
+            >
+              <X className="h-4 w-4" />
+              Limpar filtros
+            </Link>
+          )}
+        </form>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
@@ -701,7 +656,7 @@ export default async function AdminOverviewPage({
           value={totalPendente}
           href={status === "pendente" ? hrefFiltro({}) : hrefFiltro({ status: "pendente" })}
           ativo={status === "pendente"}
-          tone="violet"
+          tone="blue"
         />
         <Card
           icon={Clock}
@@ -709,7 +664,7 @@ export default async function AdminOverviewPage({
           value={totalEnviada}
           href={status === "enviada" ? hrefFiltro({}) : hrefFiltro({ status: "enviada" })}
           ativo={status === "enviada"}
-          tone="amber"
+          tone="orange"
         />
         <Card
           icon={CheckCircle2}
@@ -733,7 +688,7 @@ export default async function AdminOverviewPage({
           value={colaboradoresComNotaCritica}
           href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
           ativo={!!critico}
-          tone="orange"
+          tone="amber"
           alertaSoSeValor
         />
         <Card
@@ -744,7 +699,27 @@ export default async function AdminOverviewPage({
         />
       </div>
 
-      <div className={`grid gap-6 ${incluirPrevistos ? "lg:grid-cols-[3fr_2fr]" : ""}`}>
+      {precisamEnvioManual > 0 && !mostrarProximas && (
+        <div className="-mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            {precisamEnvioManual === 1
+              ? "1 avaliação precisa de envio manual"
+              : `${precisamEnvioManual} avaliações precisam de envio manual`}
+            <span className="text-xs text-red-600/80">
+              (período passou há mais de {DIAS_CATCHUP_ROTINA - 1} dias; a rotina não gera sozinha)
+            </span>
+          </span>
+          <Link
+            href={hrefFiltro({ status: "pendente" })}
+            className="rounded-md bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+          >
+            Ver
+          </Link>
+        </div>
+      )}
+
+      <div className={`grid gap-6 ${mostrarProximas ? "lg:grid-cols-[3fr_2fr]" : ""}`}>
       <div className="min-w-0">
         <h2 className="mb-3 font-medium">Status por período{sufixoFiltrosDosCards}</h2>
         <div className="flex flex-col gap-2 rounded-lg border border-primary-border p-4">
@@ -752,182 +727,115 @@ export default async function AdminOverviewPage({
             {STATUS_VISUAL.map((st) => (
               <LegendaCor key={st.chave} cor={st.cor} label={st.label} />
             ))}
+            <span className="ml-auto text-zinc-400">Clique numa cor pra filtrar</span>
           </div>
-          <BarraStatus rotulo="Total" linha={progressoTotal} destaque />
+          <BarraStatus
+            rotulo="Total"
+            linha={progressoTotal}
+            destaque
+            hrefSegmento={(chave) => hrefStatusNoPeriodo(chave)}
+          />
           <div className="my-1 border-t border-primary-border/50" />
-          {progressoPorMarco.map((linha) => (
+          {periodosNoGrafico.length === 0 && (
+            <p className="py-2 text-center text-xs text-zinc-500">Nenhuma avaliação nos períodos com esses filtros.</p>
+          )}
+          {periodosNoGrafico.map((linha) => (
             <BarraStatus
               key={linha.marco}
               rotulo={`${linha.marco} dias`}
               linha={linha}
-              href={hrefMarco(String(linha.marco))}
+              hrefRotulo={hrefMarco(String(linha.marco))}
+              hrefSegmento={(chave) => hrefStatusNoPeriodo(chave, linha.marco)}
               selecionada={linha.marco === marcoNum}
             />
           ))}
         </div>
       </div>
 
-      {incluirPrevistos && (
+      {mostrarProximas && (
         <div className="flex min-w-0 flex-col">
           <h2 className="mb-3 font-medium">Próximas avaliações{marco ? ` — ${marco} dias` : ""}</h2>
           <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-lg border border-primary-border p-4">
             <p className="text-xs text-zinc-500">
-              Períodos que vencem nos próximos {DIAS_PROXIMAS} dias e períodos que chegaram sem avaliação. A
-              rotina cria e envia automaticamente às 9h.
+              A rotina cria e envia automaticamente às 9h. Os que já chegaram são os mesmos contados em
+              &quot;Não enviadas&quot;.
             </p>
-            {proximasAvaliacoes.length === 0 ? (
-              <p className="py-6 text-center text-sm text-zinc-500">Nenhuma avaliação prevista nos próximos dias.</p>
+            {proximasAvaliacoesTodas.length === 0 ? (
+              <p className="py-6 text-center text-xs text-zinc-500">Nenhuma avaliação prevista nos próximos dias.</p>
             ) : (
-              <ul className="flex max-h-[340px] flex-col gap-2 overflow-y-auto pr-1">
-                {proximasAvaliacoes.map((p) => (
-                  <li
-                    key={`${p.colaboradorId}:${p.marco}`}
-                    className={`flex shrink-0 items-center justify-between gap-3 rounded-md border-l-4 px-3 py-2 text-sm ${
-                      p.naoSeraGerada ? "border-red-500 bg-red-50/60" : "border-transparent bg-primary-soft/30"
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <Link
-                        href={`/admin/colaboradores/${p.colaboradorId}`}
-                        className="font-semibold text-zinc-900 hover:underline"
-                      >
-                        {p.nome}
-                      </Link>
-                      <div className="text-xs text-zinc-500">
-                        Avaliação de {p.marco} dias · {new Date(p.dataMarco + "T00:00:00").toLocaleDateString("pt-BR")}
-                      </div>
-                      <div className={`text-xs font-medium ${p.naoSeraGerada ? "text-red-600" : "text-primary"}`}>
-                        {p.naoSeraGerada
-                          ? `Passou há ${-p.diasAteMarco} dias — não será gerada automaticamente`
-                          : p.diasAteMarco < 0
-                            ? `Passou há ${-p.diasAteMarco} dia(s) — será criada na próxima rotina`
-                            : p.diasAteMarco === 0
-                              ? "Hoje — será criada na próxima rotina"
-                              : p.diasAteMarco === 1
-                                ? "Amanhã"
-                                : `Em ${p.diasAteMarco} dias`}
-                      </div>
+              <div className="flex max-h-[340px] flex-col gap-3 overflow-y-auto pr-1">
+                {[
+                  { titulo: "Já chegaram, sem avaliação", itens: proximasJaChegaram },
+                  { titulo: `Chegam nos próximos ${DIAS_PROXIMAS} dias`, itens: proximasFuturas },
+                ]
+                  .filter((grupo) => grupo.itens.length > 0)
+                  .map((grupo) => (
+                    <div key={grupo.titulo} className="flex flex-col gap-2">
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                        {grupo.titulo} ({grupo.itens.length})
+                      </h3>
+                      <ul className="flex flex-col gap-2">
+                        {grupo.itens.map((p) => (
+            <li
+              key={`${p.colaboradorId}:${p.marco}`}
+              className={`flex shrink-0 items-center justify-between gap-3 rounded-md border-l-4 px-3 py-1.5 text-xs ${
+                p.naoSeraGerada ? "border-red-500 bg-red-50/60" : "border-transparent bg-primary-soft/30"
+              }`}
+            >
+              <div className="min-w-0">
+                <Link
+                  href={`/admin/colaboradores/${p.colaboradorId}`}
+                  className="text-[13px] font-semibold text-zinc-900 hover:underline"
+                >
+                  {p.nome}
+                </Link>
+                <div className="text-[11px] text-zinc-500">
+                  Avaliação de {p.marco} dias · {new Date(p.dataMarco + "T00:00:00").toLocaleDateString("pt-BR")}
+                </div>
+                <div className={`text-[11px] font-medium ${p.naoSeraGerada ? "text-red-600" : "text-primary"}`}>
+                  {p.naoSeraGerada
+                    ? `Passou há ${-p.diasAteMarco} dias — não será gerada automaticamente`
+                    : p.diasAteMarco < 0
+                      ? `Passou há ${-p.diasAteMarco} dia(s) — será criada na próxima rotina`
+                      : p.diasAteMarco === 0
+                        ? "Hoje — será criada na próxima rotina"
+                        : p.diasAteMarco === 1
+                          ? "Amanhã"
+                          : `Em ${p.diasAteMarco} dias`}
+                </div>
+              </div>
+              {p.diasAteMarco <= 0 && (
+                <EnviarAgoraButton colaboradorId={p.colaboradorId} marco={p.marco} rotulo="Enviar agora" />
+              )}
+            </li>
+                        ))}
+                      </ul>
                     </div>
-                    {p.diasAteMarco <= 0 && (
-                      <EnviarAgoraButton colaboradorId={p.colaboradorId} marco={p.marco} rotulo="Enviar agora" />
-                    )}
-                  </li>
-                ))}
-              </ul>
+                  ))}
+              </div>
             )}
           </div>
         </div>
       )}
       </div>
 
-      {/* Um embaixo do outro, largura toda. Cada lista mostra ~5 pessoas e
-          rola por dentro a partir daí. */}
-      <div className="flex flex-col gap-6">
-      {itensAtencao.length > 0 && (
-        <div
-          className={`flex min-h-0 min-w-0 flex-col rounded-lg border p-4 ${
-            totalUrgentes > 0 ? "border-red-200 bg-red-50/60" : "border-amber-200 bg-amber-50/50"
-          }`}
-        >
-          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-            <div>
-              <h2
-                className={`flex items-center gap-2 font-medium ${totalUrgentes > 0 ? "text-red-700" : "text-amber-700"}`}
-              >
-                <AlertTriangle className="h-4 w-4" />
-                Requer atenção
-              </h2>
-              <p className="text-xs text-zinc-500">
-                Avaliações em aberto. Em vermelho: expiradas ou vencendo em até {DIAS_URGENCIA} dias.
-              </p>
-            </div>
-            <div className="flex gap-1.5">
-              {totalUrgentes > 0 && (
-                <span className="whitespace-nowrap rounded-full bg-red-600 px-3 py-1 text-xs font-medium text-white">
-                  {totalUrgentes} urgente{totalUrgentes === 1 ? "" : "s"}
-                </span>
-              )}
-              <span className="whitespace-nowrap rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-600">
-                {itensAtencao.length} no total
-              </span>
-            </div>
-          </div>
-          <ul className="flex max-h-[440px] flex-col gap-1.5 overflow-y-auto pr-1 sm:max-h-[262px]">
-            {itensAtencao.map((item) => {
-              const diasRestantes = Math.ceil(
-                (new Date(item.expiraEm ?? 0).getTime() - agora) / (24 * 60 * 60 * 1000)
-              );
-              return (
-                <li
-                  key={item.avaliacaoId}
-                  className={`flex shrink-0 flex-col gap-1.5 rounded-md border-l-4 bg-white px-3 py-2 text-xs sm:flex-row sm:items-center sm:gap-4 ${
-                    item.urgente ? "border-red-500" : "border-transparent"
-                  }`}
-                >
-                  <div className="flex min-w-0 items-center gap-2 sm:w-64 sm:shrink-0">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[10px] font-semibold text-zinc-600">
-                      {iniciais(item.nome)}
-                    </span>
-                    <div className="min-w-0">
-                      <Link
-                        href={`/admin/colaboradores/${item.colaboradorId}`}
-                        className="block truncate text-[13px] font-semibold text-zinc-900 hover:underline"
-                      >
-                        {item.nome}
-                      </Link>
-                      <div className="truncate text-[11px] text-zinc-500">
-                        {item.matricula ?? "-"}
-                        {item.cargo ? ` · ${item.cargo}` : ""}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-1 flex-wrap items-center gap-x-2.5 gap-y-1 pl-9 sm:pl-0">
-                    <span
-                      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        item.urgente ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-600"
-                      }`}
-                    >
-                      Avaliação de {item.marco} dias
-                    </span>
-                    {item.expiraEm && (
-                      <span className="flex items-center gap-1 whitespace-nowrap text-[11px] text-zinc-500">
-                        <CalendarDays className="h-3 w-3" />
-                        Vencimento: {new Date(item.expiraEm).toLocaleDateString("pt-BR")}
-                      </span>
-                    )}
-                    <span
-                      className={`whitespace-nowrap ${item.urgente ? "font-medium text-red-600" : "text-zinc-500"}`}
-                    >
-                      {item.atrasada
-                        ? `Expirou há ${Math.max(1, -diasRestantes)} dia(s)`
-                        : `Faltam ${Math.max(0, diasRestantes)} dia(s)`}
-                    </span>
-                  </div>
-                  <Link
-                    href={`/admin/colaboradores/${item.colaboradorId}`}
-                    className={`ml-9 w-fit shrink-0 rounded-md px-2.5 py-1 text-[11px] font-medium sm:ml-0 ${
-                      item.urgente
-                        ? "bg-primary text-primary-foreground hover:bg-primary-hover"
-                        : "border border-primary-border text-primary hover:bg-primary-soft"
-                    }`}
-                  >
-                    Abrir avaliação
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      <div className="flex min-h-0 min-w-0 flex-col">
-        <h2 className="mb-3 font-medium">
-          Avaliações{marco ? ` de ${marco} dias` : ""}
-          {status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : ""}
-          {critico ? " — Notas críticas" : ""}
+      <div className="flex min-w-0 flex-col">
+        <h2 className="mb-3 flex flex-wrap items-center gap-2 font-medium">
+          <span>
+            Avaliações{marco ? ` de ${marco} dias` : ""}
+            {status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : ""}
+            {critico ? " — Notas críticas" : ""}
+          </span>
+          {totalUrgentes > 0 && (
+            <span
+              title={`Expiradas ou vencendo em até ${DIAS_URGENCIA} dias`}
+              className="rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-medium text-white"
+            >
+              {totalUrgentes} urgente{totalUrgentes === 1 ? "" : "s"}
+            </span>
+          )}
         </h2>
         <AvaliacoesTable avaliacoes={avaliacoesParaTabela} />
-      </div>
       </div>
 
       <div>
@@ -943,12 +851,12 @@ export default async function AdminOverviewPage({
         </div>
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-3 rounded-lg border border-primary-border bg-primary-soft/40 px-4 py-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-soft">
-              <GraduationCap className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-2.5 rounded-lg border border-primary-border bg-primary-soft/40 px-3 py-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft">
+              <GraduationCap className="h-4 w-4 text-primary" />
             </span>
             <div>
-              <p className="text-2xl font-bold tabular-nums text-zinc-900">{respostasFiltradas.length}</p>
+              <p className="text-lg font-bold leading-tight tabular-nums text-zinc-900">{respostasFiltradas.length}</p>
               <p className="text-xs text-zinc-500">Indicações de treinamento</p>
             </div>
           </div>
@@ -958,7 +866,7 @@ export default async function AdminOverviewPage({
               <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma indicação de treinamento com esses filtros.</p>
             )}
             {categoriasSemIndicacao.length > 0 && (
-              <details className="group px-4 py-3 text-sm">
+              <details className="group px-3 py-2 text-xs">
                 <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-zinc-500 hover:text-primary">
                   <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
                   {categoriasSemIndicacao.length} competência{categoriasSemIndicacao.length === 1 ? "" : "s"} sem
@@ -984,34 +892,34 @@ export default async function AdminOverviewPage({
           </div>
           </div>
 
-          <div className="flex flex-col gap-4 rounded-xl bg-primary-soft/40 p-4">
+          <div className="flex flex-col gap-3 rounded-xl bg-primary-soft/40 p-4">
             <div>
-              <h3 className="font-medium">Treinamentos mais indicados</h3>
+              <h3 className="text-sm font-medium">Treinamentos mais indicados</h3>
               <p className="text-xs text-zinc-500">Ranking de todos os treinamentos, independente da competência.</p>
             </div>
             {rankingTreinamentos.length === 0 ? (
-              <p className="text-sm text-zinc-500">Nenhum treinamento indicado ainda.</p>
+              <p className="text-xs text-zinc-500">Nenhum treinamento indicado ainda.</p>
             ) : (
-              <ol className="flex flex-col gap-3">
+              <ol className="flex flex-col gap-2">
                 {rankingTreinamentos.map((t, i) => (
-                  <li key={i} className="flex flex-col gap-1.5 rounded-md bg-white px-3 py-2.5 text-sm">
+                  <li key={i} className="flex flex-col gap-1 rounded-md bg-white px-3 py-2 text-xs">
                     <div className="flex items-center justify-between gap-3">
                       <span className="flex min-w-0 items-center gap-2">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
+                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[10px] font-semibold text-primary">
                           {i + 1}
                         </span>
-                        <span className="truncate font-medium text-zinc-900">{t.nome}</span>
+                        <span className="truncate text-[13px] font-medium text-zinc-900">{t.nome}</span>
                       </span>
                       <span className="shrink-0 font-semibold tabular-nums text-primary">{t.total}</span>
                     </div>
-                    <div className="flex items-center gap-2 pl-8">
-                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100">
+                    <div className="flex items-center gap-2 pl-7">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
                         <div
                           className="h-full rounded-full bg-primary"
                           style={{ width: `${(t.total / rankingTreinamentos[0].total) * 100}%` }}
                         />
                       </div>
-                      <span className="w-28 shrink-0 truncate text-right text-xs text-zinc-500">{t.categoria}</span>
+                      <span className="w-40 shrink-0 truncate text-right text-[11px] text-zinc-500">{t.categoria}</span>
                     </div>
                   </li>
                 ))}
@@ -1031,65 +939,72 @@ export default async function AdminOverviewPage({
 
 // Uma linha do gráfico: barra dividida por status, com a porcentagem escrita
 // dentro de cada pedaço (só quando o pedaço é largo o bastante pro texto).
+// O nome do período filtra pelo período; cada pedaço filtra pelo status.
 function BarraStatus({
   rotulo,
   linha,
-  href,
+  hrefRotulo,
+  hrefSegmento,
   selecionada,
   destaque,
 }: {
   rotulo: string;
   linha: { total: number; porStatus: readonly { chave: string; label: string; cor: string; valor: number }[] };
-  href?: string;
+  hrefRotulo?: string;
+  hrefSegmento?: (chaveStatus: string) => string;
   selecionada?: boolean;
   destaque?: boolean;
 }) {
   const pct = (n: number) => (linha.total ? (n / linha.total) * 100 : 0);
   const visiveis = linha.porStatus.filter((st) => st.valor > 0);
-  const conteudo = (
-    <>
-      <span
-        className={`w-16 shrink-0 text-sm ${destaque ? "font-semibold text-zinc-900" : "text-primary underline-offset-2 hover:underline"}`}
-      >
-        {rotulo}
-      </span>
-      <div className="flex h-7 flex-1 overflow-hidden rounded-full bg-zinc-100">
-        {visiveis.map((st, i) => (
-          <div
-            key={st.chave}
-            title={`${st.label}: ${st.valor}`}
-            className="flex items-center justify-center overflow-hidden text-xs font-semibold text-white"
-            style={{
-              width: `${pct(st.valor)}%`,
-              background: st.cor,
-              borderRight: i < visiveis.length - 1 ? "2px solid #fff" : undefined,
-            }}
-          >
-            {/* Pedaço estreito corta o número no celular: entre 8% e 15% ele
-                só aparece a partir de sm (o valor fica no title). */}
-            {pct(st.valor) >= 8 && (
-              <span className={pct(st.valor) < 15 ? "hidden sm:inline" : undefined}>
-                {Math.round(pct(st.valor))}%
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-      <span className="w-16 shrink-0 text-right text-xs tabular-nums text-zinc-500">{linha.total} total</span>
-    </>
-  );
-
-  if (!href) return <div className="flex items-center gap-3 px-1 py-1">{conteudo}</div>;
+  const classeRotulo = `w-16 shrink-0 text-[13px] ${
+    destaque ? "font-semibold text-zinc-900" : "text-primary underline-offset-2 hover:underline"
+  }`;
 
   return (
-    <Link
-      href={href}
-      className={`flex items-center gap-3 rounded-md px-1 py-1 transition-colors hover:bg-primary-soft/40 ${
-        selecionada ? "bg-primary-soft/60" : ""
-      }`}
-    >
-      {conteudo}
-    </Link>
+    <div className={`flex items-center gap-3 rounded-md px-1 py-0.5 ${selecionada ? "bg-primary-soft/60" : ""}`}>
+      {hrefRotulo ? (
+        <Link href={hrefRotulo} className={classeRotulo}>
+          {rotulo}
+        </Link>
+      ) : (
+        <span className={classeRotulo}>{rotulo}</span>
+      )}
+      <div className="flex h-6 flex-1 overflow-hidden rounded-full bg-zinc-100">
+        {visiveis.map((st, i) => {
+          const estilo = {
+            width: `${pct(st.valor)}%`,
+            background: st.cor,
+            borderRight: i < visiveis.length - 1 ? "2px solid #fff" : undefined,
+          };
+          const classe =
+            "flex items-center justify-center overflow-hidden text-[11px] font-semibold text-white transition-[filter] hover:brightness-110";
+          // Pedaço estreito corta o número no celular: entre 8% e 15% ele só
+          // aparece a partir de sm (o valor fica no title).
+          const texto = pct(st.valor) >= 8 && (
+            <span className={pct(st.valor) < 15 ? "hidden sm:inline" : undefined}>
+              {Math.round(pct(st.valor))}%
+            </span>
+          );
+          return hrefSegmento ? (
+            <Link
+              key={st.chave}
+              href={hrefSegmento(st.chave)}
+              title={`${st.label}: ${st.valor} — clique pra filtrar`}
+              className={classe}
+              style={estilo}
+            >
+              {texto}
+            </Link>
+          ) : (
+            <div key={st.chave} title={`${st.label}: ${st.valor}`} className={classe} style={estilo}>
+              {texto}
+            </div>
+          );
+        })}
+      </div>
+      <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">{linha.total} total</span>
+    </div>
   );
 }
 
@@ -1104,7 +1019,7 @@ function LegendaCor({ cor, label }: { cor: string; label: string }) {
 
 // Cada card tem uma cor própria pra não repetir fundo lado a lado; o ícone
 // vai em cor sólida pra destacar. "neutral" só aparece quando alertaSoSeValor zera.
-type Tom = "neutral" | "brand" | "violet" | "amber" | "green" | "orange" | "red" | "teal";
+type Tom = "neutral" | "brand" | "blue" | "amber" | "green" | "orange" | "red" | "teal";
 
 const ESTILO_POR_TOM: Record<
   Tom,
@@ -1123,23 +1038,24 @@ const ESTILO_POR_TOM: Record<
     iconColor: "text-primary-foreground",
     activeRing: "ring-primary",
   },
-  violet: {
-    cardBg: "bg-violet-50",
-    iconBg: "bg-violet-500",
+  blue: {
+    cardBg: "bg-blue-50",
+    iconBg: "bg-blue-600",
     iconColor: "text-white",
-    activeRing: "ring-violet-500",
+    activeRing: "ring-blue-600",
   },
+  // Amarelo de alerta (notas críticas); ícone escuro porque branco some no amarelo.
   amber: {
     cardBg: "bg-amber-50",
-    iconBg: "bg-amber-500",
-    iconColor: "text-white",
-    activeRing: "ring-amber-500",
+    iconBg: "bg-amber-400",
+    iconColor: "text-amber-950",
+    activeRing: "ring-amber-400",
   },
   green: {
     cardBg: "bg-green-50",
-    iconBg: "bg-green-500",
+    iconBg: "bg-green-700",
     iconColor: "text-white",
-    activeRing: "ring-green-500",
+    activeRing: "ring-green-700",
   },
   orange: {
     cardBg: "bg-orange-50",
