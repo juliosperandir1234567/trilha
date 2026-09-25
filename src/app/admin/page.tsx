@@ -9,7 +9,6 @@ import {
   Timer,
   GraduationCap,
   ChevronRight,
-  Download,
   CalendarDays,
   X,
   type LucideIcon,
@@ -17,6 +16,7 @@ import {
 import { createClient } from "@/lib/supabase/server";
 import { AvaliacoesTable, type AvaliacaoLinha } from "./avaliacoes-table";
 import { EnviarAgoraButton } from "./colaboradores/[id]/enviar-agora-button";
+import { ExportarLink } from "./exportar-link";
 
 const MARCOS = [30, 60, 90, 120, 180, 270] as const;
 
@@ -146,8 +146,9 @@ export default async function AdminOverviewPage({
     return query ? `/admin?${query}` : "/admin";
   }
 
-  function hrefExportar() {
+  function hrefExportar(soPendentes = false) {
     const params = new URLSearchParams();
+    if (soPendentes) params.set("pendentes", "1");
     if (marco) params.set("marco", marco);
     if (status) params.set("status", status);
     if (critico) params.set("critico", critico);
@@ -220,7 +221,7 @@ export default async function AdminOverviewPage({
     supabase
       .from("respostas")
       .select(
-        "avaliacao_id, categoria_final_id, treinamento_final_id, treinamentos:treinamento_final_id(nome)"
+        "avaliacao_id, categoria_final_id, treinamento_final_id, exportado_em, treinamentos:treinamento_final_id(nome)"
       )
       .not("categoria_final_id", "is", null),
     supabase
@@ -265,6 +266,35 @@ export default async function AdminOverviewPage({
   // está na lista filtrada.
   const idsAvaliacoesFiltradas = new Set(avaliacoesFiltradas.map((a) => a.id));
   const respostasFiltradas = (respostas ?? []).filter((r) => idsAvaliacoesFiltradas.has(r.avaliacao_id));
+
+  // Exportação: por avaliação (colaborador + período), quantas indicações
+  // ainda não saíram em nenhum arquivo. Avaliação com qualquer indicação
+  // pendente fica em "Falta exportar".
+  const exportacaoPorAvaliacao = new Map<string, { pendentes: number; ultimaExportacao: string | null }>();
+  for (const resposta of respostasFiltradas) {
+    const atual = exportacaoPorAvaliacao.get(resposta.avaliacao_id) ?? { pendentes: 0, ultimaExportacao: null };
+    if (!resposta.exportado_em) atual.pendentes++;
+    else if (!atual.ultimaExportacao || resposta.exportado_em > atual.ultimaExportacao) {
+      atual.ultimaExportacao = resposta.exportado_em;
+    }
+    exportacaoPorAvaliacao.set(resposta.avaliacao_id, atual);
+  }
+  const indicacoesPendentesExportacao = respostasFiltradas.filter((r) => !r.exportado_em).length;
+  const avaliacoesExportacao = avaliacoesFiltradas
+    .filter((a) => exportacaoPorAvaliacao.has(a.id))
+    .map((a) => {
+      const colaborador = a.colaboradores as unknown as { id: string; nome: string; matricula: string | null } | null;
+      return {
+        id: a.id,
+        colaboradorId: colaborador?.id ?? null,
+        nome: colaborador?.nome ?? "",
+        matricula: colaborador?.matricula ?? null,
+        marco: a.marco,
+        ...exportacaoPorAvaliacao.get(a.id)!,
+      };
+    });
+  const faltaExportar = avaliacoesExportacao.filter((a) => a.pendentes > 0);
+  const jaExportadas = avaliacoesExportacao.filter((a) => a.pendentes === 0);
 
   const contagemPorCategoria = new Map<string, number>();
   const treinamentosPorCategoria = new Map<string, Map<string, { nome: string; total: number }>>();
@@ -850,14 +880,31 @@ export default async function AdminOverviewPage({
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-medium">Treinamentos indicados{sufixoFiltros}</h2>
-          <a
-            href={hrefExportar()}
-            className="flex items-center gap-2 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
-          >
-            <Download className="h-4 w-4" />
-            Exportar tudo
-          </a>
+          <div className="flex flex-wrap gap-2">
+            {indicacoesPendentesExportacao > 0 && (
+              <ExportarLink href={hrefExportar(true)} destaque>
+                Exportar só as novas ({indicacoesPendentesExportacao})
+              </ExportarLink>
+            )}
+            <ExportarLink href={hrefExportar()}>Exportar tudo</ExportarLink>
+          </div>
         </div>
+        {avaliacoesExportacao.length > 0 && (
+          <div className="mb-4 grid gap-3 sm:grid-cols-2">
+            <ListaExportacao
+              titulo="Falta exportar"
+              itens={faltaExportar}
+              vazio="Tudo já foi exportado."
+              tom="pendente"
+            />
+            <ListaExportacao
+              titulo="Já exportadas"
+              itens={jaExportadas}
+              vazio="Nada exportado ainda."
+              tom="feito"
+            />
+          </div>
+        )}
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2.5 rounded-lg border border-primary-border bg-primary-soft/40 px-3 py-2">
@@ -1011,6 +1058,72 @@ function BarraStatus({
         })}
       </div>
       <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">{linha.total} total</span>
+    </div>
+  );
+}
+
+// Uma das duas metades da exportação: cada linha é uma avaliação (pessoa +
+// período) com indicação de treinamento.
+function ListaExportacao({
+  titulo,
+  itens,
+  vazio,
+  tom,
+}: {
+  titulo: string;
+  itens: {
+    id: string;
+    colaboradorId: string | null;
+    nome: string;
+    matricula: string | null;
+    marco: number;
+    pendentes: number;
+    ultimaExportacao: string | null;
+  }[];
+  vazio: string;
+  tom: "pendente" | "feito";
+}) {
+  const Icone = tom === "pendente" ? Clock : CheckCircle2;
+  return (
+    <div
+      className={`flex flex-col rounded-lg border ${
+        tom === "pendente" ? "border-orange-200 bg-orange-50/50" : "border-primary-border bg-primary-soft/20"
+      }`}
+    >
+      <h3
+        className={`flex items-center gap-1.5 px-3 pt-2 text-xs font-semibold uppercase tracking-wide ${
+          tom === "pendente" ? "text-orange-700" : "text-primary"
+        }`}
+      >
+        <Icone className="h-3.5 w-3.5" />
+        {titulo} ({itens.length})
+      </h3>
+      {itens.length === 0 ? (
+        <p className="px-3 py-2 text-xs text-zinc-500">{vazio}</p>
+      ) : (
+        <ul className="flex max-h-[180px] flex-col overflow-y-auto px-3 py-1.5">
+          {itens.map((item) => (
+            <li key={item.id} className="flex items-center justify-between gap-3 py-1 text-xs">
+              <span className="min-w-0 truncate">
+                {item.matricula && <span className="mr-1.5 text-zinc-500">{item.matricula}</span>}
+                <Link
+                  href={`/admin/colaboradores/${item.colaboradorId}`}
+                  className="font-medium text-zinc-900 hover:underline"
+                >
+                  {item.nome}
+                </Link>
+                <span className="text-zinc-500"> · {item.marco} dias</span>
+              </span>
+              <span className="shrink-0 text-[11px] text-zinc-500">
+                {tom === "pendente"
+                  ? `${item.pendentes} indicaç${item.pendentes === 1 ? "ão" : "ões"}`
+                  : item.ultimaExportacao &&
+                    `em ${new Date(item.ultimaExportacao).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

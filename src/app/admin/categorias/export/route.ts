@@ -15,12 +15,14 @@ export async function GET(request: Request) {
   const critico = params.get("critico");
   const admissaoDe = params.get("admissao_de");
   const admissaoAte = params.get("admissao_ate");
+  // "pendentes=1": só o que ainda não foi exportado nenhuma vez.
+  const soPendentes = params.get("pendentes") === "1";
   const supabase = await createClient();
 
   let query = supabase
     .from("respostas")
     .select(
-      "nota, comentario, created_at, categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome), avaliacao_id, avaliacoes!inner(marco, status, colaboradores(data_admissao, nome, matricula, gestor_nome, gestor_email))"
+      "id, nota, comentario, created_at, exportado_em, categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome), avaliacao_id, avaliacoes!inner(marco, status, colaboradores(data_admissao, nome, matricula, gestor_nome, gestor_email))"
     )
     .not("categoria_final_id", "is", null)
     .order("created_at", { ascending: false });
@@ -28,6 +30,8 @@ export async function GET(request: Request) {
   if (marco) query = query.eq("avaliacoes.marco", Number(marco));
 
   if (status) query = query.eq("avaliacoes.status", status);
+
+  if (soPendentes) query = query.is("exportado_em", null);
 
   const [{ data: respostasBrutas }, { data: notasCriticas }] = await Promise.all([
     query,
@@ -53,7 +57,7 @@ export async function GET(request: Request) {
   });
 
   const linhas = [
-    ["Matrícula", "Colaborador", "Período", "Nota", "Gestor", "Competência", "Treinamento", "Comentário"]
+    ["Matrícula", "Colaborador", "Período", "Nota", "Gestor", "Competência", "Treinamento", "Comentário", "Exportado antes em"]
       .map(escapeCsv)
       .join(";"),
   ];
@@ -82,6 +86,9 @@ export async function GET(request: Request) {
         categoria?.nome,
         treinamento?.nome,
         resposta.comentario,
+        resposta.exportado_em
+          ? new Date(resposta.exportado_em).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })
+          : "",
       ]
         .map(escapeCsv)
         .join(";")
@@ -89,8 +96,13 @@ export async function GET(request: Request) {
   }
 
   const csv = "﻿" + linhas.join("\n");
+  // Tudo que saiu neste arquivo passa a contar como exportado.
+  if (respostas.length > 0) {
+    await supabase.rpc("marcar_respostas_exportadas", { ids: respostas.map((r) => r.id) });
+  }
+
   const sufixoMarco = marco ? `-${marco}-dias` : "";
-  const nomeArquivo = `treinamentos-indicados${sufixoMarco}.csv`;
+  const nomeArquivo = `treinamentos-indicados${soPendentes ? "-novos" : ""}${sufixoMarco}.csv`;
 
   return new NextResponse(csv, {
     headers: {
