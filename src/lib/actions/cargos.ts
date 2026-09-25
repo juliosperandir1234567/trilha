@@ -121,7 +121,9 @@ export async function deleteCargo(
   const { error } = await supabase.from("cargos").delete().eq("id", id);
 
   if (error) {
-    return { error: "Não foi possível excluir esse cargo." };
+    return {
+      error: "Não foi possível excluir esse cargo: ainda há colaboradores, perguntas ou treinamentos usando ele. Desative-o em vez disso.",
+    };
   }
 
   revalidatePath("/admin/cargos");

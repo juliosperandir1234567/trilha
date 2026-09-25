@@ -295,9 +295,11 @@ const SECOES = [
         <li>
           <strong>Competências</strong>: um formulário pra criar competência (nome +
           descrição) e outro pra criar um treinamento específico dentro de uma competência
-          já existente. Cada competência aparece como um card com os treinamentos
-          cadastrados dentro dela, e dá pra editar/ativar-desativar/excluir tanto a
-          competência quanto cada treinamento.
+          já existente. A competência vale pra todos os cargos; o treinamento pode ser de
+          um cargo só ou de &quot;Todos os cargos&quot;. Na avaliação, o gestor só vê os
+          treinamentos do cargo de quem está avaliando, mais os de todos os cargos. Cada
+          competência aparece como um card com os treinamentos agrupados por cargo, e dá
+          pra editar/ativar-desativar/excluir tanto a competência quanto cada treinamento.
         </li>
         <li>
           <strong>Perguntas</strong>: cadastro das perguntas, cada uma podendo ter uma

@@ -35,6 +35,13 @@ Deno.serve(async (req: Request) => {
     return link;
   }
 
+  // Treinamentos que o gestor pode indicar: os do cargo do colaborador mais
+  // os de "Todos os cargos" (cargo_id vazio). Sem cargo, só os gerais.
+  function treinamentosDoCargo(cargoId: string | null, colunas: string) {
+    const query = supabase.from("treinamentos").select(colunas).eq("ativo", true).order("nome");
+    return cargoId ? query.or(`cargo_id.is.null,cargo_id.eq.${cargoId}`) : query.is("cargo_id", null);
+  }
+
   if (req.method === "GET") {
     const token = new URL(req.url).searchParams.get("token");
     if (!token) return json({ error: "Token não informado" }, 400);
@@ -82,11 +89,7 @@ Deno.serve(async (req: Request) => {
         .select("id, nome")
         .eq("ativo", true)
         .order("nome"),
-      supabase
-        .from("treinamentos")
-        .select("id, categoria_id, nome")
-        .eq("ativo", true)
-        .order("nome"),
+      treinamentosDoCargo(cargoId, "id, categoria_id, nome"),
     ]);
 
     return json({
@@ -142,9 +145,15 @@ Deno.serve(async (req: Request) => {
       ? perguntasValidasQuery.eq("cargo_id", cargoId)
       : perguntasValidasQuery.is("cargo_id", null);
 
-    const { data: perguntasValidas } = await perguntasValidasQuery;
+    const [{ data: perguntasValidas }, { data: treinamentosValidos }] = await Promise.all([
+      perguntasValidasQuery,
+      treinamentosDoCargo(cargoId, "id"),
+    ]);
 
     const perguntasPorId = new Map((perguntasValidas ?? []).map((p) => [p.id, p]));
+    const idsTreinamentosValidos = new Set(
+      ((treinamentosValidos ?? []) as unknown as { id: string }[]).map((t) => t.id)
+    );
 
     for (const resposta of respostas) {
       if (!perguntasPorId.has(resposta.pergunta_id)) {
@@ -168,7 +177,11 @@ Deno.serve(async (req: Request) => {
         categoria_final_id: notaBaixa
           ? resposta.categoria_final_id ?? pergunta.categoria_sugerida_id ?? null
           : null,
-        treinamento_final_id: notaBaixa ? resposta.treinamento_final_id ?? null : null,
+        // Treinamento de outro cargo não é gravado.
+        treinamento_final_id:
+          notaBaixa && resposta.treinamento_final_id && idsTreinamentosValidos.has(resposta.treinamento_final_id)
+            ? resposta.treinamento_final_id
+            : null,
         comentario: resposta.comentario || null,
       };
     });

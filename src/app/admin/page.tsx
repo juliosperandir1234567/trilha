@@ -221,7 +221,7 @@ export default async function AdminOverviewPage({
     supabase
       .from("respostas")
       .select(
-        "avaliacao_id, categoria_final_id, treinamento_final_id, exportado_em, treinamentos:treinamento_final_id(nome)"
+        "avaliacao_id, categoria_final_id, treinamento_final_id, exportado_em, treinamentos:treinamento_final_id(nome, cargos(nome))"
       )
       .not("categoria_final_id", "is", null),
     supabase
@@ -297,19 +297,23 @@ export default async function AdminOverviewPage({
   const jaExportadas = avaliacoesExportacao.filter((a) => a.pendentes === 0);
 
   const contagemPorCategoria = new Map<string, number>();
-  const treinamentosPorCategoria = new Map<string, Map<string, { nome: string; total: number }>>();
+  const treinamentosPorCategoria = new Map<string, Map<string, { nome: string; cargo: string | null; total: number }>>();
   for (const resposta of respostasFiltradas) {
     const categoriaId = resposta.categoria_final_id as string;
     contagemPorCategoria.set(categoriaId, (contagemPorCategoria.get(categoriaId) ?? 0) + 1);
 
     const treinamentoId = resposta.treinamento_final_id as string | null;
-    const treinamento = resposta.treinamentos as unknown as { nome: string } | null;
+    const treinamento = resposta.treinamentos as unknown as { nome: string; cargos: { nome: string } | null } | null;
     if (!treinamentoId || !treinamento) continue;
 
     if (!treinamentosPorCategoria.has(categoriaId)) treinamentosPorCategoria.set(categoriaId, new Map());
     const mapaDaCategoria = treinamentosPorCategoria.get(categoriaId)!;
     const atual = mapaDaCategoria.get(treinamentoId);
-    mapaDaCategoria.set(treinamentoId, { nome: treinamento.nome, total: (atual?.total ?? 0) + 1 });
+    mapaDaCategoria.set(treinamentoId, {
+      nome: treinamento.nome,
+      cargo: treinamento.cargos?.nome ?? null,
+      total: (atual?.total ?? 0) + 1,
+    });
   }
 
   const nomeCategoria = new Map((categorias ?? []).map((c) => [c.id, c.nome]));
@@ -579,7 +583,10 @@ export default async function AdminOverviewPage({
           <ul className="mt-1 flex flex-col gap-0.5 pl-5.5 text-xs text-zinc-600">
             {treinamentos.map((t, i) => (
               <li key={i} className="flex items-center justify-between gap-3">
-                <span>{t.nome}</span>
+                <span>
+                  {t.nome}
+                  {t.cargo && <span className="text-zinc-400"> · {t.cargo}</span>}
+                </span>
                 <span className="font-semibold text-primary">{t.total}</span>
               </li>
             ))}
@@ -964,7 +971,10 @@ export default async function AdminOverviewPage({
                         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[10px] font-semibold text-primary">
                           {i + 1}
                         </span>
-                        <span className="truncate text-[13px] font-medium text-zinc-900">{t.nome}</span>
+                        <span className="truncate text-[13px] font-medium text-zinc-900">
+                          {t.nome}
+                          {t.cargo && <span className="font-normal text-zinc-400"> · {t.cargo}</span>}
+                        </span>
                       </span>
                       <span className="shrink-0 font-semibold tabular-nums text-primary">{t.total}</span>
                     </div>

@@ -16,6 +16,8 @@ export async function createTreinamento(
   const categoriaId = String(formData.get("categoria_id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
   const descricao = String(formData.get("descricao") ?? "").trim();
+  // Vazio = "Todos os cargos".
+  const cargoId = String(formData.get("cargo_id") ?? "") || null;
 
   if (!categoriaId) {
     return { error: "Selecione a categoria." };
@@ -27,6 +29,7 @@ export async function createTreinamento(
   const supabase = await createClient();
   const { error } = await supabase.from("treinamentos").insert({
     categoria_id: categoriaId,
+    cargo_id: cargoId,
     nome,
     descricao: descricao || null,
   });
@@ -61,6 +64,8 @@ export async function updateTreinamento(
   const categoriaId = String(formData.get("categoria_id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
   const descricao = String(formData.get("descricao") ?? "").trim();
+  // Vazio = "Todos os cargos".
+  const cargoId = String(formData.get("cargo_id") ?? "") || null;
 
   if (!categoriaId) {
     return { error: "Selecione a categoria." };
@@ -72,7 +77,7 @@ export async function updateTreinamento(
   const supabase = await createClient();
   const { error } = await supabase
     .from("treinamentos")
-    .update({ categoria_id: categoriaId, nome, descricao: descricao || null })
+    .update({ categoria_id: categoriaId, cargo_id: cargoId, nome, descricao: descricao || null })
     .eq("id", id);
 
   if (error) {

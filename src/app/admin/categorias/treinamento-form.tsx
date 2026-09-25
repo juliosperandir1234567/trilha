@@ -5,8 +5,9 @@ import { Plus } from "lucide-react";
 import { createTreinamento } from "@/lib/actions/treinamentos";
 
 type Categoria = { id: string; nome: string };
+type Cargo = { id: string; nome: string };
 
-export function TreinamentoForm({ categorias }: { categorias: Categoria[] }) {
+export function TreinamentoForm({ categorias, cargos }: { categorias: Categoria[]; cargos: Cargo[] }) {
   const [state, action, pending] = useActionState(createTreinamento, undefined);
 
   return (
@@ -28,6 +29,24 @@ export function TreinamentoForm({ categorias }: { categorias: Categoria[] }) {
           {categorias.map((categoria) => (
             <option key={categoria.id} value={categoria.id}>
               {categoria.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[180px]">
+        <label htmlFor="cargo_id_treinamento" className="text-sm font-medium">
+          Cargo
+        </label>
+        <select
+          id="cargo_id_treinamento"
+          name="cargo_id"
+          className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+        >
+          <option value="">Todos os cargos</option>
+          {cargos.map((cargo) => (
+            <option key={cargo.id} value={cargo.id}>
+              {cargo.nome}
             </option>
           ))}
         </select>

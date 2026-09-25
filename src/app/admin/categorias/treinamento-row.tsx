@@ -10,9 +10,11 @@ import {
 import { AcoesMenu } from "@/components/acoes-menu";
 
 type Categoria = { id: string; nome: string };
+type Cargo = { id: string; nome: string };
 type Treinamento = {
   id: string;
   categoria_id: string;
+  cargo_id: string | null;
   nome: string;
   descricao: string | null;
   ativo: boolean;
@@ -21,10 +23,12 @@ type Treinamento = {
 export function TreinamentoRow({
   treinamento,
   categorias,
+  cargos,
   podeExcluir,
 }: {
   treinamento: Treinamento;
   categorias: Categoria[];
+  cargos: Cargo[];
   podeExcluir: boolean;
 }) {
   const [editando, setEditando] = useState(false);
@@ -56,6 +60,21 @@ export function TreinamentoRow({
                 {categorias.map((categoria) => (
                   <option key={categoria.id} value={categoria.id}>
                     {categoria.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5 sm:min-w-[160px]">
+              <label className="text-xs font-medium">Cargo</label>
+              <select
+                name="cargo_id"
+                defaultValue={treinamento.cargo_id ?? ""}
+                className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+              >
+                <option value="">Todos os cargos</option>
+                {cargos.map((cargo) => (
+                  <option key={cargo.id} value={cargo.id}>
+                    {cargo.nome}
                   </option>
                 ))}
               </select>
