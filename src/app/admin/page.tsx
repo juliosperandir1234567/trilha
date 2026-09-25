@@ -860,23 +860,23 @@ export default async function AdminOverviewPage({
               return (
                 <li
                   key={item.avaliacaoId}
-                  className={`flex shrink-0 flex-col gap-2 rounded-md border-l-4 bg-white px-3 py-2.5 text-sm ${
+                  className={`flex shrink-0 flex-col gap-1.5 rounded-md border-l-4 bg-white px-3 py-2 text-xs ${
                     item.urgente ? "border-red-500" : "border-transparent"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-xs font-semibold text-zinc-600">
+                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[10px] font-semibold text-zinc-600">
                       {iniciais(item.nome)}
                     </span>
                     <div>
                       <Link
                         href={`/admin/colaboradores/${item.colaboradorId}`}
-                        className="font-semibold text-zinc-900 hover:underline"
+                        className="text-[13px] font-semibold text-zinc-900 hover:underline"
                       >
                         {item.nome}
                       </Link>
-                      <div className="text-xs text-zinc-500">
+                      <div className="text-[11px] text-zinc-500">
                         {item.matricula ?? "-"}
                         {item.cargo ? ` · ${item.cargo}` : ""}
                       </div>
@@ -884,7 +884,7 @@ export default async function AdminOverviewPage({
                   </div>
                     <Link
                       href={`/admin/colaboradores/${item.colaboradorId}`}
-                      className={`shrink-0 rounded-md px-3 py-1.5 text-xs font-medium ${
+                      className={`shrink-0 rounded-md px-2.5 py-1 text-[11px] font-medium ${
                         item.urgente
                           ? "bg-primary text-primary-foreground hover:bg-primary-hover"
                           : "border border-primary-border text-primary hover:bg-primary-soft"
@@ -893,17 +893,17 @@ export default async function AdminOverviewPage({
                       Abrir avaliação
                     </Link>
                   </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-12">
+                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-9">
                     <span
-                      className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${
+                      className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${
                         item.urgente ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-600"
                       }`}
                     >
                       Avaliação de {item.marco} dias
                     </span>
                     {item.expiraEm && (
-                      <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-zinc-500">
-                        <CalendarDays className="h-3.5 w-3.5" />
+                      <span className="flex items-center gap-1 whitespace-nowrap text-[11px] text-zinc-500">
+                        <CalendarDays className="h-3 w-3" />
                         Vencimento: {new Date(item.expiraEm).toLocaleDateString("pt-BR")}
                       </span>
                     )}

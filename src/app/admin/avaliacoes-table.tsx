@@ -48,21 +48,21 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por nome, matrícula ou gestor..."
-          className="w-full rounded-md border border-black/15 py-2 pl-9 pr-3 text-sm outline-none focus:border-primary"
+          className="w-full rounded-md border border-black/15 py-1.5 pl-9 pr-3 text-sm outline-none focus:border-primary"
         />
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-primary-border">
-        <table className="w-full text-left text-sm">
+        <table className="w-full text-left text-xs">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
               {/* Matrícula e Gestor saem no celular pra Status caber; a busca continua achando por eles. */}
-              <th className="hidden whitespace-nowrap px-3 py-3 sm:table-cell">Matrícula</th>
-              <th className="px-3 py-3">Colaborador</th>
-              <th className="whitespace-nowrap px-3 py-3">Período</th>
-              <th className="hidden px-3 py-3 sm:table-cell">Gestor</th>
-              <th className="whitespace-nowrap px-3 py-3">Status</th>
-              <th className="px-3 py-3">Expira / respondida em</th>
+              <th className="hidden whitespace-nowrap px-2.5 py-2 sm:table-cell">Matrícula</th>
+              <th className="px-2.5 py-2">Colaborador</th>
+              <th className="whitespace-nowrap px-2.5 py-2">Período</th>
+              <th className="hidden px-2.5 py-2 sm:table-cell">Gestor</th>
+              <th className="whitespace-nowrap px-2.5 py-2">Status</th>
+              <th className="px-2.5 py-2">Expira / respondida em</th>
             </tr>
           </thead>
           <tbody>
@@ -71,8 +71,8 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                 key={avaliacao.id}
                 className={`border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20 ${avaliacao.notaCritica ? "bg-red-50" : ""}`}
               >
-                <td className="hidden whitespace-nowrap px-3 py-3 text-zinc-500 sm:table-cell">{avaliacao.matricula}</td>
-                <td className="px-3 py-3">
+                <td className="hidden whitespace-nowrap px-2.5 py-2 text-zinc-500 sm:table-cell">{avaliacao.matricula}</td>
+                <td className="px-2.5 py-2">
                   <Link
                     href={`/admin/colaboradores/${avaliacao.colaboradorId}`}
                     className="text-primary underline underline-offset-2"
@@ -86,9 +86,9 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                     </span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-3 py-3">{avaliacao.marco} dias</td>
-                <td className="hidden px-3 py-3 text-zinc-500 sm:table-cell">{avaliacao.gestorNome}</td>
-                <td className="whitespace-nowrap px-3 py-3">
+                <td className="whitespace-nowrap px-2.5 py-2">{avaliacao.marco} dias</td>
+                <td className="hidden px-2.5 py-2 text-zinc-500 sm:table-cell">{avaliacao.gestorNome}</td>
+                <td className="whitespace-nowrap px-2.5 py-2">
                   <span className={avaliacao.status === "expirada" ? "text-red-600" : ""}>
                     {STATUS_LABEL[avaliacao.status] ?? avaliacao.status}
                   </span>
@@ -96,7 +96,7 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                     <span className="block text-xs text-zinc-400">ainda não criada</span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-zinc-500">
+                <td className="whitespace-nowrap px-2.5 py-2 text-zinc-500">
                   {avaliacao.previstaPara
                     ? `Período em ${new Date(avaliacao.previstaPara + "T00:00:00").toLocaleDateString("pt-BR")}`
                     : avaliacao.status === "respondida"
