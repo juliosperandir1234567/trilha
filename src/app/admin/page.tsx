@@ -820,9 +820,9 @@ export default async function AdminOverviewPage({
       )}
       </div>
 
-      {/* Altura fixa no desktop: os dois lados ficam do mesmo tamanho e cada um
-          rola por dentro quando tiver mais gente. */}
-      <div className={`grid gap-6 lg:h-[560px] ${itensAtencao.length > 0 ? "lg:grid-cols-[2fr_3fr]" : ""}`}>
+      {/* Um embaixo do outro, largura toda. Cada lista mostra ~5 pessoas e
+          rola por dentro a partir daí. */}
+      <div className="flex flex-col gap-6">
       {itensAtencao.length > 0 && (
         <div
           className={`flex min-h-0 min-w-0 flex-col rounded-lg border p-4 ${
@@ -852,7 +852,7 @@ export default async function AdminOverviewPage({
               </span>
             </div>
           </div>
-          <ul className="flex max-h-[480px] min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1 lg:max-h-none">
+          <ul className="flex max-h-[440px] flex-col gap-1.5 overflow-y-auto pr-1 sm:max-h-[262px]">
             {itensAtencao.map((item) => {
               const diasRestantes = Math.ceil(
                 (new Date(item.expiraEm ?? 0).getTime() - agora) / (24 * 60 * 60 * 1000)
@@ -860,40 +860,28 @@ export default async function AdminOverviewPage({
               return (
                 <li
                   key={item.avaliacaoId}
-                  className={`flex shrink-0 flex-col gap-1.5 rounded-md border-l-4 bg-white px-3 py-2 text-xs ${
+                  className={`flex shrink-0 flex-col gap-1.5 rounded-md border-l-4 bg-white px-3 py-2 text-xs sm:flex-row sm:items-center sm:gap-4 ${
                     item.urgente ? "border-red-500" : "border-transparent"
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 items-center gap-2 sm:w-64 sm:shrink-0">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[10px] font-semibold text-zinc-600">
                       {iniciais(item.nome)}
                     </span>
-                    <div>
+                    <div className="min-w-0">
                       <Link
                         href={`/admin/colaboradores/${item.colaboradorId}`}
-                        className="text-[13px] font-semibold text-zinc-900 hover:underline"
+                        className="block truncate text-[13px] font-semibold text-zinc-900 hover:underline"
                       >
                         {item.nome}
                       </Link>
-                      <div className="text-[11px] text-zinc-500">
+                      <div className="truncate text-[11px] text-zinc-500">
                         {item.matricula ?? "-"}
                         {item.cargo ? ` · ${item.cargo}` : ""}
                       </div>
                     </div>
                   </div>
-                    <Link
-                      href={`/admin/colaboradores/${item.colaboradorId}`}
-                      className={`shrink-0 rounded-md px-2.5 py-1 text-[11px] font-medium ${
-                        item.urgente
-                          ? "bg-primary text-primary-foreground hover:bg-primary-hover"
-                          : "border border-primary-border text-primary hover:bg-primary-soft"
-                      }`}
-                    >
-                      Abrir avaliação
-                    </Link>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 pl-9">
+                  <div className="flex flex-1 flex-wrap items-center gap-x-2.5 gap-y-1 pl-9 sm:pl-0">
                     <span
                       className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${
                         item.urgente ? "bg-red-100 text-red-700" : "bg-zinc-100 text-zinc-600"
@@ -915,6 +903,16 @@ export default async function AdminOverviewPage({
                         : `Faltam ${Math.max(0, diasRestantes)} dia(s)`}
                     </span>
                   </div>
+                  <Link
+                    href={`/admin/colaboradores/${item.colaboradorId}`}
+                    className={`ml-9 w-fit shrink-0 rounded-md px-2.5 py-1 text-[11px] font-medium sm:ml-0 ${
+                      item.urgente
+                        ? "bg-primary text-primary-foreground hover:bg-primary-hover"
+                        : "border border-primary-border text-primary hover:bg-primary-soft"
+                    }`}
+                  >
+                    Abrir avaliação
+                  </Link>
                 </li>
               );
             })}

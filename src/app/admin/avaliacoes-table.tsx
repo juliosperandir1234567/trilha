@@ -41,7 +41,7 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
     : avaliacoes;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <div className="relative max-w-xs">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
         <input
@@ -52,7 +52,8 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
         />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-primary-border">
+      {/* ~5 linhas visíveis; a partir daí rola, com o cabeçalho fixo. */}
+      <div className="max-h-[252px] overflow-auto rounded-lg border border-primary-border">
         <table className="w-full text-left text-xs">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
