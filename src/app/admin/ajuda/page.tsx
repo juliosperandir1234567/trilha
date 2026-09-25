@@ -94,6 +94,14 @@ const SECOES = [
             <strong>Expirada</strong>: passou do prazo configurado em{" "}
             <strong>Configurações → Validade do link de avaliação</strong> sem resposta.
           </li>
+          <li>
+            <strong>Não avaliada</strong>: o gestor usou &quot;Não é possível avaliar este
+            colaborador&quot; no link e informou <strong>afastado</strong> ou{" "}
+            <strong>desligado</strong> (com observação opcional). O período é encerrado sem
+            notas. Desligado não inativa o colaborador sozinho: aparece um aviso na Visão
+            geral pra o DHO conferir e inativar no cadastro. Se um afastado voltar, o admin
+            pode usar &quot;Reabrir para o gestor&quot;.
+          </li>
         </ul>
         <p className="mt-2">
           Em <strong>Colaboradores</strong> (na listagem ou na página de cada colaborador),

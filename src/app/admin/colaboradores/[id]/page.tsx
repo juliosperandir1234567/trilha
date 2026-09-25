@@ -14,6 +14,7 @@ const STATUS_LABEL: Record<string, string> = {
   enviada: "Aguardando resposta",
   respondida: "Respondida",
   expirada: "Expirada (não respondida a tempo)",
+  nao_avaliada: "Não avaliada",
 };
 
 export default async function ColaboradorDetalhePage({
@@ -45,7 +46,7 @@ export default async function ColaboradorDetalhePage({
   const { data: avaliacoes } = await supabase
     .from("avaliacoes")
     .select(
-      "id, marco, status, data_referencia, data_envio, data_resposta, rascunho_salvo_em, respostas(nota, comentario, perguntas(texto), categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome))"
+      "id, marco, status, data_referencia, data_envio, data_resposta, rascunho_salvo_em, motivo_nao_avaliada, observacao_nao_avaliada, respostas(nota, comentario, perguntas(texto), categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome))"
     )
     .eq("colaborador_id", id)
     .order("marco");
@@ -102,10 +103,10 @@ export default async function ColaboradorDetalhePage({
                 <span className="text-sm text-zinc-500">
                   {avaliacao ? STATUS_LABEL[avaliacao.status] ?? avaliacao.status : "Ainda não atingiu este período"}
                 </span>
-                {avaliacao?.status !== "respondida" && (
+                {avaliacao?.status !== "respondida" && avaliacao?.status !== "nao_avaliada" && (
                   <EnviarAgoraButton colaboradorId={colaborador.id} marco={marco} />
                 )}
-                {avaliacao?.status === "respondida" && ehAdmin && (
+                {(avaliacao?.status === "respondida" || avaliacao?.status === "nao_avaliada") && ehAdmin && (
                   <EnviarAgoraButton
                     colaboradorId={colaborador.id}
                     marco={marco}
@@ -157,7 +158,18 @@ export default async function ColaboradorDetalhePage({
               </ul>
             )}
 
-            {avaliacao && avaliacao.status !== "respondida" && (
+            {avaliacao?.status === "nao_avaliada" && (
+              <p className="text-sm text-zinc-600">
+                O gestor informou que o colaborador está{" "}
+                <strong>{avaliacao.motivo_nao_avaliada === "desligado" ? "desligado" : "afastado"}</strong>
+                {avaliacao.data_resposta && ` (em ${new Date(avaliacao.data_resposta).toLocaleDateString("pt-BR")})`}.
+                {avaliacao.observacao_nao_avaliada && (
+                  <span className="block italic text-zinc-500">&quot;{avaliacao.observacao_nao_avaliada}&quot;</span>
+                )}
+              </p>
+            )}
+
+            {avaliacao && avaliacao.status !== "respondida" && avaliacao.status !== "nao_avaliada" && (
               <p className="text-sm text-zinc-500">
                 {avaliacao.data_envio
                   ? `E-mail enviado em ${new Date(avaliacao.data_envio).toLocaleString("pt-BR")}`

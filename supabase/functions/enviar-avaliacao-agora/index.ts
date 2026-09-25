@@ -91,8 +91,9 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   if (reabrir) {
-    if (avaliacao?.status !== "respondida") {
-      return json({ error: "Só dá pra reabrir uma avaliação já respondida." }, 400);
+    // Também reabre a "não avaliada" (ex: afastado que voltou).
+    if (avaliacao?.status !== "respondida" && avaliacao?.status !== "nao_avaliada") {
+      return json({ error: "Só dá pra reabrir uma avaliação já respondida ou não avaliada." }, 400);
     }
 
     const { data: respostasAnteriores } = await supabase
@@ -108,13 +109,17 @@ Deno.serve(async (req: Request) => {
       .update({
         status: "pendente",
         data_resposta: null,
-        rascunho: respostasAnteriores ?? [],
-        rascunho_salvo_em: new Date().toISOString(),
+        rascunho: respostasAnteriores?.length ? respostasAnteriores : null,
+        rascunho_salvo_em: respostasAnteriores?.length ? new Date().toISOString() : null,
+        motivo_nao_avaliada: null,
+        observacao_nao_avaliada: null,
       })
       .eq("id", avaliacao.id);
     avaliacao = { ...avaliacao, status: "pendente" };
   } else if (avaliacao?.status === "respondida") {
     return json({ error: "Esta avaliação já foi respondida, não é possível reenviar." }, 400);
+  } else if (avaliacao?.status === "nao_avaliada") {
+    return json({ error: "Avaliação encerrada pelo gestor. Use \"Reabrir para o gestor\"." }, 400);
   }
 
   if (!avaliacao) {

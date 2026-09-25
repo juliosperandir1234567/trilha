@@ -9,6 +9,7 @@ const STATUS_LABEL: Record<string, string> = {
   enviada: "Aguardando resposta",
   respondida: "Respondida",
   expirada: "Expirada",
+  nao_avaliada: "Não avaliada",
 };
 
 export type AvaliacaoLinha = {
@@ -28,6 +29,9 @@ export type AvaliacaoLinha = {
   // Período que já chegou mas a avaliação ainda não foi criada pela rotina
   // (data ISO do período). Entra na tabela como "Não enviada".
   previstaPara?: string;
+  // Gestor encerrou pelo link sem notas: "afastado" ou "desligado".
+  motivoNaoAvaliada?: string | null;
+  observacaoNaoAvaliada?: string | null;
 };
 
 export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }) {
@@ -112,11 +116,20 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                   {avaliacao.previstaPara && (
                     <span className="block text-xs text-zinc-400">ainda não criada</span>
                   )}
+                  {avaliacao.motivoNaoAvaliada && (
+                    <span
+                      className="block text-xs text-zinc-500"
+                      title={avaliacao.observacaoNaoAvaliada ?? undefined}
+                    >
+                      {avaliacao.motivoNaoAvaliada === "desligado" ? "Desligado" : "Afastado"}
+                      {avaliacao.observacaoNaoAvaliada ? " · ver obs." : ""}
+                    </span>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-2.5 py-2 text-zinc-500">
                   {avaliacao.previstaPara
                     ? `Período em ${new Date(avaliacao.previstaPara + "T00:00:00").toLocaleDateString("pt-BR")}`
-                    : avaliacao.status === "respondida"
+                    : avaliacao.status === "respondida" || avaliacao.status === "nao_avaliada"
                     ? avaliacao.dataResposta
                       ? new Date(avaliacao.dataResposta).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
                       : "-"

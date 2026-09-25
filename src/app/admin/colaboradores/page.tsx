@@ -42,7 +42,10 @@ export default async function ColaboradoresPage() {
     const cargo = colaborador.cargos as unknown as { nome: string; marcos: number[] } | null;
     const marcosDoColaborador = cargo?.marcos ?? MARCOS_PADRAO;
     const statusPorMarco = avaliacoesPorColaborador.get(colaborador.id) ?? new Map();
-    const marcoPendente = marcosDoColaborador.find((m) => statusPorMarco.get(m) !== "respondida");
+    // "Não avaliada" (afastado/desligado) também encerra o período.
+    const marcoPendente = marcosDoColaborador.find(
+      (m) => statusPorMarco.get(m) !== "respondida" && statusPorMarco.get(m) !== "nao_avaliada"
+    );
 
     return {
       id: colaborador.id,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, ChevronRight, Save, Send } from "lucide-react";
+import { ArrowLeft, ChevronRight, Save, Send, UserX } from "lucide-react";
 import { NOTAS, NOTA_MAXIMA_INDICACAO } from "@/lib/escala";
 
 type Pergunta = { id: string; texto: string; categoria_sugerida_id: string | null };
@@ -42,8 +42,13 @@ export function AvaliacaoClient({ token }: { token: string }) {
   const [erro, setErro] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [respostas, setRespostas] = useState<Record<string, RespostaEstado>>({});
-  // "preenchendo" → "revisando" (resumo antes do envio) → "concluido".
-  const [etapa, setEtapa] = useState<"preenchendo" | "revisando" | "concluido">("preenchendo");
+  // "preenchendo" → "revisando" (resumo antes do envio) → "concluido". Pelo
+  // "naoAvaliar" o gestor encerra sem notas (afastado ou desligado) → "encerrado".
+  const [etapa, setEtapa] = useState<"preenchendo" | "revisando" | "concluido" | "naoAvaliar" | "encerrado">(
+    "preenchendo"
+  );
+  const [motivo, setMotivo] = useState<"afastado" | "desligado" | "">("");
+  const [observacao, setObservacao] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [salvandoRascunho, setSalvandoRascunho] = useState(false);
   const [rascunhoSalvoEm, setRascunhoSalvoEm] = useState<string | null>(null);
@@ -167,6 +172,27 @@ export function AvaliacaoClient({ token }: { token: string }) {
     }
   }
 
+  async function confirmarNaoAvaliar() {
+    if (!motivo) {
+      setErro("Escolha o motivo.");
+      return;
+    }
+    setEnviando(true);
+    setErro(null);
+    try {
+      const { ok, json } = await chamarFuncao({ nao_avaliar: { motivo, observacao } });
+      if (!ok) {
+        setErro(json.error ?? "Não foi possível registrar.");
+        return;
+      }
+      setEtapa("encerrado");
+    } catch {
+      setErro("Não foi possível registrar.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
   if (carregando) {
     return <p className="text-center text-zinc-500">Carregando...</p>;
   }
@@ -175,6 +201,15 @@ export function AvaliacaoClient({ token }: { token: string }) {
     return (
       <p className="max-w-sm text-center text-primary">
         Avaliação enviada com sucesso. Obrigado!
+      </p>
+    );
+  }
+
+  if (etapa === "encerrado") {
+    return (
+      <p className="max-w-sm text-center text-primary">
+        Registrado. O DHO foi informado de que o colaborador está{" "}
+        {motivo === "desligado" ? "desligado" : "afastado"}. Obrigado!
       </p>
     );
   }
@@ -198,6 +233,77 @@ export function AvaliacaoClient({ token }: { token: string }) {
       )}
     </div>
   );
+
+  if (etapa === "naoAvaliar") {
+    return (
+      <div className="flex w-full max-w-xl flex-col gap-5">
+        {cabecalho}
+        <div className="flex flex-col gap-4 rounded-lg border border-primary-border bg-white p-4 dark:bg-background">
+          <div>
+            <h2 className="font-medium">Não é possível avaliar este colaborador</h2>
+            <p className="text-sm text-zinc-500">
+              A avaliação é encerrada sem notas e o DHO é avisado.
+            </p>
+          </div>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-1 text-sm font-medium">Motivo</legend>
+            {[
+              { valor: "afastado" as const, rotulo: "Afastado" },
+              { valor: "desligado" as const, rotulo: "Desligado / demitido" },
+            ].map((opcao) => (
+              <label
+                key={opcao.valor}
+                className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                  motivo === opcao.valor
+                    ? "border-primary bg-primary-soft/60 font-medium text-primary"
+                    : "border-black/15 dark:border-white/20"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="motivo"
+                  checked={motivo === opcao.valor}
+                  onChange={() => setMotivo(opcao.valor)}
+                  className="accent-primary"
+                />
+                {opcao.rotulo}
+              </label>
+            ))}
+          </fieldset>
+          <textarea
+            placeholder="Observação (opcional) — ex.: afastado pelo INSS desde 10/09"
+            value={observacao}
+            onChange={(e) => setObservacao(e.target.value)}
+            className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+            rows={2}
+          />
+          {erro && <p className="text-sm text-red-600">{erro}</p>}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setErro(null);
+                setEtapa("preenchendo");
+              }}
+              disabled={enviando}
+              className="flex items-center gap-2 rounded-md border border-primary-border px-4 py-2 text-sm font-medium text-primary hover:bg-primary-soft disabled:opacity-60"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
+            <button
+              type="button"
+              onClick={confirmarNaoAvaliar}
+              disabled={enviando}
+              className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
+            >
+              {enviando ? "Registrando..." : "Confirmar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (etapa === "revisando") {
     return (
@@ -283,6 +389,19 @@ export function AvaliacaoClient({ token }: { token: string }) {
   return (
     <div className="flex w-full max-w-xl flex-col gap-6">
       {cabecalho}
+
+      <button
+        type="button"
+        onClick={() => {
+          setErro(null);
+          setEtapa("naoAvaliar");
+          window.scrollTo({ top: 0 });
+        }}
+        className="-mt-3 flex items-center gap-1.5 self-center text-xs text-zinc-500 underline underline-offset-2 hover:text-primary"
+      >
+        <UserX className="h-3.5 w-3.5" />
+        Não é possível avaliar este colaborador (afastado ou desligado)
+      </button>
 
       {/* Régua de notas: fechada por padrão pra não empurrar as perguntas. */}
       <details className="group rounded-lg border border-primary-border bg-white p-3 text-sm dark:bg-background">

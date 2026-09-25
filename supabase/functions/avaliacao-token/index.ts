@@ -69,6 +69,9 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Este link expirou." }, 410);
     }
 
+    if (avaliacao.status === "nao_avaliada") {
+      return json({ error: "Esta avaliação foi encerrada (colaborador afastado ou desligado)." }, 409);
+    }
     if (link.usado_em || avaliacao.status === "respondida") {
       return json({ error: "Esta avaliação já foi respondida." }, 409);
     }
@@ -123,7 +126,10 @@ Deno.serve(async (req: Request) => {
         }[]
       | undefined;
 
-    if (!token || !Array.isArray(respostas) || respostas.length === 0) {
+    // Gestor informa que não dá pra avaliar: afastado ou desligado.
+    const naoAvaliar = body?.nao_avaliar as { motivo?: string; observacao?: string } | undefined;
+
+    if (!token || (!naoAvaliar && (!Array.isArray(respostas) || respostas.length === 0))) {
       return json({ error: "Requisição inválida" }, 400);
     }
 
@@ -140,9 +146,37 @@ Deno.serve(async (req: Request) => {
     if (new Date(link.expira_em) < new Date()) {
       return json({ error: "Este link expirou." }, 410);
     }
-    if (link.usado_em || avaliacao.status === "respondida") {
+    if (link.usado_em || avaliacao.status === "respondida" || avaliacao.status === "nao_avaliada") {
       return json({ error: "Esta avaliação já foi respondida." }, 409);
     }
+
+    // Encerra a avaliação sem notas. Desligado não inativa o colaborador: o
+    // DHO confere e inativa no painel (aparece um aviso na Visão geral).
+    if (naoAvaliar) {
+      if (naoAvaliar.motivo !== "afastado" && naoAvaliar.motivo !== "desligado") {
+        return json({ error: "Escolha o motivo: afastado ou desligado." }, 400);
+      }
+      const agora = new Date().toISOString();
+      const { error: erroEncerrar } = await supabase
+        .from("avaliacoes")
+        .update({
+          status: "nao_avaliada",
+          motivo_nao_avaliada: naoAvaliar.motivo,
+          observacao_nao_avaliada:
+            typeof naoAvaliar.observacao === "string" && naoAvaliar.observacao.trim()
+              ? naoAvaliar.observacao.trim().slice(0, 1000)
+              : null,
+          data_resposta: agora,
+          rascunho: null,
+          rascunho_salvo_em: null,
+        })
+        .eq("id", avaliacao.id);
+      if (erroEncerrar) return json({ error: "Não foi possível registrar." }, 500);
+      await supabase.from("links_avaliacao").update({ usado_em: agora }).eq("token", token);
+      return json({ success: true });
+    }
+
+    if (!respostas) return json({ error: "Requisição inválida" }, 400);
 
     const cargoId = avaliacao.colaboradores?.cargo_id ?? null;
     let perguntasValidasQuery = supabase

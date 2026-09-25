@@ -11,6 +11,7 @@ import {
   ChevronRight,
   CalendarDays,
   X,
+  UserX,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
@@ -51,6 +52,8 @@ const STATUS_VISUAL = [
   { chave: "enviada", label: "Aguardando resposta", cor: "#f97316" },
   { chave: "pendente", label: "Não enviadas", cor: "#2563eb" },
   { chave: "expirada", label: "Expiradas", cor: "#ef4444" },
+  // Gestor informou pelo link que o colaborador está afastado ou desligado.
+  { chave: "nao_avaliada", label: "Não avaliadas", cor: "#71717a" },
 ] as const;
 
 // Até quantos dias antes do vencimento uma avaliação em aberto é urgente.
@@ -71,6 +74,7 @@ const STATUS_FILTRO_LABEL: Record<string, string> = {
   enviada: "Aguardando resposta",
   respondida: "Respondidas",
   expirada: "Expiradas",
+  nao_avaliada: "Não avaliadas",
 };
 
 const MARCOS_FILTRO = [
@@ -252,7 +256,7 @@ export default async function AdminOverviewPage({
     supabase
       .from("avaliacoes")
       .select(
-        "id, marco, status, data_envio, data_resposta, colaboradores(id, nome, matricula, data_admissao, tipo, gestor_nome, gestor_email, cargos(nome)), links_avaliacao(expira_em)"
+        "id, marco, status, data_envio, data_resposta, motivo_nao_avaliada, observacao_nao_avaliada, colaboradores(id, nome, matricula, data_admissao, tipo, ativo, gestor_nome, gestor_email, cargos(nome)), links_avaliacao(expira_em)"
       )
       .order("data_referencia", { ascending: false }),
     supabase.from("categorias_treinamento").select("id, nome").eq("ativo", true).order("nome"),
@@ -288,7 +292,7 @@ export default async function AdminOverviewPage({
   // período/admissão. Os gráficos usam a mesma função pra acompanhar a tabela.
   function aplicarFiltrosDosCards(itens: typeof lista) {
     let resultado = itens;
-    if (status === "pendente" || status === "enviada" || status === "respondida" || status === "expirada") {
+    if (status && status in STATUS_FILTRO_LABEL) {
       resultado = resultado.filter((a) => a.status === status);
     }
     if (critico) {
@@ -548,6 +552,8 @@ export default async function AdminOverviewPage({
       gestorNome: colaborador?.gestor_nome ?? "",
       cargo: colaborador?.cargos?.nome ?? null,
       prazo: prazoDe(a.status, expiraEm),
+      motivoNaoAvaliada: a.motivo_nao_avaliada,
+      observacaoNaoAvaliada: a.observacao_nao_avaliada,
     };
   });
 
@@ -635,6 +641,18 @@ export default async function AdminOverviewPage({
   }
 
   const totalUrgentes = avaliacoesParaTabela.filter((l) => l.prazo?.urgente).length;
+
+  // Gestor marcou "desligado" no link mas o colaborador ainda está ativo: o
+  // DHO confere e inativa no cadastro (o sistema não inativa sozinho).
+  const desligadosParaConferir = [
+    ...new Map(
+      listaBase
+        .filter((a) => a.status === "nao_avaliada" && a.motivo_nao_avaliada === "desligado")
+        .map((a) => a.colaboradores as unknown as { id: string; nome: string; ativo: boolean } | null)
+        .filter((c): c is { id: string; nome: string; ativo: boolean } => !!c && c.ativo)
+        .map((c) => [c.id, c])
+    ).values(),
+  ];
 
   return (
     <div className="flex flex-col gap-8">
@@ -806,6 +824,26 @@ export default async function AdminOverviewPage({
           tone="teal"
         />
       </div>
+
+      {desligadosParaConferir.length > 0 && (
+        <div className="-mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <UserX className="h-4 w-4 shrink-0" />
+          <span>
+            {desligadosParaConferir.length === 1
+              ? "1 colaborador foi informado como desligado pelo gestor"
+              : `${desligadosParaConferir.length} colaboradores foram informados como desligados pelo gestor`}
+            {" — confira e inative no cadastro:"}
+          </span>
+          {desligadosParaConferir.map((c, i) => (
+            <span key={c.id}>
+              <Link href={`/admin/colaboradores/${c.id}`} className="font-medium underline underline-offset-2">
+                {c.nome}
+              </Link>
+              {i < desligadosParaConferir.length - 1 ? "," : ""}
+            </span>
+          ))}
+        </div>
+      )}
 
       {precisamEnvioManual > 0 && !mostrarProximas && (
         <div className="-mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-700">
