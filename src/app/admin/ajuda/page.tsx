@@ -1,3 +1,5 @@
+import { NOTAS } from "@/lib/escala";
+
 const SECOES = [
   {
     titulo: "O que é o Trilha Desenvolve+",
@@ -54,10 +56,15 @@ const SECOES = [
           link único com prazo de validade, e envia um e-mail (via Gmail, SMTP) para o
           gestor.
         </li>
-        <li>O gestor responde as perguntas daquele período direto pelo link, sem login.</li>
         <li>
-          Notas 1 ou 2 (baixas) já vêm com uma competência sugerida
-          automaticamente; o gestor pode trocar antes de salvar.
+          O gestor responde as perguntas daquele período direto pelo link, sem login. Ele
+          pode <strong>salvar rascunho</strong> e continuar depois pelo mesmo link (dentro do
+          prazo); ao clicar em <strong>Enviar</strong>, vê um resumo e escolhe entre
+          revisar ou confirmar o envio.
+        </li>
+        <li>
+          Notas 1, 2 ou 3 já vêm com uma competência sugerida automaticamente; o gestor
+          pode escolher o treinamento antes de enviar.
         </li>
         <li>
           As respostas alimentam o histórico do colaborador e o dashboard consolidado.
@@ -95,6 +102,12 @@ const SECOES = [
           gerado normalmente e fica disponível no botão{" "}
           <strong>&quot;Copiar link (WhatsApp/e-mail manual)&quot;</strong>, pra mandar por
           fora do sistema.
+        </p>
+        <p className="mt-2">
+          Se o gestor já enviou mas precisa mudar alguma nota, o admin usa{" "}
+          <strong>&quot;Reabrir para o gestor&quot;</strong> na página do colaborador: a
+          avaliação volta pra &quot;Aguardando resposta&quot;, sai um link novo por e-mail e as
+          notas anteriores já vêm preenchidas pra ele ajustar e enviar de novo.
         </p>
       </>
     ),
@@ -142,15 +155,25 @@ const SECOES = [
       <>
         <p>
           Não existe uma soma ou média das notas. Cada pergunta é avaliada{" "}
-          <strong>individualmente</strong>, numa escala de 1 a 4:
+          <strong>individualmente</strong>, numa régua de 1 a 5:
         </p>
+        <ul className="mb-2 list-disc space-y-1 pl-5">
+          {NOTAS.map((nota) => (
+            <li key={nota.valor}>
+              <strong style={{ color: nota.cor }}>
+                {nota.valor} – {nota.nome}
+              </strong>
+              : {nota.descricao}
+            </li>
+          ))}
+        </ul>
         <ul className="list-disc space-y-1 pl-5">
           <li>
             Cada pergunta (cadastrada em <strong>Perguntas</strong>) pode ter uma{" "}
             <strong>competência sugerida</strong> vinculada a ela.
           </li>
           <li>
-            Quando o gestor responde com nota <strong>1 ou 2</strong> naquela pergunta
+            Quando o gestor responde com nota <strong>1, 2 ou 3</strong> naquela pergunta
             específica, o sistema já preenche automaticamente a competência sugerida daquela
             pergunta como indicação de treinamento.
           </li>
@@ -159,7 +182,8 @@ const SECOES = [
             enviar a avaliação.
           </li>
           <li>
-            Notas 3 ou 4 não geram nenhuma sugestão de treinamento.
+            Notas 4 ou 5 não geram nenhuma sugestão de treinamento. A nota 1 (Inaceitável)
+            também conta como <strong>nota crítica</strong> na Visão geral.
           </li>
           <li>
             Um colaborador com várias perguntas de nota baixa pode acabar indicado em{" "}

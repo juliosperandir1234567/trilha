@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { requireStaff } from "@/lib/supabase/dal";
+import { requireAdmin, requireStaff } from "@/lib/supabase/dal";
 
 export type EnviarAvaliacaoState =
   | {
@@ -19,7 +19,10 @@ export async function enviarAvaliacaoAgora(
   _prevState: EnviarAvaliacaoState,
   formData: FormData
 ): Promise<EnviarAvaliacaoState> {
-  await requireStaff();
+  // Reabrir apaga as respostas e devolve a avaliação pro gestor: só admin.
+  const reabrir = formData.get("reabrir") === "1";
+  if (reabrir) await requireAdmin();
+  else await requireStaff();
 
   const colaboradorId = String(formData.get("colaborador_id") ?? "");
   const marco = Number(formData.get("marco"));
@@ -41,7 +44,7 @@ export async function enviarAvaliacaoAgora(
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ colaborador_id: colaboradorId, marco }),
+      body: JSON.stringify({ colaborador_id: colaboradorId, marco, reabrir }),
     }
   );
 

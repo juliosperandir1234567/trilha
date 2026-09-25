@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getUsuarioAtual } from "@/lib/supabase/dal";
+import { NOTA_CRITICA, nomeDaNota } from "@/lib/escala";
 import { EnviarAgoraButton } from "./enviar-agora-button";
 import { ColaboradorForm } from "../colaborador-form";
 
@@ -20,6 +22,8 @@ export default async function ColaboradorDetalhePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const { perfil } = await getUsuarioAtual();
+  const ehAdmin = perfil?.papel === "admin";
   const supabase = await createClient();
 
   const [{ data: colaborador }, { data: cargos }] = await Promise.all([
@@ -41,7 +45,7 @@ export default async function ColaboradorDetalhePage({
   const { data: avaliacoes } = await supabase
     .from("avaliacoes")
     .select(
-      "id, marco, status, data_referencia, data_envio, data_resposta, respostas(nota, comentario, perguntas(texto), categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome))"
+      "id, marco, status, data_referencia, data_envio, data_resposta, rascunho_salvo_em, respostas(nota, comentario, perguntas(texto), categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome))"
     )
     .eq("colaborador_id", id)
     .order("marco");
@@ -49,7 +53,7 @@ export default async function ColaboradorDetalhePage({
   const avaliacaoPorMarco = new Map((avaliacoes ?? []).map((a) => [a.marco, a]));
 
   const temNotaCritica = (avaliacoes ?? []).some((a) =>
-    (a.respostas as unknown as { nota: number }[]).some((r) => r.nota === 1)
+    (a.respostas as unknown as { nota: number }[]).some((r) => r.nota === NOTA_CRITICA)
   );
 
   return (
@@ -99,6 +103,14 @@ export default async function ColaboradorDetalhePage({
                 {avaliacao?.status !== "respondida" && (
                   <EnviarAgoraButton colaboradorId={colaborador.id} marco={marco} />
                 )}
+                {avaliacao?.status === "respondida" && ehAdmin && (
+                  <EnviarAgoraButton
+                    colaboradorId={colaborador.id}
+                    marco={marco}
+                    reabrir
+                    rotulo="Reabrir para o gestor"
+                  />
+                )}
               </div>
             </div>
 
@@ -114,19 +126,19 @@ export default async function ColaboradorDetalhePage({
                   <li
                     key={i}
                     className={`border-t pt-2 ${
-                      resposta.nota === 1
+                      resposta.nota === NOTA_CRITICA
                         ? "border-red-200 bg-red-50 -mx-2 rounded px-2 dark:border-red-900 dark:bg-red-950/40"
                         : "border-primary-border/40"
                     }`}
                   >
                     <p className="flex items-center gap-1">
                       {resposta.perguntas?.texto}
-                      {resposta.nota === 1 && (
+                      {resposta.nota === NOTA_CRITICA && (
                         <AlertTriangle className="h-3 w-3 shrink-0 text-red-600" />
                       )}
                     </p>
-                    <p className={resposta.nota === 1 ? "text-red-700 dark:text-red-400" : "text-zinc-500"}>
-                      Nota: <strong>{resposta.nota}</strong>
+                    <p className={resposta.nota === NOTA_CRITICA ? "text-red-700 dark:text-red-400" : "text-zinc-500"}>
+                      Nota: <strong>{resposta.nota} — {nomeDaNota(resposta.nota)}</strong>
                       {resposta.treinamentos ? (
                         <> · Treinamento indicado: {resposta.treinamentos.nome}</>
                       ) : (
@@ -148,6 +160,8 @@ export default async function ColaboradorDetalhePage({
                 {avaliacao.data_envio
                   ? `E-mail enviado em ${new Date(avaliacao.data_envio).toLocaleString("pt-BR")}`
                   : "Ainda não enviado."}
+                {avaliacao.rascunho_salvo_em &&
+                  ` · Rascunho do gestor salvo em ${new Date(avaliacao.rascunho_salvo_em).toLocaleString("pt-BR")}`}
               </p>
             )}
           </div>

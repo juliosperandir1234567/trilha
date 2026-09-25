@@ -42,6 +42,13 @@ Deno.serve(async (req: Request) => {
   const body = await req.json().catch(() => null);
   const colaboradorId = body?.colaborador_id as string | undefined;
   const marco = body?.marco as number | undefined;
+  // Reabrir: avaliação já respondida volta pro gestor com as respostas
+  // anteriores preenchidas (como rascunho). Só admin.
+  const reabrir = body?.reabrir === true;
+
+  if (reabrir && perfilChamador?.papel !== "admin") {
+    return json({ error: "Só o admin pode reabrir uma avaliação." }, 403);
+  }
 
   if (!colaboradorId || ![30, 60, 90, 120, 180, 270].includes(marco as number)) {
     return json({ error: "Dados inválidos" }, 400);
@@ -83,7 +90,30 @@ Deno.serve(async (req: Request) => {
     .eq("marco", marco)
     .maybeSingle();
 
-  if (avaliacao?.status === "respondida") {
+  if (reabrir) {
+    if (avaliacao?.status !== "respondida") {
+      return json({ error: "Só dá pra reabrir uma avaliação já respondida." }, 400);
+    }
+
+    const { data: respostasAnteriores } = await supabase
+      .from("respostas")
+      .select("pergunta_id, nota, categoria_final_id, treinamento_final_id, comentario")
+      .eq("avaliacao_id", avaliacao.id);
+
+    const { error: erroApagar } = await supabase.from("respostas").delete().eq("avaliacao_id", avaliacao.id);
+    if (erroApagar) return json({ error: "Não foi possível reabrir a avaliação." }, 500);
+
+    await supabase
+      .from("avaliacoes")
+      .update({
+        status: "pendente",
+        data_resposta: null,
+        rascunho: respostasAnteriores ?? [],
+        rascunho_salvo_em: new Date().toISOString(),
+      })
+      .eq("id", avaliacao.id);
+    avaliacao = { ...avaliacao, status: "pendente" };
+  } else if (avaliacao?.status === "respondida") {
     return json({ error: "Esta avaliação já foi respondida, não é possível reenviar." }, 400);
   }
 
@@ -144,8 +174,12 @@ Deno.serve(async (req: Request) => {
     await smtpClient.send({
       from: `${nomeRemetente} <${emailRemetente}>`,
       to: colaborador.gestor_email,
-      subject: `Avaliação de ${marco} dias — ${colaborador.nome}`,
-      html: `<p>Olá, ${colaborador.gestor_nome}.</p><p>É hora de avaliar <strong>${colaborador.nome}</strong> no marco de <strong>${marco} dias</strong>.</p><p><a href="${urlAvaliacao}">Responder avaliação</a></p><p>Este link expira em ${validadeHoras} horas.</p>`,
+      subject: reabrir
+        ? `Avaliação de ${marco} dias reaberta — ${colaborador.nome}`
+        : `Avaliação de ${marco} dias — ${colaborador.nome}`,
+      html: reabrir
+        ? `<p>Olá, ${colaborador.gestor_nome}.</p><p>A avaliação de <strong>${colaborador.nome}</strong> no período de <strong>${marco} dias</strong> foi reaberta para ajustes. Suas respostas anteriores já estão preenchidas; altere o que precisar e envie de novo.</p><p><a href="${urlAvaliacao}">Revisar avaliação</a></p><p>Este link expira em ${validadeHoras} horas.</p>`
+        : `<p>Olá, ${colaborador.gestor_nome}.</p><p>É hora de avaliar <strong>${colaborador.nome}</strong> no período de <strong>${marco} dias</strong>.</p><p><a href="${urlAvaliacao}">Responder avaliação</a></p><p>Este link expira em ${validadeHoras} horas.</p>`,
     });
     emailEnviado = true;
   } catch (erro) {

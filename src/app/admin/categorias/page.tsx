@@ -58,7 +58,7 @@ export default async function CategoriasPage() {
       <div>
         <h1 className="text-xl font-semibold">Competências</h1>
         <p className="text-sm text-zinc-500">
-          Uma competência é sugerida automaticamente quando o gestor dá nota baixa (1 ou 2)
+          Uma competência é sugerida automaticamente quando o gestor dá nota 1, 2 ou 3
           numa pergunta. A competência vale pra todos os cargos; os treinamentos dentro dela
           podem ser de um cargo só — o gestor só vê os treinamentos do cargo de quem está
           avaliando, mais os de &quot;Todos os cargos&quot;.

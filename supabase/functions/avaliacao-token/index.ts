@@ -7,6 +7,10 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
+// Mesmos limites de src/lib/escala.ts — se mudar lá, mudar aqui.
+const NOTA_MAXIMA = 5;
+const NOTA_MAXIMA_INDICACAO = 3;
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -28,7 +32,7 @@ Deno.serve(async (req: Request) => {
     const { data: link } = await supabase
       .from("links_avaliacao")
       .select(
-        "token, expira_em, usado_em, avaliacao_id, avaliacoes(id, marco, status, colaboradores(nome, cargo_id))"
+        "token, expira_em, usado_em, avaliacao_id, avaliacoes(id, marco, status, rascunho, rascunho_salvo_em, colaboradores(nome, cargo_id))"
       )
       .eq("token", token)
       .maybeSingle();
@@ -53,6 +57,8 @@ Deno.serve(async (req: Request) => {
       id: string;
       marco: number;
       status: string;
+      rascunho: unknown;
+      rascunho_salvo_em: string | null;
       colaboradores: { nome: string; cargo_id: string | null } | null;
     };
 
@@ -98,16 +104,19 @@ Deno.serve(async (req: Request) => {
       perguntas: perguntas ?? [],
       categorias: categorias ?? [],
       treinamentos: treinamentos ?? [],
+      rascunho: avaliacao.rascunho ?? null,
+      rascunho_salvo_em: avaliacao.rascunho_salvo_em,
     });
   }
 
   if (req.method === "POST") {
     const body = await req.json().catch(() => null);
     const token = body?.token as string | undefined;
+    const ehRascunho = body?.rascunho === true;
     const respostas = body?.respostas as
       | {
           pergunta_id: string;
-          nota: number;
+          nota: number | null;
           categoria_final_id?: string | null;
           treinamento_final_id?: string | null;
           comentario?: string;
@@ -155,20 +164,47 @@ Deno.serve(async (req: Request) => {
       ((treinamentosValidos ?? []) as unknown as { id: string }[]).map((t) => t.id)
     );
 
+    const notaValida = (nota: unknown) =>
+      Number.isInteger(nota) && (nota as number) >= 1 && (nota as number) <= NOTA_MAXIMA;
+
+    // Rascunho: guarda o que já foi preenchido (pode ter pergunta sem nota)
+    // e não mexe no status — o link continua valendo até o prazo.
+    if (ehRascunho) {
+      const rascunho = respostas
+        .filter((r) => perguntasPorId.has(r.pergunta_id))
+        .map((r) => ({
+          pergunta_id: r.pergunta_id,
+          nota: notaValida(r.nota) ? r.nota : null,
+          categoria_final_id: r.categoria_final_id ?? null,
+          treinamento_final_id:
+            r.treinamento_final_id && idsTreinamentosValidos.has(r.treinamento_final_id)
+              ? r.treinamento_final_id
+              : null,
+          comentario: typeof r.comentario === "string" ? r.comentario.slice(0, 2000) : null,
+        }));
+      const salvoEm = new Date().toISOString();
+      const { error: erroRascunho } = await supabase
+        .from("avaliacoes")
+        .update({ rascunho, rascunho_salvo_em: salvoEm })
+        .eq("id", avaliacao.id);
+      if (erroRascunho) return json({ error: "Não foi possível salvar o rascunho." }, 500);
+      return json({ success: true, salvo_em: salvoEm });
+    }
+
     for (const resposta of respostas) {
       if (!perguntasPorId.has(resposta.pergunta_id)) {
-        return json({ error: "Pergunta inválida para este marco." }, 400);
+        return json({ error: "Pergunta inválida para este período." }, 400);
       }
-      if (!Number.isInteger(resposta.nota) || resposta.nota < 1 || resposta.nota > 4) {
-        return json({ error: "Nota inválida (use 1 a 4)." }, 400);
+      if (!notaValida(resposta.nota)) {
+        return json({ error: `Nota inválida (use 1 a ${NOTA_MAXIMA}).` }, 400);
       }
     }
 
-    // Só existe indicação de treinamento quando a nota é baixa (1 ou 2).
-    // Nota 3/4 nunca deve gravar categoria/treinamento, mesmo que o cliente mande algo.
+    // Indicação de treinamento só até NOTA_MAXIMA_INDICACAO (1 a 3). Nota
+    // acima disso nunca grava categoria/treinamento, mesmo que o cliente mande.
     const linhas = respostas.map((resposta) => {
       const pergunta = perguntasPorId.get(resposta.pergunta_id)!;
-      const notaBaixa = resposta.nota <= 2;
+      const notaBaixa = (resposta.nota as number) <= NOTA_MAXIMA_INDICACAO;
       return {
         avaliacao_id: avaliacao.id,
         pergunta_id: resposta.pergunta_id,
@@ -191,7 +227,12 @@ Deno.serve(async (req: Request) => {
 
     await supabase
       .from("avaliacoes")
-      .update({ status: "respondida", data_resposta: new Date().toISOString() })
+      .update({
+        status: "respondida",
+        data_resposta: new Date().toISOString(),
+        rascunho: null,
+        rascunho_salvo_em: null,
+      })
       .eq("id", avaliacao.id);
     await supabase.from("links_avaliacao").update({ usado_em: new Date().toISOString() }).eq("token", token);
 
