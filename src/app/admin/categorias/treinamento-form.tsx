@@ -34,7 +34,7 @@ export function TreinamentoForm({ categorias, cargos }: { categorias: Categoria[
         </select>
       </div>
 
-      <div className="flex flex-1 flex-col gap-1.5 sm:min-w-[200px]">
+      <div className="flex flex-[2] flex-col gap-1.5 sm:min-w-[240px]">
         <label htmlFor="nome_treinamento" className="text-sm font-medium">
           Nome do treinamento
         </label>
@@ -42,17 +42,6 @@ export function TreinamentoForm({ categorias, cargos }: { categorias: Categoria[
           id="nome_treinamento"
           name="nome"
           required
-          className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
-        />
-      </div>
-
-      <div className="flex flex-[2] flex-col gap-1.5 sm:min-w-[240px]">
-        <label htmlFor="descricao_treinamento" className="text-sm font-medium">
-          Descrição (opcional)
-        </label>
-        <input
-          id="descricao_treinamento"
-          name="descricao"
           className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
         />
       </div>

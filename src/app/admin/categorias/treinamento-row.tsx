@@ -16,7 +16,6 @@ type Treinamento = {
   categoria_id: string;
   cargo_id: string | null;
   nome: string;
-  descricao: string | null;
   ativo: boolean;
 };
 
@@ -46,7 +45,7 @@ export function TreinamentoRow({
   if (editando) {
     return (
       <tr className="border-b border-primary-border/40 last:border-b-0">
-        <td colSpan={4} className="px-4 py-3">
+        <td colSpan={3} className="px-4 py-3">
           <form action={editAction} className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
             <input type="hidden" name="id" value={treinamento.id} />
             <div className="flex flex-col gap-1.5 sm:min-w-[180px]">
@@ -88,14 +87,6 @@ export function TreinamentoRow({
                 className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
               />
             </div>
-            <div className="flex flex-[2] flex-col gap-1.5 sm:min-w-[200px]">
-              <label className="text-xs font-medium">Descrição</label>
-              <input
-                name="descricao"
-                defaultValue={treinamento.descricao ?? ""}
-                className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
-              />
-            </div>
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -122,7 +113,6 @@ export function TreinamentoRow({
   return (
     <tr className="border-b border-primary-border/40 align-top last:border-b-0 hover:bg-primary-soft/20">
       <td className="px-4 py-3">{treinamento.nome}</td>
-      <td className="px-4 py-3 text-zinc-500">{treinamento.descricao}</td>
       <td className="whitespace-nowrap px-4 py-3">{treinamento.ativo ? "Ativo" : "Inativo"}</td>
       <td className="px-4 py-3 text-right">
         <AcoesMenu label="Ações do treinamento" onClose={() => setConfirmandoExclusao(false)}>

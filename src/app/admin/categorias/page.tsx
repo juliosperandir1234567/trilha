@@ -13,7 +13,7 @@ export default async function CategoriasPage() {
     supabase.from("categorias_treinamento").select("id, nome, descricao, ativo").order("nome"),
     supabase
       .from("treinamentos")
-      .select("id, categoria_id, cargo_id, nome, descricao, ativo")
+      .select("id, categoria_id, cargo_id, nome, ativo")
       .order("nome"),
     supabase.from("cargos").select("id, nome, ativo").order("nome"),
   ]);
@@ -23,7 +23,6 @@ export default async function CategoriasPage() {
     categoria_id: string;
     cargo_id: string | null;
     nome: string;
-    descricao: string | null;
     ativo: boolean;
   };
 
@@ -93,11 +92,10 @@ export default async function CategoriasPage() {
             >
               {lista.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[560px] text-left text-sm">
+                  <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-primary-border text-primary">
                         <th className="px-4 py-2 text-xs font-medium">Treinamento</th>
-                        <th className="px-4 py-2 text-xs font-medium">Descrição</th>
                         <th className="whitespace-nowrap px-4 py-2 text-xs font-medium">Status</th>
                         <th className="px-4 py-2" />
                       </tr>
@@ -107,7 +105,7 @@ export default async function CategoriasPage() {
                         <Fragment key={grupo.chave}>
                           <tr className="border-b border-primary-border/40 bg-primary-soft/30">
                             <td
-                              colSpan={4}
+                              colSpan={3}
                               className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary"
                             >
                               {grupo.titulo}
