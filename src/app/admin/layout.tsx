@@ -49,7 +49,7 @@ export default async function AdminLayout({
           </button>
         </form>
       </aside>
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center justify-between bg-primary px-6 py-3 text-primary-foreground">
           <span className="flex items-center gap-2 font-semibold">
             <TrendingUp className="h-5 w-5" />
@@ -59,7 +59,7 @@ export default async function AdminLayout({
             {perfil?.nome} · {perfil?.papel}
           </span>
         </header>
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 sm:p-6">
           <div className="mx-auto w-full max-w-[1440px]">{children}</div>
         </main>
       </div>

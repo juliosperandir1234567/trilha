@@ -568,7 +568,10 @@ export default async function AdminOverviewPage({
   return (
     <div className="flex flex-col gap-8">
       <div className="-mt-2 flex flex-wrap items-start justify-between gap-4">
-        <div className="flex flex-col gap-2">
+        {/* w-full + min-w-0 no celular: sem isso a coluna cresce até a largura
+            dos botões e a página inteira passa da tela, em vez de só a linha
+            de botões rolar. */}
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:w-auto">
           <h1 className="text-xl font-semibold">
             Visão geral{marco ? ` — ${marco} dias` : ""}
           </h1>
