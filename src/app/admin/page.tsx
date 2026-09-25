@@ -420,8 +420,11 @@ export default async function AdminOverviewPage({
   });
 
   // Período sem nenhuma avaliação não entra no gráfico (vai aparecendo
-  // conforme surgem avaliações). O período filtrado fica mesmo zerado.
-  const periodosNoGrafico = progressoPorMarco.filter((l) => l.total > 0 || l.marco === marcoNum);
+  // conforme surgem avaliações). Com um período escolhido nos botões lá em
+  // cima, o gráfico mostra só ele, mesmo zerado.
+  const periodosNoGrafico = marcoNum
+    ? progressoPorMarco.filter((l) => l.marco === marcoNum)
+    : progressoPorMarco.filter((l) => l.total > 0);
 
   // Linha "Total" no topo das barras: soma de todos os períodos.
   const progressoTotal = {
@@ -723,7 +726,7 @@ export default async function AdminOverviewPage({
 
       <div className={`grid gap-6 ${mostrarProximas ? "lg:grid-cols-[3fr_2fr]" : ""}`}>
       <div className="min-w-0">
-        <h2 className="mb-3 font-medium">Status por período{sufixoFiltrosDosCards}</h2>
+        <h2 className="mb-3 font-medium">Status por período{sufixoFiltros}</h2>
         <div className="flex flex-col gap-2 rounded-lg border border-primary-border p-4">
           <div className="mb-1 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
             {STATUS_VISUAL.map((st) => (
@@ -731,13 +734,18 @@ export default async function AdminOverviewPage({
             ))}
             <span className="ml-auto text-zinc-400">Clique numa cor pra filtrar</span>
           </div>
-          <BarraStatus
-            rotulo="Total"
-            linha={progressoTotal}
-            destaque
-            hrefSegmento={(chave) => hrefStatusNoPeriodo(chave)}
-          />
-          <div className="my-1 border-t border-primary-border/50" />
+          {/* Com um período só, a linha "Total" repetiria a dele. */}
+          {!marcoNum && (
+            <>
+              <BarraStatus
+                rotulo="Total"
+                linha={progressoTotal}
+                destaque
+                hrefSegmento={(chave) => hrefStatusNoPeriodo(chave)}
+              />
+              <div className="my-1 border-t border-primary-border/50" />
+            </>
+          )}
           {periodosNoGrafico.length === 0 && (
             <p className="py-2 text-center text-xs text-zinc-500">Nenhuma avaliação nos períodos com esses filtros.</p>
           )}
@@ -748,7 +756,6 @@ export default async function AdminOverviewPage({
               linha={linha}
               hrefRotulo={hrefMarco(String(linha.marco))}
               hrefSegmento={(chave) => hrefStatusNoPeriodo(chave, linha.marco)}
-              selecionada={linha.marco === marcoNum}
             />
           ))}
         </div>
@@ -947,14 +954,12 @@ function BarraStatus({
   linha,
   hrefRotulo,
   hrefSegmento,
-  selecionada,
   destaque,
 }: {
   rotulo: string;
   linha: { total: number; porStatus: readonly { chave: string; label: string; cor: string; valor: number }[] };
   hrefRotulo?: string;
   hrefSegmento?: (chaveStatus: string) => string;
-  selecionada?: boolean;
   destaque?: boolean;
 }) {
   const pct = (n: number) => (linha.total ? (n / linha.total) * 100 : 0);
@@ -964,7 +969,7 @@ function BarraStatus({
   }`;
 
   return (
-    <div className={`flex items-center gap-3 rounded-md px-1 py-0.5 ${selecionada ? "bg-primary-soft/60" : ""}`}>
+    <div className="flex items-center gap-3 rounded-md px-1 py-0.5">
       {hrefRotulo ? (
         <Link href={hrefRotulo} className={classeRotulo}>
           {rotulo}

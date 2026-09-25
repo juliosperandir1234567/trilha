@@ -42,6 +42,9 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
           a.gestorNome.toLowerCase().includes(termo)
       )
     : avaliacoes;
+  const [expandida, setExpandida] = useState(false);
+  // Até 5 linhas a tabela já cabe inteira, sem rolagem.
+  const podeExpandir = filtradas.length > 5;
 
   return (
     <div className="flex flex-col gap-3">
@@ -55,8 +58,14 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
         />
       </div>
 
-      {/* ~5 linhas visíveis; a partir daí rola, com o cabeçalho fixo. */}
-      <div className="max-h-[252px] overflow-auto rounded-lg border border-primary-border">
+      {/* ~5 linhas visíveis; a partir daí rola, com o cabeçalho fixo. Um
+          clique em qualquer lugar da tabela abre ela inteira. */}
+      <div
+        onClick={() => podeExpandir && setExpandida(true)}
+        className={`overflow-auto rounded-lg border border-primary-border ${
+          expandida ? "" : "max-h-[252px]"
+        } ${podeExpandir && !expandida ? "cursor-pointer" : ""}`}
+      >
         <table className="w-full text-left text-xs">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
@@ -138,6 +147,15 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
           </tbody>
         </table>
       </div>
+      {podeExpandir && (
+        <button
+          type="button"
+          onClick={() => setExpandida(!expandida)}
+          className="w-fit text-xs text-primary underline underline-offset-2"
+        >
+          {expandida ? "Recolher" : `Mostrar todas (${filtradas.length})`}
+        </button>
+      )}
     </div>
   );
 }
