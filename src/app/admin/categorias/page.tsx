@@ -80,12 +80,17 @@ export default async function CategoriasPage() {
 
       <hr className="border-primary-border" />
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
         {(categorias ?? []).map((categoria) => {
           const lista = treinamentosPorCategoria.get(categoria.id) ?? [];
 
           return (
-            <CategoriaCard key={categoria.id} categoria={categoria} podeExcluir={podeExcluir}>
+            <CategoriaCard
+              key={categoria.id}
+              categoria={categoria}
+              podeExcluir={podeExcluir}
+              totalTreinamentos={lista.length}
+            >
               {lista.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[560px] text-left text-sm">

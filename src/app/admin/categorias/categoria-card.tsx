@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, type ReactNode } from "react";
-import { Pencil, Power, Trash2 } from "lucide-react";
+import { ChevronRight, GraduationCap, Pencil, Power, Trash2 } from "lucide-react";
 import {
   toggleCategoriaAtiva,
   updateCategoria,
@@ -14,13 +14,17 @@ type Categoria = { id: string; nome: string; descricao: string | null; ativo: bo
 export function CategoriaCard({
   categoria,
   podeExcluir,
+  totalTreinamentos,
   children,
 }: {
   categoria: Categoria;
   podeExcluir: boolean;
+  totalTreinamentos: number;
   children: ReactNode;
 }) {
   const [editando, setEditando] = useState(false);
+  // Começa fechado; clicar no nome abre os treinamentos.
+  const [aberto, setAberto] = useState(false);
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
 
   const [editState, editAction, editPending] = useActionState(updateCategoria, undefined);
@@ -76,13 +80,39 @@ export function CategoriaCard({
           {editState?.error && <p className="w-full text-sm text-red-600">{editState.error}</p>}
         </form>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-primary-border bg-primary-soft/40 px-4 py-3">
-          <div>
-            <p className="font-medium">{categoria.nome}</p>
-            {categoria.descricao && <p className="text-sm text-zinc-500">{categoria.descricao}</p>}
-          </div>
+        <div
+          className={`flex items-center gap-3 px-3 py-2 ${aberto ? "border-b border-primary-border bg-primary-soft/40" : ""}`}
+        >
+          {/* Mesmo visual das competências na Visão geral: ícone, nome,
+              quantidade em verde e a seta que gira ao abrir. */}
+          <button
+            type="button"
+            onClick={() => setAberto(!aberto)}
+            aria-expanded={aberto}
+            title={aberto ? "Recolher treinamentos" : "Ver treinamentos"}
+            className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left transition-colors hover:text-primary"
+          >
+            <span className="flex min-w-0 items-center gap-2">
+              <GraduationCap className="h-4 w-4 shrink-0 text-primary" />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">{categoria.nome}</span>
+                {categoria.descricao && (
+                  <span className="block truncate text-xs text-zinc-500">{categoria.descricao}</span>
+                )}
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2 text-zinc-500">
+              <span className="text-xs">
+                <span className="font-semibold text-primary">{totalTreinamentos}</span> treinamento
+                {totalTreinamentos === 1 ? "" : "s"}
+              </span>
+              <ChevronRight
+                className={`h-4 w-4 transition-transform ${aberto ? "rotate-90" : ""}`}
+              />
+            </span>
+          </button>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-zinc-500">{categoria.ativo ? "Ativa" : "Inativa"}</span>
+            {!categoria.ativo && <span className="text-xs text-zinc-500">Inativa</span>}
 
             <AcoesMenu label="Ações da competência" onClose={() => setConfirmandoExclusao(false)}>
               {(fechar) =>
@@ -161,7 +191,7 @@ export function CategoriaCard({
         </div>
       )}
 
-      {children}
+      {(aberto || editando) && children}
     </div>
   );
 }
