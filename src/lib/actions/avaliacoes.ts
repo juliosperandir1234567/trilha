@@ -64,3 +64,41 @@ export async function enviarAvaliacaoAgora(
     aviso: json.aviso,
   };
 }
+
+// Admin marca (ou desmarca) que o treinamento indicado numa resposta foi
+// feito. Com todas as indicações feitas, a avaliação conta como finalizada.
+export async function marcarTreinamentoRealizado(formData: FormData) {
+  await requireAdmin();
+  const respostaId = String(formData.get("resposta_id") ?? "");
+  const colaboradorId = String(formData.get("colaborador_id") ?? "");
+  const feito = formData.get("feito") === "1";
+  if (!respostaId) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("respostas")
+    .update({ treinamento_realizado_em: feito ? new Date().toISOString() : null })
+    .eq("id", respostaId);
+
+  if (colaboradorId) revalidatePath(`/admin/colaboradores/${colaboradorId}`);
+  revalidatePath("/admin");
+}
+
+// Atalho: marca como feitos todos os treinamentos ainda pendentes de uma avaliação.
+export async function marcarTodosTreinamentosRealizados(formData: FormData) {
+  await requireAdmin();
+  const avaliacaoId = String(formData.get("avaliacao_id") ?? "");
+  const colaboradorId = String(formData.get("colaborador_id") ?? "");
+  if (!avaliacaoId) return;
+
+  const supabase = await createClient();
+  await supabase
+    .from("respostas")
+    .update({ treinamento_realizado_em: new Date().toISOString() })
+    .eq("avaliacao_id", avaliacaoId)
+    .not("categoria_final_id", "is", null)
+    .is("treinamento_realizado_em", null);
+
+  if (colaboradorId) revalidatePath(`/admin/colaboradores/${colaboradorId}`);
+  revalidatePath("/admin");
+}

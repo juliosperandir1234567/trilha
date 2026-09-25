@@ -254,7 +254,7 @@ export default async function AdminOverviewPage({
     supabase
       .from("respostas")
       .select(
-        "avaliacao_id, categoria_final_id, treinamento_final_id, exportado_em, treinamentos:treinamento_final_id(nome, cargos(nome))"
+        "avaliacao_id, categoria_final_id, treinamento_final_id, exportado_em, treinamento_realizado_em, treinamentos:treinamento_final_id(nome, cargos(nome))"
       )
       .not("categoria_final_id", "is", null),
     supabase
@@ -518,6 +518,16 @@ export default async function AdminOverviewPage({
     return { texto: `Faltam ${Math.max(0, dias)} dia(s)`, urgente: expiraEmMs - agora <= DIAS_URGENCIA * DIA_MS };
   }
 
+  // Por avaliação: quantos treinamentos o gestor indicou e quantos o admin
+  // já marcou como feitos. Respondida com tudo feito = finalizada.
+  const treinamentosPorAvaliacao = new Map<string, { indicados: number; feitos: number }>();
+  for (const resposta of respostas ?? []) {
+    const atual = treinamentosPorAvaliacao.get(resposta.avaliacao_id) ?? { indicados: 0, feitos: 0 };
+    atual.indicados++;
+    if (resposta.treinamento_realizado_em) atual.feitos++;
+    treinamentosPorAvaliacao.set(resposta.avaliacao_id, atual);
+  }
+
   const avaliacoesCriadasParaTabela: AvaliacaoLinha[] = avaliacoesFiltradas.map((a) => {
     const colaborador = a.colaboradores as unknown as {
       id: string;
@@ -527,8 +537,13 @@ export default async function AdminOverviewPage({
       gestor_email: string;
       cargos: { nome: string } | null;
     } | null;
-    const link = (a.links_avaliacao as unknown as { expira_em: string }[])[0];
-    const expiraEm = link?.expira_em ?? null;
+    // Com lembretes a avaliação tem vários links; vale o mais recente.
+    const expiraEm =
+      (a.links_avaliacao as unknown as { expira_em: string }[])
+        .map((l) => l.expira_em)
+        .sort()
+        .at(-1) ?? null;
+    const treinamentos = treinamentosPorAvaliacao.get(a.id) ?? { indicados: 0, feitos: 0 };
 
     return {
       id: a.id,
@@ -545,6 +560,8 @@ export default async function AdminOverviewPage({
       prazo: prazoDe(a.status, expiraEm),
       motivoNaoAvaliada: a.motivo_nao_avaliada,
       observacaoNaoAvaliada: a.observacao_nao_avaliada,
+      treinamentosIndicados: treinamentos.indicados,
+      treinamentosFeitos: treinamentos.feitos,
     };
   });
 
@@ -656,8 +673,9 @@ export default async function AdminOverviewPage({
         <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto">
           {/* Os números dos botões são avaliações, não pessoas — quem já
               passou de mais de um período conta mais de uma vez. */}
-          <span className="text-xs text-zinc-500">Avaliações por período</span>
-          <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+          <span className="text-xs text-zinc-500">Período (nº de avaliações)</span>
+          {/* Mesmo formato do filtro de Tipo; no celular rola pro lado. */}
+          <div className="flex w-fit max-w-full overflow-x-auto rounded-lg border border-primary-border text-xs font-medium">
             {MARCOS_FILTRO.map((opcao) => {
               const ativo = (marco ?? "") === opcao.valor;
               const total = opcao.valor
@@ -668,14 +686,24 @@ export default async function AdminOverviewPage({
                 <Link
                   key={opcao.label}
                   href={hrefMarco(opcao.valor)}
-                  className={`flex min-w-14 shrink-0 flex-col items-center rounded-lg px-2.5 py-1 transition-colors sm:min-w-16 ${
+                  className={`flex shrink-0 items-center gap-1 whitespace-nowrap border-r border-primary-border px-2.5 py-2 transition-colors last:border-r-0 ${
                     ativo
                       ? "bg-primary text-primary-foreground"
-                      : "bg-primary-soft/50 text-primary hover:bg-primary-soft"
+                      : total === 0
+                        ? "text-zinc-400 hover:bg-primary-soft"
+                        : "text-primary hover:bg-primary-soft"
                   }`}
                 >
-                  <span className="text-[11px] font-medium">{opcao.label}</span>
-                  <span className="text-base font-bold leading-tight tabular-nums">{total}</span>
+                  {opcao.label}
+                  {total > 0 && (
+                    <span
+                      className={`rounded-full px-1.5 text-[10px] tabular-nums ${
+                        ativo ? "bg-white/25" : "bg-primary-soft"
+                      }`}
+                    >
+                      {total}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -692,7 +720,7 @@ export default async function AdminOverviewPage({
               <Link
                 key={opcao.rotulo}
                 href={hrefTipo(opcao.valor)}
-                className={`px-2.5 py-2 transition-colors ${
+                className={`whitespace-nowrap border-r border-primary-border px-2.5 py-2 transition-colors last:border-r-0 ${
                   (tipo ?? "") === opcao.valor
                     ? "bg-primary text-primary-foreground"
                     : "text-primary hover:bg-primary-soft"
@@ -976,7 +1004,11 @@ export default async function AdminOverviewPage({
             </span>
           )}
         </h2>
-        <AvaliacoesTable avaliacoes={avaliacoesParaTabela} />
+        {/* Card "Respondidas" (ou filtro de não avaliadas) abre direto na aba Respondidas. */}
+        <AvaliacoesTable
+          avaliacoes={avaliacoesParaTabela}
+          abaInicial={status === "respondida" || status === "nao_avaliada" ? "respondidas" : "andamento"}
+        />
       </div>
 
       <div>

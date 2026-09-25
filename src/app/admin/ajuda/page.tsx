@@ -98,6 +98,16 @@ const SECOES = [
             estiver inativo.
           </li>
           <li>
+            <strong>Finalizada</strong>: respondida e com todos os treinamentos indicados já
+            feitos. O admin marca cada treinamento como feito na página do colaborador
+            (&quot;Marcar como feito&quot;, ou &quot;Marcar todos&quot;). Sem indicação de
+            treinamento, a avaliação já fica finalizada ao ser respondida. Avaliação
+            finalizada tem PDF: um por vez na página do colaborador, ou em massa na Visão
+            geral (aba <strong>Respondidas</strong> → &quot;Exportar finalizadas em PDF&quot;,
+            que baixa um .zip com um arquivo por avaliação, nomeado Código-Nome-Avaliação
+            X dias-data da resposta).
+          </li>
+          <li>
             <strong>Lembrete automático</strong>: enquanto o gestor não responde, a rotina
             diária manda um link novo por e-mail <strong>a cada 5 dias</strong>, sem limite,
             até ele responder (ou usar &quot;Não é possível avaliar&quot;). O rascunho que
