@@ -50,7 +50,8 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Só o admin pode reabrir uma avaliação." }, 403);
   }
 
-  if (!colaboradorId || ![30, 60, 90, 120, 180, 270].includes(marco as number)) {
+  // Mesma lista de src/lib/periodos.ts.
+  if (!colaboradorId || ![30, 45, 60, 90, 120, 180, 270].includes(marco as number)) {
     return json({ error: "Dados inválidos" }, 400);
   }
 

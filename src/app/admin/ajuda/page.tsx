@@ -221,7 +221,7 @@ const SECOES = [
           <li>
             <strong>Em quais períodos ele é avaliado</strong> — marcado por checkbox na
             própria tela de Cargos. Um colaborador com esse cargo só vai gerar avaliação
-            nos períodos marcados ali (ex: Gestores avalia nos 6 períodos — 30 a 270 dias —
+            nos períodos marcados ali (ex: Gestores avalia em todos os períodos — 30 a 270 dias —
             enquanto Tratorista, Operador de colhedora e Auxiliar de processo avaliam só
             em 30/60/90). Colaborador sem cargo cadastrado usa o padrão 30/60/90.
           </li>
@@ -313,7 +313,7 @@ const SECOES = [
           <strong>Visão geral</strong>: cinco cards no topo (Colaboradores ativos,
           Aguardando resposta, Respondidas, Expiradas, Notas críticas) — cada um é também
           um filtro, clique pra aplicar. Abaixo: a tabela <strong>Progresso por período</strong>{" "}
-          (clique em qualquer período — 30/60/90/120/180/270 dias — pra filtrar só aquele),{" "}
+          (clique em qualquer período — 30/45/60/90/120/180/270 dias — pra filtrar só aquele),{" "}
           <strong>Treinamentos indicados</strong> (um card por competência, com a contagem de
           respostas que apontaram pra ela — clique pra ver quem são e exportar em CSV), e a
           tabela de <strong>Avaliações</strong> com os filtros aplicados, mais o botão{" "}

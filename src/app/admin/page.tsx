@@ -18,8 +18,9 @@ import { createClient } from "@/lib/supabase/server";
 import { AvaliacoesTable, type AvaliacaoLinha } from "./avaliacoes-table";
 import { EnviarAgoraButton } from "./colaboradores/[id]/enviar-agora-button";
 import { ExportarLink } from "./exportar-link";
+import { PERIODOS, PERIODOS_FILTRO } from "@/lib/periodos";
 
-const MARCOS = [30, 60, 90, 120, 180, 270] as const;
+const MARCOS = PERIODOS;
 
 // Mesmas regras da rotina diária (supabase/functions/avaliacoes-diarias):
 // marcos padrão pra quem não tem cargo e janela de recuperação de marco
@@ -77,15 +78,7 @@ const STATUS_FILTRO_LABEL: Record<string, string> = {
   nao_avaliada: "Não avaliadas",
 };
 
-const MARCOS_FILTRO = [
-  { label: "Todos", valor: "" },
-  { label: "30 dias", valor: "30" },
-  { label: "60 dias", valor: "60" },
-  { label: "90 dias", valor: "90" },
-  { label: "120 dias", valor: "120" },
-  { label: "180 dias", valor: "180" },
-  { label: "270 dias", valor: "270" },
-];
+const MARCOS_FILTRO = PERIODOS_FILTRO;
 
 export default async function AdminOverviewPage({
   searchParams,

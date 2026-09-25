@@ -3,11 +3,12 @@
 import { useActionState, useState } from "react";
 import { Plus } from "lucide-react";
 import { createPergunta } from "@/lib/actions/perguntas";
+import { PERIODOS } from "@/lib/periodos";
 
 type Categoria = { id: string; nome: string };
 type Cargo = { id: string; nome: string; marcos: number[] };
 
-const TODOS_OS_MARCOS = [30, 60, 90, 120, 180, 270] as const;
+const TODOS_OS_MARCOS = PERIODOS;
 
 export function PerguntaForm({
   categorias,

@@ -4,10 +4,11 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, requireStaff } from "@/lib/supabase/dal";
+import { PERIODOS } from "@/lib/periodos";
 
 export type CargoFormState = { error?: string } | undefined;
 
-const MARCOS_VALIDOS = [30, 60, 90, 120, 180, 270];
+const MARCOS_VALIDOS: readonly number[] = PERIODOS;
 
 function parseMarcos(formData: FormData): number[] {
   const marcos = formData

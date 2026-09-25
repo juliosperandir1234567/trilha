@@ -3,8 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { getUsuarioAtual } from "@/lib/supabase/dal";
 import { PerguntaForm } from "./pergunta-form";
 import { PerguntaRow } from "./pergunta-row";
+import { PERIODOS } from "@/lib/periodos";
 
-const MARCOS = [30, 60, 90, 120, 180, 270] as const;
+const MARCOS = PERIODOS;
 
 export default async function PerguntasPage({
   searchParams,

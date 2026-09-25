@@ -4,6 +4,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, requireStaff } from "@/lib/supabase/dal";
+import { PERIODOS } from "@/lib/periodos";
 
 export type PerguntaFormState = { error?: string } | undefined;
 
@@ -18,7 +19,7 @@ export async function createPergunta(
   const categoriaSugeridaId = String(formData.get("categoria_sugerida_id") ?? "");
   const cargoId = String(formData.get("cargo_id") ?? "");
 
-  if (![30, 60, 90, 120, 180, 270].includes(marco)) {
+  if (!(PERIODOS as readonly number[]).includes(marco)) {
     return { error: "Período inválido." };
   }
   if (!texto) {
@@ -54,7 +55,7 @@ export async function updatePergunta(
   const categoriaSugeridaId = String(formData.get("categoria_sugerida_id") ?? "");
   const cargoId = String(formData.get("cargo_id") ?? "");
 
-  if (![30, 60, 90, 120, 180, 270].includes(marco)) {
+  if (!(PERIODOS as readonly number[]).includes(marco)) {
     return { error: "Período inválido." };
   }
   if (!texto) {
