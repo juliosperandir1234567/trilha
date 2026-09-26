@@ -25,7 +25,8 @@ export function ImportForm() {
           <code>data_admissao</code> (dd/mm/aaaa ou aaaa-mm-dd; pra capacitação, a data da
           mudança de cargo), <code>tipo</code> (<code>novato</code> ou{" "}
           <code>capacitacao</code>, opcional — padrão novato),{" "}
-          <code>cargo</code> (opcional — precisa bater com o nome de um cargo já cadastrado
+          <code>estrutura_macro</code> (opcional, ex.: UTAG), <code>turno</code> (opcional: fixo,
+          diurno, vespertino ou noturno), <code>cargo</code> (opcional — precisa bater com o nome de um cargo já cadastrado
           em Cargos), <code>gestor</code>, <code>email do gestor</code>. Pode enviar direto o
           arquivo do Excel (.xlsx) ou exportar como CSV.
         </p>

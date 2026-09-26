@@ -43,9 +43,6 @@ export const NOTA_MAXIMA = 5;
 // Até esta nota o gestor indica competência/treinamento.
 export const NOTA_MAXIMA_INDICACAO = 3;
 
-// Nota que conta como "Nota crítica" na Visão geral.
-export const NOTA_CRITICA = 1;
-
 export function nomeDaNota(nota: number) {
   return NOTAS.find((n) => n.valor === nota)?.nome ?? String(nota);
 }

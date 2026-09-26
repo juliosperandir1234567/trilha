@@ -2,7 +2,8 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { nomeDoTurno } from "@/lib/turnos";
+import { Trash2 } from "lucide-react";
 import { deleteColaboradores } from "@/lib/actions/colaboradores";
 import { EnviarAgoraButton } from "./[id]/enviar-agora-button";
 
@@ -20,12 +21,16 @@ export type ColaboradorLinha = {
   dataAdmissao: string;
   // novato: dataAdmissao é a admissão; capacitacao: a mudança de cargo.
   tipo: string;
+  estruturaMacro: string | null;
+  turno: string | null;
   gestorNome: string;
   gestorEmail: string;
   ativo: boolean;
-  notaCritica: boolean;
   marcoPendente: number | null;
   statusMarcoPendente: string | null;
+  // Todos os períodos do cargo fechados (finalizados ou não avaliados).
+  trilhaConcluida: boolean;
+  treinamentosPendentes: number;
 };
 
 export function ColaboradoresTable({
@@ -170,14 +175,15 @@ export function ColaboradoresTable({
                   >
                     {colaborador.nome}
                   </Link>
-                  {colaborador.notaCritica && (
-                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-400">
-                      <AlertTriangle className="h-3 w-3" />
-                      Atenção
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
+                  {colaborador.cargoNome ?? "-"}
+                  {(colaborador.estruturaMacro || colaborador.turno) && (
+                    <span className="block text-[11px]">
+                      {[colaborador.estruturaMacro, nomeDoTurno(colaborador.turno)].filter(Boolean).join(" · ")}
                     </span>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-zinc-500">{colaborador.cargoNome ?? "-"}</td>
                 <td className="whitespace-nowrap px-4 py-3">
                   {new Date(colaborador.dataAdmissao + "T00:00:00").toLocaleDateString("pt-BR")}
                   <span className="block text-[11px] text-zinc-500">
@@ -201,7 +207,15 @@ export function ColaboradoresTable({
                       <EnviarAgoraButton colaboradorId={colaborador.id} marco={colaborador.marcoPendente} />
                     </div>
                   ) : (
-                    <span className="text-xs text-zinc-500">Completo</span>
+                    colaborador.trilhaConcluida ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                        ✓ Trilha concluída
+                      </span>
+                    ) : (
+                      <span className="text-xs text-amber-700">
+                        Tudo respondido · {colaborador.treinamentosPendentes} treinamento(s) a fazer
+                      </span>
+                    )
                   )}
                 </td>
               </tr>

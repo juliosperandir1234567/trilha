@@ -212,8 +212,7 @@ const SECOES = [
             enviar a avaliação.
           </li>
           <li>
-            Notas 4 ou 5 não geram nenhuma sugestão de treinamento. A nota 1 (Inaceitável)
-            também conta como <strong>nota crítica</strong> na Visão geral.
+            Notas 4 ou 5 não geram nenhuma sugestão de treinamento.
           </li>
           <li>
             Um colaborador com várias perguntas de nota baixa pode acabar indicado em{" "}
@@ -312,10 +311,7 @@ const SECOES = [
         </div>
         <p className="mt-2">
           Resultado: esse colaborador fica indicado em <strong>2 treinamentos</strong>{" "}
-          (Segurança do trabalho + Liderança e proatividade) e, por ter tirado nota 1,
-          aparece com o selo <strong>&quot;⚠ Atenção&quot;</strong> na listagem de
-          colaboradores, no histórico dele e na lista de avaliações da Visão Geral — além
-          de contar no card <strong>&quot;Notas críticas&quot;</strong>.
+          (Segurança do trabalho + Liderança e proatividade).
         </p>
       </>
     ),
@@ -330,9 +326,9 @@ const SECOES = [
         </p>
         <ul className="list-disc space-y-2 pl-5">
         <li>
-          <strong>Visão geral</strong>: cinco cards no topo (Colaboradores ativos,
-          Aguardando resposta, Respondidas, Expiradas, Notas críticas) — cada um é também
-          um filtro, clique pra aplicar. Abaixo: a tabela <strong>Progresso por período</strong>{" "}
+          <strong>Visão geral</strong>: cards no topo (Colaboradores ativos, Não enviadas,
+          Aguardando resposta, Respondidas, Expiradas, Treinamentos indicados, Tempo médio
+          de resposta) — os de status também são filtros, clique pra aplicar. Abaixo: a tabela <strong>Progresso por período</strong>{" "}
           (clique em qualquer período — 30/45/60/90/120/180/270 dias — pra filtrar só aquele),{" "}
           <strong>Treinamentos indicados</strong> (um card por competência, com a contagem de
           respostas que apontaram pra ela — clique pra ver quem são e exportar em CSV), e a

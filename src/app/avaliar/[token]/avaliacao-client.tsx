@@ -11,7 +11,9 @@ type RespostaEnviada = {
   pergunta_id: string;
   nota: number | null;
   categoria_final_id: string | null;
-  treinamento_final_id: string | null;
+  treinamento_ids?: string[] | null;
+  // Rascunho salvo antes da mudança pra vários treinamentos.
+  treinamento_final_id?: string | null;
   comentario?: string | null;
 };
 type DadosAvaliacao = {
@@ -26,7 +28,7 @@ type DadosAvaliacao = {
 type RespostaEstado = {
   nota: number | null;
   categoria_final_id: string;
-  treinamento_final_id: string;
+  treinamento_ids: string[];
   comentario: string;
 };
 
@@ -77,7 +79,8 @@ export function AvaliacaoClient({ token }: { token: string }) {
           inicial[pergunta.id] = {
             nota: salva?.nota ?? null,
             categoria_final_id: salva?.categoria_final_id ?? pergunta.categoria_sugerida_id ?? "",
-            treinamento_final_id: salva?.treinamento_final_id ?? "",
+            treinamento_ids:
+              salva?.treinamento_ids ?? (salva?.treinamento_final_id ? [salva.treinamento_final_id] : []),
             comentario: salva?.comentario ?? "",
           };
         }
@@ -91,6 +94,22 @@ export function AvaliacaoClient({ token }: { token: string }) {
     carregar();
   }, [token]);
 
+  // Marca/desmarca um treinamento da pergunta.
+  function alternarTreinamento(perguntaId: string, treinamentoId: string) {
+    setRespostas((atual) => {
+      const ids = atual[perguntaId].treinamento_ids;
+      return {
+        ...atual,
+        [perguntaId]: {
+          ...atual[perguntaId],
+          treinamento_ids: ids.includes(treinamentoId)
+            ? ids.filter((id) => id !== treinamentoId)
+            : [...ids, treinamentoId],
+        },
+      };
+    });
+  }
+
   function atualizarResposta(perguntaId: string, campo: keyof RespostaEstado, valor: string | number) {
     setRespostas((atual) => ({
       ...atual,
@@ -103,7 +122,7 @@ export function AvaliacaoClient({ token }: { token: string }) {
       pergunta_id: p.id,
       nota: respostas[p.id].nota,
       categoria_final_id: respostas[p.id].categoria_final_id || null,
-      treinamento_final_id: respostas[p.id].treinamento_final_id || null,
+      treinamento_ids: respostas[p.id].treinamento_ids,
       comentario: respostas[p.id].comentario || null,
     }));
   }
@@ -345,8 +364,10 @@ export function AvaliacaoClient({ token }: { token: string }) {
                 {indica && resposta.categoria_final_id && (
                   <p className="text-xs text-zinc-600">
                     Competência: {nomeCategoria(resposta.categoria_final_id) ?? "-"}
-                    {resposta.treinamento_final_id &&
-                      ` · Treinamento: ${nomeTreinamento(resposta.treinamento_final_id) ?? "-"}`}
+                    {resposta.treinamento_ids.length > 0 &&
+                      ` · Treinamento${resposta.treinamento_ids.length > 1 ? "s" : ""}: ${resposta.treinamento_ids
+                        .map((id) => nomeTreinamento(id) ?? "-")
+                        .join(", ")}`}
                   </p>
                 )}
                 {resposta.comentario && (
@@ -490,23 +511,22 @@ export function AvaliacaoClient({ token }: { token: string }) {
 
                     return (
                       <div className="flex flex-col gap-1">
-                        <label className="text-xs text-zinc-500">
-                          Treinamento específico (opcional)
-                        </label>
-                        <select
-                          value={resposta.treinamento_final_id}
-                          onChange={(e) =>
-                            atualizarResposta(pergunta.id, "treinamento_final_id", e.target.value)
-                          }
-                          className="rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
-                        >
-                          <option value="">Nenhum específico</option>
+                        <span className="text-xs text-zinc-500">
+                          Treinamentos (opcional — marque quantos precisar)
+                        </span>
+                        <div className="flex flex-col gap-1 rounded-md border border-black/15 p-2 dark:border-white/20">
                           {treinamentosDaCategoria.map((treinamento) => (
-                            <option key={treinamento.id} value={treinamento.id}>
+                            <label key={treinamento.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                checked={resposta.treinamento_ids.includes(treinamento.id)}
+                                onChange={() => alternarTreinamento(pergunta.id, treinamento.id)}
+                                className="h-4 w-4 accent-primary"
+                              />
                               {treinamento.nome}
-                            </option>
+                            </label>
                           ))}
-                        </select>
+                        </div>
                       </div>
                     );
                   })()}

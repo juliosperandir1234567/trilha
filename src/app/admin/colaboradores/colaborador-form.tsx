@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { Save, UserPlus } from "lucide-react";
 import { createColaborador, updateColaborador } from "@/lib/actions/colaboradores";
+import { TURNOS } from "@/lib/turnos";
 
 type Cargo = { id: string; nome: string };
 
@@ -12,6 +13,8 @@ export type ColaboradorEditavel = {
   matricula: string | null;
   data_admissao: string;
   tipo: string;
+  estrutura_macro: string | null;
+  turno: string | null;
   gestor_nome: string;
   gestor_email: string;
   cargo_id: string | null;
@@ -22,9 +25,12 @@ export type ColaboradorEditavel = {
 export function ColaboradorForm({
   cargos,
   colaborador,
+  estruturas = [],
 }: {
   cargos: Cargo[];
   colaborador?: ColaboradorEditavel;
+  // Estruturas macro já usadas, sugeridas ao digitar.
+  estruturas?: string[];
 }) {
   const editando = !!colaborador;
   const [tipo, setTipo] = useState(colaborador?.tipo === "capacitacao" ? "capacitacao" : "novato");
@@ -104,6 +110,45 @@ export function ColaboradorForm({
             required
             className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
           />
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="estrutura_macro" className="text-sm font-medium">
+            Estrutura macro
+          </label>
+          {/* Texto livre com sugestão das já usadas; o servidor grava em maiúsculas. */}
+          <input
+            id="estrutura_macro"
+            name="estrutura_macro"
+            list="estruturas-cadastradas"
+            defaultValue={colaborador?.estrutura_macro ?? ""}
+            placeholder="Ex.: UTAG"
+            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm uppercase outline-none focus:border-primary dark:border-white/20"
+          />
+          <datalist id="estruturas-cadastradas">
+            {estruturas.map((estrutura) => (
+              <option key={estrutura} value={estrutura} />
+            ))}
+          </datalist>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="turno" className="text-sm font-medium">
+            Turno
+          </label>
+          <select
+            id="turno"
+            name="turno"
+            defaultValue={colaborador?.turno ?? ""}
+            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+          >
+            <option value="">Não informado</option>
+            {TURNOS.map((turno) => (
+              <option key={turno.valor} value={turno.valor}>
+                {turno.nome}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex flex-col gap-1.5">

@@ -65,20 +65,42 @@ export async function enviarAvaliacaoAgora(
   };
 }
 
-// Admin marca (ou desmarca) que o treinamento indicado numa resposta foi
-// feito. Com todas as indicações feitas, a avaliação conta como finalizada.
+// Resposta com vários treinamentos: o campo antigo (respostas.
+// treinamento_realizado_em, que a versão publicada lê) fica preenchido só
+// quando todos os treinamentos dela estão feitos.
+async function sincronizarResposta(supabase: Awaited<ReturnType<typeof createClient>>, respostaId: string) {
+  const { data: linhas } = await supabase
+    .from("resposta_treinamentos")
+    .select("realizado_em")
+    .eq("resposta_id", respostaId);
+  if (!linhas?.length) return;
+  const datas = linhas.map((l) => l.realizado_em);
+  const todosFeitos = datas.every(Boolean);
+  await supabase
+    .from("respostas")
+    .update({ treinamento_realizado_em: todosFeitos ? (datas.sort().at(-1) as string) : null })
+    .eq("id", respostaId);
+}
+
+// Admin marca (ou desmarca) um treinamento indicado como feito. Com
+// resposta_treinamento_id é um treinamento específico; só com resposta_id é
+// a indicação da competência (quando o gestor não escolheu treinamento).
 export async function marcarTreinamentoRealizado(formData: FormData) {
   await requireAdmin();
   const respostaId = String(formData.get("resposta_id") ?? "");
+  const respostaTreinamentoId = String(formData.get("resposta_treinamento_id") ?? "");
   const colaboradorId = String(formData.get("colaborador_id") ?? "");
   const feito = formData.get("feito") === "1";
   if (!respostaId) return;
 
   const supabase = await createClient();
-  await supabase
-    .from("respostas")
-    .update({ treinamento_realizado_em: feito ? new Date().toISOString() : null })
-    .eq("id", respostaId);
+  const quando = feito ? new Date().toISOString() : null;
+  if (respostaTreinamentoId) {
+    await supabase.from("resposta_treinamentos").update({ realizado_em: quando }).eq("id", respostaTreinamentoId);
+    await sincronizarResposta(supabase, respostaId);
+  } else {
+    await supabase.from("respostas").update({ treinamento_realizado_em: quando }).eq("id", respostaId);
+  }
 
   if (colaboradorId) revalidatePath(`/admin/colaboradores/${colaboradorId}`);
   revalidatePath("/admin");
@@ -92,12 +114,25 @@ export async function marcarTodosTreinamentosRealizados(formData: FormData) {
   if (!avaliacaoId) return;
 
   const supabase = await createClient();
-  await supabase
+  const agora = new Date().toISOString();
+  const { data: respostas } = await supabase
     .from("respostas")
-    .update({ treinamento_realizado_em: new Date().toISOString() })
+    .select("id")
     .eq("avaliacao_id", avaliacaoId)
-    .not("categoria_final_id", "is", null)
-    .is("treinamento_realizado_em", null);
+    .not("categoria_final_id", "is", null);
+  const ids = (respostas ?? []).map((r) => r.id);
+  if (ids.length > 0) {
+    await supabase
+      .from("resposta_treinamentos")
+      .update({ realizado_em: agora })
+      .in("resposta_id", ids)
+      .is("realizado_em", null);
+    await supabase
+      .from("respostas")
+      .update({ treinamento_realizado_em: agora })
+      .in("id", ids)
+      .is("treinamento_realizado_em", null);
+  }
 
   if (colaboradorId) revalidatePath(`/admin/colaboradores/${colaboradorId}`);
   revalidatePath("/admin");

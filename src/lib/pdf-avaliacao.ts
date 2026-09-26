@@ -7,9 +7,10 @@ export type RespostaPdf = {
   pergunta: string;
   nota: number;
   competencia: string | null;
-  treinamento: string | null;
   comentario: string | null;
-  treinamentoRealizadoEm: string | null;
+  // Treinamentos indicados; sem treinamento específico, um item com nome
+  // null representa a própria competência.
+  treinamentos: { nome: string | null; realizadoEm: string | null }[];
 };
 
 export type AvaliacaoPdf = {
@@ -138,16 +139,16 @@ export async function gerarPdfAvaliacao(avaliacao: AvaliacaoPdf): Promise<Uint8A
     escrever(`${i + 1}. ${resposta.pergunta}`, { tamanho: 10, f: negrito, espaco: 1 });
     escrever(`Nota: ${resposta.nota} — ${nomeDaNota(resposta.nota)}`, { recuo: 12 });
     if (resposta.competencia) {
-      escrever(
-        `Indicação: ${resposta.competencia}${resposta.treinamento ? ` — ${resposta.treinamento}` : ""}`,
-        { recuo: 12 }
-      );
-      escrever(
-        resposta.treinamentoRealizadoEm
-          ? `Treinamento realizado em ${dataBR(resposta.treinamentoRealizadoEm)}`
-          : "Treinamento ainda não realizado",
-        { recuo: 12, cor: CINZA }
-      );
+      escrever(`Indicação: ${resposta.competencia}`, { recuo: 12 });
+      for (const treinamento of resposta.treinamentos) {
+        const situacao = treinamento.realizadoEm
+          ? `realizado em ${dataBR(treinamento.realizadoEm)}`
+          : "ainda não realizado";
+        escrever(`• ${treinamento.nome ?? "Treinamento da competência"} — ${situacao}`, {
+          recuo: 20,
+          cor: CINZA,
+        });
+      }
     }
     if (resposta.comentario) {
       escrever(`Comentário: ${resposta.comentario}`, { recuo: 12, cor: CINZA });

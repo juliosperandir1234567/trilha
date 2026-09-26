@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { SELECT_TREINAMENTOS, itensDeTreinamento, type RespostaComIndicacao } from "@/lib/indicacoes";
 import { PERIODOS_FILTRO } from "@/lib/periodos";
 
 const MARCOS_FILTRO = PERIODOS_FILTRO;
@@ -28,7 +29,7 @@ export default async function CategoriaDetalhePage({
   let query = supabase
     .from("respostas")
     .select(
-      "id, nota, comentario, created_at, treinamentos:treinamento_final_id(nome), avaliacoes!inner(marco, colaboradores(id, nome, matricula, gestor_nome, gestor_email))"
+      `id, nota, comentario, created_at, categoria_final_id, treinamento_realizado_em, ${SELECT_TREINAMENTOS}, avaliacoes!inner(marco, colaboradores(id, nome, matricula, gestor_nome, gestor_email))`
     )
     .eq("categoria_final_id", id)
     .order("created_at", { ascending: false });
@@ -106,7 +107,9 @@ export default async function CategoriaDetalhePage({
                 } | null;
               } | null;
               const colaborador = avaliacao?.colaboradores;
-              const treinamento = resposta.treinamentos as unknown as { nome: string } | null;
+              const treinamentos = itensDeTreinamento(resposta as unknown as RespostaComIndicacao)
+                .map((i) => i.nome)
+                .filter(Boolean);
 
               return (
                 <tr
@@ -124,7 +127,7 @@ export default async function CategoriaDetalhePage({
                   </td>
                   <td className="whitespace-nowrap px-4 py-3">{avaliacao?.marco} dias</td>
                   <td className="whitespace-nowrap px-4 py-3">{resposta.nota}</td>
-                  <td className="px-4 py-3">{treinamento?.nome ?? "-"}</td>
+                  <td className="px-4 py-3">{treinamentos.length ? treinamentos.join(", ") : "-"}</td>
                   <td className="px-4 py-3 text-zinc-500 italic">{resposta.comentario ?? "-"}</td>
                   <td className="px-4 py-3 text-zinc-500">{colaborador?.gestor_nome}</td>
                 </tr>

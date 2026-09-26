@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, FileDown, Search } from "lucide-react";
+import { CheckCircle2, FileDown, Search } from "lucide-react";
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: "Não enviada",
@@ -18,7 +18,6 @@ export type AvaliacaoLinha = {
   status: string;
   dataResposta: string | null;
   expiraEm: string | null;
-  notaCritica: boolean;
   colaboradorId: string | null;
   colaboradorNome: string;
   matricula: string | null;
@@ -174,7 +173,7 @@ export function AvaliacoesTable({
             {filtradas.map((avaliacao) => (
               <tr
                 key={avaliacao.id}
-                className={`border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20 ${avaliacao.notaCritica ? "bg-red-50" : ""}`}
+                className="border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20"
               >
                 <td className="hidden whitespace-nowrap px-2.5 py-2 text-zinc-500 sm:table-cell">{avaliacao.matricula}</td>
                 <td className="px-2.5 py-2">
@@ -184,12 +183,6 @@ export function AvaliacoesTable({
                   >
                     {avaliacao.colaboradorNome}
                   </Link>
-                  {avaliacao.notaCritica && (
-                    <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                      <AlertTriangle className="h-3 w-3" />
-                      Atenção
-                    </span>
-                  )}
                   {avaliacao.cargo && (
                     <span className="block text-[11px] text-zinc-500">{avaliacao.cargo}</span>
                   )}

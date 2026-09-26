@@ -18,6 +18,15 @@ import { createClient } from "@/lib/supabase/server";
 import { AvaliacoesTable, type AvaliacaoLinha } from "./avaliacoes-table";
 import { EnviarAgoraButton } from "./colaboradores/[id]/enviar-agora-button";
 import { ExportarLink } from "./exportar-link";
+import { EstruturasCard, type LinhaEstrutura } from "./estruturas-card";
+import { TrajetoriaCard, type LinhaTrajetoria, type PeriodoTrajetoria } from "./trajetoria-card";
+import { trilhaConcluida, type AvaliacaoDaTrilha } from "@/lib/trilha";
+import {
+  SELECT_TREINAMENTOS,
+  itensDeTreinamento,
+  treinamentosPendentes,
+  type RespostaComIndicacao,
+} from "@/lib/indicacoes";
 import { PERIODOS, PERIODOS_FILTRO } from "@/lib/periodos";
 
 const MARCOS = PERIODOS;
@@ -84,7 +93,6 @@ export default async function AdminOverviewPage({
   searchParams: Promise<{
     marco?: string;
     status?: string;
-    critico?: string;
     admissao_de?: string;
     admissao_ate?: string;
     tipo?: string;
@@ -93,7 +101,6 @@ export default async function AdminOverviewPage({
   const {
     marco,
     status,
-    critico,
     admissao_de: admissaoDe,
     admissao_ate: admissaoAte,
     tipo: tipoBruto,
@@ -118,18 +125,16 @@ export default async function AdminOverviewPage({
     const params = new URLSearchParams();
     if (marco) params.set("marco", marco);
     if (status) params.set("status", status);
-    if (critico) params.set("critico", critico);
     comAdmissao(params, ["tipo"]);
     if (novoTipo) params.set("tipo", novoTipo);
     const query = params.toString();
     return query ? `/admin?${query}` : "/admin";
   }
 
-  function hrefFiltro(extra: { status?: string; critico?: string }) {
+  function hrefFiltro(extra: { status?: string }) {
     const params = new URLSearchParams();
     if (marco) params.set("marco", marco);
     if (extra.status) params.set("status", extra.status);
-    if (extra.critico) params.set("critico", extra.critico);
     comAdmissao(params);
     const query = params.toString();
     return query ? `/admin?${query}` : "/admin";
@@ -153,7 +158,7 @@ export default async function AdminOverviewPage({
     return query ? `/admin?${query}` : "/admin";
   }
 
-  type ChaveFiltro = "marco" | "status" | "critico" | "admissao" | "tipo";
+  type ChaveFiltro = "marco" | "status" | "admissao" | "tipo";
 
   // Mesma página, tirando só os filtros pedidos — usado no "✕" de cada
   // filtro ativo e no "Limpar tudo".
@@ -161,7 +166,6 @@ export default async function AdminOverviewPage({
     const params = new URLSearchParams();
     if (marco && !remover.includes("marco")) params.set("marco", marco);
     if (status && !remover.includes("status")) params.set("status", status);
-    if (critico && !remover.includes("critico")) params.set("critico", critico);
     comAdmissao(
       params,
       remover.filter((r): r is "admissao" | "tipo" => r === "admissao" || r === "tipo")
@@ -175,7 +179,6 @@ export default async function AdminOverviewPage({
     if (soPendentes) params.set("pendentes", "1");
     if (marco) params.set("marco", marco);
     if (status) params.set("status", status);
-    if (critico) params.set("critico", critico);
     comAdmissao(params);
     const query = params.toString();
     return query ? `/admin/categorias/export?${query}` : "/admin/categorias/export";
@@ -203,7 +206,6 @@ export default async function AdminOverviewPage({
     ...(status && STATUS_FILTRO_LABEL[status]
       ? [{ chave: "status" as const, rotulo: `Status: ${STATUS_FILTRO_LABEL[status]}` }]
       : []),
-    ...(critico ? [{ chave: "critico" as const, rotulo: "Notas críticas" }] : []),
     ...(admissaoDe || admissaoAte
       ? [
           {
@@ -223,8 +225,7 @@ export default async function AdminOverviewPage({
   ];
 
   const sufixoFiltrosDosCards =
-    (status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : "") +
-    (critico ? " — Notas críticas" : "");
+    status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : "";
   const sufixoFiltros = (marco ? ` — ${marco} dias` : "") + sufixoFiltrosDosCards;
 
   let colaboradoresQuery = supabase
@@ -240,7 +241,6 @@ export default async function AdminOverviewPage({
     { data: avaliacoes },
     { data: categorias },
     { data: respostas },
-    { data: notasCriticas },
     { data: colaboradoresParaMarcos },
   ] = await Promise.all([
     colaboradoresQuery,
@@ -254,20 +254,14 @@ export default async function AdminOverviewPage({
     supabase
       .from("respostas")
       .select(
-        "avaliacao_id, categoria_final_id, treinamento_final_id, exportado_em, treinamento_realizado_em, treinamentos:treinamento_final_id(nome, cargos(nome))"
+        `id, avaliacao_id, categoria_final_id, exportado_em, treinamento_realizado_em, ${SELECT_TREINAMENTOS}`
       )
       .not("categoria_final_id", "is", null),
     supabase
-      .from("respostas")
-      .select("avaliacao_id, avaliacoes!inner(marco, colaborador_id, colaboradores(data_admissao, tipo))")
-      .eq("nota", 1),
-    supabase
       .from("colaboradores")
-      .select("id, nome, matricula, gestor_nome, data_admissao, tipo, cargos(nome, marcos)")
+      .select("id, nome, matricula, gestor_nome, data_admissao, tipo, estrutura_macro, turno, cargos(nome, marcos)")
       .eq("ativo", true),
   ]);
-
-  const avaliacoesComNotaCritica = new Set((notasCriticas ?? []).map((r) => r.avaliacao_id));
 
   const listaBase = avaliacoes ?? [];
   const lista = temFiltroAdmissao
@@ -279,15 +273,12 @@ export default async function AdminOverviewPage({
     : listaBase;
   const avaliacoesDoMarco = marcoNum ? lista.filter((a) => a.marco === marcoNum) : lista;
 
-  // Filtros dos cards (status e notas críticas), aplicados por cima do
+  // Filtro dos cards (status), aplicado por cima do
   // período/admissão. Os gráficos usam a mesma função pra acompanhar a tabela.
   function aplicarFiltrosDosCards(itens: typeof lista) {
     let resultado = itens;
     if (status && status in STATUS_FILTRO_LABEL) {
       resultado = resultado.filter((a) => a.status === status);
-    }
-    if (critico) {
-      resultado = resultado.filter((a) => avaliacoesComNotaCritica.has(a.id));
     }
     return resultado;
   }
@@ -295,17 +286,32 @@ export default async function AdminOverviewPage({
   const avaliacoesFiltradas = aplicarFiltrosDosCards(avaliacoesDoMarco);
 
   // Treinamentos seguem exatamente os mesmos filtros da tabela (período,
-  // admissão, status e notas críticas): só conta resposta de avaliação que
+  // admissão e status): só conta resposta de avaliação que
   // está na lista filtrada.
   const idsAvaliacoesFiltradas = new Set(avaliacoesFiltradas.map((a) => a.id));
   const respostasFiltradas = (respostas ?? []).filter((r) => idsAvaliacoesFiltradas.has(r.avaliacao_id));
 
+  // Card "Treinamentos indicados": segue período/tipo/datas como os outros
+  // cards (não os filtros de status), contando uma indicação por resposta.
+  const idsAvaliacoesDoMarco = new Set(avaliacoesDoMarco.map((a) => a.id));
+  const respostasDoMarco = (respostas ?? []).filter((r) => idsAvaliacoesDoMarco.has(r.avaliacao_id));
+  const totalTreinamentosIndicados = respostasDoMarco.length;
+  const competenciasIndicadas = new Set(respostasDoMarco.map((r) => r.categoria_final_id)).size;
+
   // Exportação: por avaliação (colaborador + período), quantas indicações
   // ainda não saíram em nenhum arquivo. Avaliação com qualquer indicação
   // pendente fica em "Falta exportar".
-  const exportacaoPorAvaliacao = new Map<string, { pendentes: number; ultimaExportacao: string | null }>();
+  const exportacaoPorAvaliacao = new Map<
+    string,
+    { pendentes: number; ultimaExportacao: string | null; treinamentosAFazer: number }
+  >();
   for (const resposta of respostasFiltradas) {
-    const atual = exportacaoPorAvaliacao.get(resposta.avaliacao_id) ?? { pendentes: 0, ultimaExportacao: null };
+    const atual = exportacaoPorAvaliacao.get(resposta.avaliacao_id) ?? {
+      pendentes: 0,
+      ultimaExportacao: null,
+      treinamentosAFazer: 0,
+    };
+    atual.treinamentosAFazer += treinamentosPendentes([resposta as unknown as RespostaComIndicacao]);
     if (!resposta.exportado_em) atual.pendentes++;
     else if (!atual.ultimaExportacao || resposta.exportado_em > atual.ultimaExportacao) {
       atual.ultimaExportacao = resposta.exportado_em;
@@ -323,11 +329,16 @@ export default async function AdminOverviewPage({
         nome: colaborador?.nome ?? "",
         matricula: colaborador?.matricula ?? null,
         marco: a.marco,
+        status: a.status,
         ...exportacaoPorAvaliacao.get(a.id)!,
       };
     });
   const faltaExportar = avaliacoesExportacao.filter((a) => a.pendentes > 0);
-  const jaExportadas = avaliacoesExportacao.filter((a) => a.pendentes === 0);
+  // Exportada e finalizada (todo treinamento feito) sai da lista: não tem
+  // mais nada a fazer com ela.
+  const jaExportadas = avaliacoesExportacao.filter(
+    (a) => a.pendentes === 0 && !(a.status === "respondida" && a.treinamentosAFazer === 0)
+  );
 
   const contagemPorCategoria = new Map<string, number>();
   const treinamentosPorCategoria = new Map<string, Map<string, { nome: string; cargo: string | null; total: number }>>();
@@ -335,27 +346,85 @@ export default async function AdminOverviewPage({
     const categoriaId = resposta.categoria_final_id as string;
     contagemPorCategoria.set(categoriaId, (contagemPorCategoria.get(categoriaId) ?? 0) + 1);
 
-    const treinamentoId = resposta.treinamento_final_id as string | null;
-    const treinamento = resposta.treinamentos as unknown as { nome: string; cargos: { nome: string } | null } | null;
-    if (!treinamentoId || !treinamento) continue;
-
-    if (!treinamentosPorCategoria.has(categoriaId)) treinamentosPorCategoria.set(categoriaId, new Map());
-    const mapaDaCategoria = treinamentosPorCategoria.get(categoriaId)!;
-    const atual = mapaDaCategoria.get(treinamentoId);
-    mapaDaCategoria.set(treinamentoId, {
-      nome: treinamento.nome,
-      cargo: treinamento.cargos?.nome ?? null,
-      total: (atual?.total ?? 0) + 1,
-    });
+    for (const item of itensDeTreinamento(resposta as unknown as RespostaComIndicacao)) {
+      if (!item.treinamentoId || !item.nome) continue;
+      if (!treinamentosPorCategoria.has(categoriaId)) treinamentosPorCategoria.set(categoriaId, new Map());
+      const mapaDaCategoria = treinamentosPorCategoria.get(categoriaId)!;
+      const atual = mapaDaCategoria.get(item.treinamentoId);
+      mapaDaCategoria.set(item.treinamentoId, {
+        nome: item.nome,
+        cargo: item.cargo,
+        total: (atual?.total ?? 0) + 1,
+      });
+    }
   }
 
   const nomeCategoria = new Map((categorias ?? []).map((c) => [c.id, c.nome]));
-  const rankingTreinamentos = [...treinamentosPorCategoria.entries()]
+  // Rankings contam colaboradores distintos (não indicações): a mesma pessoa
+  // indicada duas vezes no mesmo treinamento/competência conta uma vez. Cada
+  // linha guarda quem foi indicado, pra abrir a lista ao clicar no número.
+  const avaliacaoPorId = new Map(listaBase.map((a) => [a.id, a]));
+  const pessoasPorTreinamento = new Map<string, Map<string, PessoaIndicada>>();
+  const pessoasPorCompetencia = new Map<string, Map<string, PessoaIndicada>>();
+  function anotarPessoa(mapa: Map<string, Map<string, PessoaIndicada>>, chave: string, avaliacaoId: string) {
+    const avaliacao = avaliacaoPorId.get(avaliacaoId);
+    const colaborador = avaliacao?.colaboradores as unknown as
+      | { id: string; nome: string; matricula: string | null }
+      | null
+      | undefined;
+    if (!avaliacao || !colaborador) return;
+    const pessoas = mapa.get(chave) ?? new Map<string, PessoaIndicada>();
+    const pessoa = pessoas.get(colaborador.id) ?? {
+      id: colaborador.id,
+      nome: colaborador.nome,
+      matricula: colaborador.matricula,
+      periodos: [],
+    };
+    if (!pessoa.periodos.includes(avaliacao.marco)) pessoa.periodos.push(avaliacao.marco);
+    pessoas.set(colaborador.id, pessoa);
+    mapa.set(chave, pessoas);
+  }
+  for (const resposta of respostasFiltradas) {
+    anotarPessoa(pessoasPorCompetencia, resposta.categoria_final_id as string, resposta.avaliacao_id);
+    for (const item of itensDeTreinamento(resposta as unknown as RespostaComIndicacao)) {
+      if (item.treinamentoId) anotarPessoa(pessoasPorTreinamento, item.treinamentoId, resposta.avaliacao_id);
+    }
+  }
+  const listaDePessoas = (mapa?: Map<string, PessoaIndicada>) =>
+    [...(mapa?.values() ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const hrefCompetencia = (id: string) => `/admin/categorias/${id}${marco ? `?marco=${marco}` : ""}`;
+
+  const rankingTreinamentos: LinhaRanking[] = [...treinamentosPorCategoria.entries()]
     .flatMap(([categoriaId, mapa]) =>
-      [...mapa.values()].map((t) => ({ ...t, categoria: nomeCategoria.get(categoriaId) ?? "" }))
+      [...mapa.entries()].map(([treinamentoId, t]) => ({
+        chave: treinamentoId,
+        titulo: t.nome,
+        detalheTitulo: t.cargo,
+        subtitulo: nomeCategoria.get(categoriaId) ?? "",
+        href: hrefCompetencia(categoriaId),
+        indicacoes: t.total,
+        pessoas: listaDePessoas(pessoasPorTreinamento.get(treinamentoId)),
+      }))
     )
-    .sort((a, b) => b.total - a.total)
+    .sort((a, b) => b.pessoas.length - a.pessoas.length || b.indicacoes - a.indicacoes)
     .slice(0, 6);
+
+  const rankingCompetencias: LinhaRanking[] = [...pessoasPorCompetencia.entries()]
+    .map(([categoriaId, pessoas]) => ({
+      chave: categoriaId,
+      titulo: nomeCategoria.get(categoriaId) ?? "Competência",
+      detalheTitulo: null,
+      // Treinamentos específicos indicados dentro da competência.
+      subtitulo:
+        [...(treinamentosPorCategoria.get(categoriaId)?.values() ?? [])]
+          .sort((a, b) => b.total - a.total)
+          .map((t) => t.nome)
+          .join(", ") || null,
+      href: hrefCompetencia(categoriaId),
+      indicacoes: contagemPorCategoria.get(categoriaId) ?? 0,
+      pessoas: listaDePessoas(pessoas),
+    }))
+    .sort((a, b) => b.pessoas.length - a.pessoas.length || b.indicacoes - a.indicacoes);
 
   // Server Component: roda uma vez por requisição, então ler o relógio aqui
   // é estável — não existe re-render no cliente pra dar valor diferente.
@@ -398,9 +467,9 @@ export default async function AdminOverviewPage({
   // usado no total dos botões de período, que também ignoram esses filtros.
   const periodosSemAvaliacao = marcosPrevistos.filter((p) => p.diasAteMarco <= 0);
 
-  // Filtro de status/notas críticas é sobre avaliações que já existem. Só
+  // Filtro de status é sobre avaliações que já existem. Só
   // "Não enviadas" combina com marco previsto — nos outros, eles saem.
-  const incluirPrevistos = !critico && (!status || status === "pendente");
+  const incluirPrevistos = !status || status === "pendente";
 
   // Marco que já chegou e não tem avaliação conta como "Não enviada" no card
   // e nas barras. Marco futuro não conta: ainda não era pra ter saído.
@@ -411,7 +480,7 @@ export default async function AdminOverviewPage({
   // "Próximas avaliações" só aparece com o filtro "Não enviadas" (card lá em
   // cima ou pedaço violeta do gráfico). Fora dele, só os casos que a rotina
   // não vai gerar sozinha viram um alerta, pra não passarem despercebidos.
-  const mostrarProximas = status === "pendente" && !critico;
+  const mostrarProximas = status === "pendente";
   const precisamEnvioManual = marcosPrevistos.filter(
     (p) => p.naoSeraGerada && (!marcoNum || p.marco === marcoNum)
   ).length;
@@ -429,6 +498,15 @@ export default async function AdminOverviewPage({
   const proximasFuturas = proximasAvaliacoesTodas.filter((p) => p.diasAteMarco > 0);
 
   const totalRespondidas = avaliacoesDoMarco.filter((a) => a.status === "respondida").length;
+  // Base das porcentagens dos cards: avaliações do período, contando os
+  // períodos que já chegaram sem avaliação criada (mesmo total dos botões).
+  const totalAvaliacoesDoPeriodo =
+    avaliacoesDoMarco.length + periodosSemAvaliacao.filter((p) => !marcoNum || p.marco === marcoNum).length;
+  const porcentagem = (valor: number, base: number, sufixo: string) => {
+    if (base <= 0) return {};
+    const valorPct = Math.round((valor / base) * 100);
+    return { detalhe: `${valorPct}% ${sufixo}`, progresso: valorPct };
+  };
   const totalPendente =
     avaliacoesDoMarco.filter((a) => a.status === "pendente").length + previstosVencidosDoMarco(marcoNum);
   const totalEnviada = avaliacoesDoMarco.filter((a) => a.status === "enviada").length;
@@ -455,21 +533,6 @@ export default async function AdminOverviewPage({
           .filter(Boolean)
       ).size
     : colaboradoresAtivosTotal ?? 0;
-
-  const colaboradoresComNotaCritica = new Set(
-    (notasCriticas ?? [])
-      .map(
-        (r) =>
-          r.avaliacoes as unknown as {
-            marco: number;
-            colaborador_id: string;
-            colaboradores: { data_admissao: string; tipo: string } | null;
-          }
-      )
-      .filter((a) => !marcoNum || a.marco === marcoNum)
-      .filter((a) => !temFiltroAdmissao || dentroDoPeriodoAdmissao(a.colaboradores))
-      .map((a) => a.colaborador_id)
-  ).size;
 
   const listaComFiltrosDosCards = aplicarFiltrosDosCards(lista);
   const progressoPorMarco = MARCOS.map((m) => {
@@ -523,8 +586,10 @@ export default async function AdminOverviewPage({
   const treinamentosPorAvaliacao = new Map<string, { indicados: number; feitos: number }>();
   for (const resposta of respostas ?? []) {
     const atual = treinamentosPorAvaliacao.get(resposta.avaliacao_id) ?? { indicados: 0, feitos: 0 };
-    atual.indicados++;
-    if (resposta.treinamento_realizado_em) atual.feitos++;
+    for (const item of itensDeTreinamento(resposta as unknown as RespostaComIndicacao)) {
+      atual.indicados++;
+      if (item.realizadoEm) atual.feitos++;
+    }
     treinamentosPorAvaliacao.set(resposta.avaliacao_id, atual);
   }
 
@@ -551,7 +616,6 @@ export default async function AdminOverviewPage({
       status: a.status,
       dataResposta: a.data_resposta,
       expiraEm,
-      notaCritica: avaliacoesComNotaCritica.has(a.id),
       colaboradorId: colaborador?.id ?? null,
       colaboradorNome: colaborador?.nome ?? "",
       matricula: colaborador?.matricula ?? null,
@@ -590,7 +654,6 @@ export default async function AdminOverviewPage({
         status: "pendente",
         dataResposta: null,
         expiraEm: null,
-        notaCritica: false,
         colaboradorId: p.colaboradorId,
         colaboradorNome: p.nome,
         matricula: p.matricula,
@@ -602,51 +665,110 @@ export default async function AdminOverviewPage({
     ...avaliacoesCriadasParaTabela,
   ];
 
-  // Competências com indicação primeiro (mais indicadas no topo); as zeradas
-  // ficam recolhidas no fim pra não ocupar espaço sem dizer nada.
-  const totalDaCategoria = (id: string) => contagemPorCategoria.get(id) ?? 0;
-  const categoriasComIndicacao = (categorias ?? [])
-    .filter((c) => totalDaCategoria(c.id) > 0)
-    .sort((a, b) => totalDaCategoria(b.id) - totalDaCategoria(a.id));
-  const categoriasSemIndicacao = (categorias ?? []).filter((c) => totalDaCategoria(c.id) === 0);
 
-  function linhaCategoria(categoria: { id: string; nome: string }) {
-    const treinamentos = [...(treinamentosPorCategoria.get(categoria.id)?.values() ?? [])].sort(
-      (a, b) => b.total - a.total
-    );
-    return (
-      <div key={categoria.id} className="px-3 py-2">
-        <Link
-          href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
-          className="flex items-center justify-between gap-3 text-[13px] transition-colors hover:text-primary"
-        >
-          <span className="flex items-center gap-2 font-medium">
-            <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary" />
-            {categoria.nome}
-          </span>
-          <span className="flex items-center gap-2 text-zinc-500">
-            <span className="font-semibold text-primary">
-              {contagemPorCategoria.get(categoria.id) ?? 0}
-            </span>
-            <ChevronRight className="h-3.5 w-3.5" />
-          </span>
-        </Link>
-        {treinamentos.length > 0 && (
-          <ul className="mt-1 flex flex-col gap-0.5 pl-5.5 text-xs text-zinc-600">
-            {treinamentos.map((t, i) => (
-              <li key={i} className="flex items-center justify-between gap-3">
-                <span>
-                  {t.nome}
-                  {t.cargo && <span className="text-zinc-400"> · {t.cargo}</span>}
-                </span>
-                <span className="font-semibold text-primary">{t.total}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
+  // Competências sem nenhuma indicação ficam recolhidas embaixo do ranking.
+  const categoriasSemIndicacao = (categorias ?? []).filter((c) => !contagemPorCategoria.get(c.id));
+
+  // Quantos colaboradores ativos (com os filtros de tipo/datas) já fecharam
+  // todos os períodos do cargo — aparece embaixo do card "Colaboradores".
+  const trilhaPorColaborador = new Map<string, AvaliacaoDaTrilha[]>();
+  for (const a of listaBase) {
+    const id = (a.colaboradores as unknown as { id: string } | null)?.id;
+    if (!id) continue;
+    const treinamentos = treinamentosPorAvaliacao.get(a.id) ?? { indicados: 0, feitos: 0 };
+    const lista = trilhaPorColaborador.get(id) ?? [];
+    lista.push({ marco: a.marco, status: a.status, treinamentosPendentes: treinamentos.indicados - treinamentos.feitos });
+    trilhaPorColaborador.set(id, lista);
   }
+  const trilhasConcluidas = (colaboradoresParaMarcos ?? []).filter(
+    (c) =>
+      (!temFiltroAdmissao || dentroDoPeriodoAdmissao(c)) &&
+      trilhaConcluida(
+        (c.cargos as unknown as { marcos: number[] | null } | null)?.marcos,
+        trilhaPorColaborador.get(c.id) ?? []
+      )
+  ).length;
+
+  // Trajetória: pra cada colaborador ativo (filtros de tipo/datas), a
+  // situação de cada período do cargo dele — finalizado, em andamento ou a
+  // data em que vai chegar.
+  const avaliacaoDoPeriodo = new Map(
+    listaBase.map((a) => [`${(a.colaboradores as unknown as { id: string } | null)?.id}:${a.marco}`, a])
+  );
+  const trajetorias: LinhaTrajetoria[] = (colaboradoresParaMarcos ?? [])
+    .filter((c) => !temFiltroAdmissao || dentroDoPeriodoAdmissao(c))
+    .map((c) => {
+      const cargo = c.cargos as unknown as { nome: string; marcos: number[] | null } | null;
+      const periodos = [...(cargo?.marcos?.length ? cargo.marcos : MARCOS_PADRAO)].sort((a, b) => a - b);
+      return {
+        id: c.id,
+        nome: c.nome,
+        detalhe: [cargo?.nome ?? "Sem cargo", c.estrutura_macro].filter(Boolean).join(" · "),
+        periodos: periodos.map((marco): PeriodoTrajetoria => {
+          const dataPeriodo = somarDiasISO(c.data_admissao, marco);
+          const a = avaliacaoDoPeriodo.get(`${c.id}:${marco}`);
+          if (!a) {
+            return { marco, estado: dataPeriodo > hojeISO ? "futuro" : "nao_enviada", data: dataPeriodo };
+          }
+          if (a.status === "respondida") {
+            const t = treinamentosPorAvaliacao.get(a.id) ?? { indicados: 0, feitos: 0 };
+            return { marco, estado: t.feitos >= t.indicados ? "ok" : "treinamento", data: null };
+          }
+          if (a.status === "nao_avaliada") {
+            return { marco, estado: a.motivo_nao_avaliada === "desligado" ? "desligado" : "afastado", data: null };
+          }
+          if (a.status === "enviada") {
+            const prazo =
+              (a.links_avaliacao as unknown as { expira_em: string }[])
+                .map((l) => l.expira_em)
+                .sort()
+                .at(-1) ?? null;
+            return { marco, estado: "aguardando", data: prazo };
+          }
+          if (a.status === "expirada") return { marco, estado: "expirada", data: null };
+          return { marco, estado: "nao_enviada", data: dataPeriodo };
+        }),
+      };
+    })
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+
+  // Card por estrutura macro: os mesmos colaboradores do card "Colaboradores"
+  // (ativos, filtro de tipo/datas; com período escolhido, só quem tem
+  // avaliação nele), agrupados por estrutura e contados por turno. Com um
+  // card de status clicado, só quem tem avaliação nesse
+  // status — incluindo os períodos que chegaram sem avaliação criada, que
+  // contam como "Não enviadas".
+  const idDoColaborador = (a: { colaboradores: unknown }) =>
+    (a.colaboradores as unknown as { id: string } | null)?.id;
+  const idsNoPeriodo =
+    status
+      ? new Set([
+          ...avaliacoesFiltradas.map(idDoColaborador),
+          ...previstosVencidos.filter((p) => !marcoNum || p.marco === marcoNum).map((p) => p.colaboradorId),
+        ])
+      : marcoNum
+        ? new Set(avaliacoesDoMarco.map(idDoColaborador))
+        : null;
+  const porEstrutura = new Map<string, { total: number; turnos: Map<string, number> }>();
+  for (const c of colaboradoresParaMarcos ?? []) {
+    if (temFiltroAdmissao && !dentroDoPeriodoAdmissao(c)) continue;
+    if (idsNoPeriodo && !idsNoPeriodo.has(c.id)) continue;
+    const estrutura = (c.estrutura_macro as string | null) ?? "";
+    const grupo = porEstrutura.get(estrutura) ?? { total: 0, turnos: new Map<string, number>() };
+    grupo.total++;
+    const turno = (c.turno as string | null) ?? "";
+    grupo.turnos.set(turno, (grupo.turnos.get(turno) ?? 0) + 1);
+    porEstrutura.set(estrutura, grupo);
+  }
+  // Maiores primeiro; "Não informada" sempre por último.
+  const estruturas: LinhaEstrutura[] = [...porEstrutura.entries()]
+    .map(([nome, grupo]) => ({
+      nome: nome || "Não informada",
+      informada: !!nome,
+      total: grupo.total,
+      turnos: Object.fromEntries(grupo.turnos),
+    }))
+    .sort((a, b) => Number(b.informada) - Number(a.informada) || b.total - a.total);
 
   const totalUrgentes = avaliacoesParaTabela.filter((l) => l.prazo?.urgente).length;
 
@@ -734,7 +856,6 @@ export default async function AdminOverviewPage({
         <form method="get" action="/admin" className="flex flex-wrap items-end gap-2">
           {marco && <input type="hidden" name="marco" value={marco} />}
           {status && <input type="hidden" name="status" value={status} />}
-          {critico && <input type="hidden" name="critico" value={critico} />}
           {tipo && <input type="hidden" name="tipo" value={tipo} />}
           <div className="flex flex-col gap-1">
             {/* Data de início: admissão (novato) ou mudança de cargo (capacitação). */}
@@ -772,11 +893,11 @@ export default async function AdminOverviewPage({
             <CalendarDays className="h-4 w-4" />
             Filtrar
           </button>
-          {/* Qualquer filtro ligado (período, status, notas críticas ou
+          {/* Qualquer filtro ligado (período, status, tipo ou
               admissão) mostra o botão; ele volta a página sem filtro nenhum. */}
           {filtrosAtivos.length > 0 && (
             <Link
-              href={hrefSem(["marco", "status", "critico", "admissao", "tipo"])}
+              href={hrefSem(["marco", "status", "admissao", "tipo"])}
               className="flex items-center gap-1.5 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
             >
               <X className="h-4 w-4" />
@@ -786,19 +907,22 @@ export default async function AdminOverviewPage({
         </form>
       </div>
 
+      {/* 7 cards: numa linha em tela grande; 4 por linha no tablet, 2 no celular. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         <Card
           icon={Users}
           label={marcoNum ? "Colaboradores neste período" : "Colaboradores ativos"}
           value={colaboradoresAtivos}
+          detalhe={!marcoNum && trilhasConcluidas > 0 ? `${trilhasConcluidas} com trilha concluída` : undefined}
           href={hrefFiltro({})}
-          ativo={!status && !critico}
+          ativo={!status}
           tone="brand"
         />
         <Card
           icon={Hourglass}
           label="Não enviadas"
           value={totalPendente}
+          {...porcentagem(totalPendente, totalAvaliacoesDoPeriodo, "do total")}
           href={status === "pendente" ? hrefFiltro({}) : hrefFiltro({ status: "pendente" })}
           ativo={status === "pendente"}
           tone="blue"
@@ -807,6 +931,7 @@ export default async function AdminOverviewPage({
           icon={Clock}
           label="Aguardando resposta"
           value={totalEnviada}
+          {...porcentagem(totalEnviada, totalAvaliacoesDoPeriodo, "do total")}
           href={status === "enviada" ? hrefFiltro({}) : hrefFiltro({ status: "enviada" })}
           ativo={status === "enviada"}
           tone="orange"
@@ -815,6 +940,7 @@ export default async function AdminOverviewPage({
           icon={CheckCircle2}
           label="Respondidas"
           value={totalRespondidas}
+          {...porcentagem(totalRespondidas, totalAvaliacoesDoPeriodo, "do total")}
           href={status === "respondida" ? hrefFiltro({}) : hrefFiltro({ status: "respondida" })}
           ativo={status === "respondida"}
           tone="green"
@@ -823,18 +949,22 @@ export default async function AdminOverviewPage({
           icon={XCircle}
           label="Expiradas"
           value={totalExpiradas}
+          {...porcentagem(totalExpiradas, totalAvaliacoesDoPeriodo, "do total")}
           href={status === "expirada" ? hrefFiltro({}) : hrefFiltro({ status: "expirada" })}
           ativo={status === "expirada"}
           tone="red"
         />
         <Card
-          icon={AlertTriangle}
-          label="Notas críticas"
-          value={colaboradoresComNotaCritica}
-          href={critico ? hrefFiltro({}) : hrefFiltro({ critico: "1" })}
-          ativo={!!critico}
-          tone="amber"
-          alertaSoSeValor
+          icon={GraduationCap}
+          label="Treinamentos indicados"
+          value={totalTreinamentosIndicados}
+          detalhe={
+            competenciasIndicadas > 0
+              ? `em ${competenciasIndicadas} competência${competenciasIndicadas === 1 ? "" : "s"}`
+              : undefined
+          }
+          href="#treinamentos-indicados"
+          tone="violet"
         />
         <Card
           icon={Timer}
@@ -884,7 +1014,7 @@ export default async function AdminOverviewPage({
         </div>
       )}
 
-      <div className={`grid gap-6 ${mostrarProximas ? "lg:grid-cols-[3fr_2fr]" : ""}`}>
+      <div className="grid gap-6 xl:grid-cols-2">
       <div className="min-w-0">
         <h2 className="mb-3 font-medium">Status por período{sufixoFiltros}</h2>
         <div className="flex flex-col gap-2 rounded-lg border border-primary-border p-4">
@@ -921,8 +1051,12 @@ export default async function AdminOverviewPage({
         </div>
       </div>
 
+      <div className="min-w-0">
+        <EstruturasCard linhas={estruturas} sufixoTitulo={sufixoFiltrosDosCards} />
+      </div>
+
       {mostrarProximas && (
-        <div className="flex min-w-0 flex-col">
+        <div className="flex min-w-0 flex-col xl:col-span-2">
           <h2 className="mb-3 font-medium">Próximas avaliações{marco ? ` — ${marco} dias` : ""}</h2>
           <div className="flex min-h-0 flex-1 flex-col gap-2 rounded-lg border border-primary-border p-4">
             <p className="text-xs text-zinc-500">
@@ -988,12 +1122,13 @@ export default async function AdminOverviewPage({
       )}
       </div>
 
+      <TrajetoriaCard linhas={trajetorias} />
+
       <div className="flex min-w-0 flex-col">
         <h2 className="mb-3 flex flex-wrap items-center gap-2 font-medium">
           <span>
             Avaliações{marco ? ` de ${marco} dias` : ""}
             {status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : ""}
-            {critico ? " — Notas críticas" : ""}
           </span>
           {totalUrgentes > 0 && (
             <span
@@ -1011,7 +1146,7 @@ export default async function AdminOverviewPage({
         />
       </div>
 
-      <div>
+      <div id="treinamentos-indicados" className="scroll-mt-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-medium">Treinamentos indicados{sufixoFiltros}</h2>
           <div className="flex flex-wrap gap-2">
@@ -1034,41 +1169,33 @@ export default async function AdminOverviewPage({
             <ListaExportacao
               titulo="Já exportadas"
               itens={jaExportadas}
-              vazio="Nada exportado ainda."
+              vazio="Nenhuma. As exportadas e já finalizadas saem desta lista."
               tom="feito"
             />
           </div>
         )}
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2.5 rounded-lg border border-primary-border bg-primary-soft/40 px-3 py-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft">
-              <GraduationCap className="h-4 w-4 text-primary" />
-            </span>
-            <div>
-              <p className="text-lg font-bold leading-tight tabular-nums text-zinc-900">{respostasFiltradas.length}</p>
-              <p className="text-xs text-zinc-500">Indicações de treinamento</p>
-            </div>
-          </div>
-          <div className="flex flex-col divide-y divide-primary-border/50 overflow-hidden rounded-lg border border-primary-border">
-            {categoriasComIndicacao.map(linhaCategoria)}
-            {categoriasComIndicacao.length === 0 && (categorias ?? []).length > 0 && (
-              <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma indicação de treinamento com esses filtros.</p>
-            )}
+          <QuadroRanking
+            titulo="Ranking de competências indicadas"
+            descricao={`${respostasFiltradas.length} indicaç${respostasFiltradas.length === 1 ? "ão" : "ões"} de treinamento · quantos colaboradores por competência.`}
+            vazio={
+              (categorias ?? []).length === 0
+                ? "Nenhuma competência cadastrada."
+                : "Nenhuma indicação de treinamento com esses filtros."
+            }
+            linhas={rankingCompetencias}
+          >
             {categoriasSemIndicacao.length > 0 && (
-              <details className="group px-3 py-2 text-xs">
+              <details className="group/sem px-1 text-xs">
                 <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-zinc-500 hover:text-primary">
-                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-open:rotate-90" />
+                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-open/sem:rotate-90" />
                   {categoriasSemIndicacao.length} competência{categoriasSemIndicacao.length === 1 ? "" : "s"} sem
                   indicação
                 </summary>
                 <ul className="mt-2 flex flex-col gap-1 pl-5">
                   {categoriasSemIndicacao.map((categoria) => (
                     <li key={categoria.id}>
-                      <Link
-                        href={`/admin/categorias/${categoria.id}${marco ? `?marco=${marco}` : ""}`}
-                        className="text-zinc-500 hover:text-primary"
-                      >
+                      <Link href={hrefCompetencia(categoria.id)} className="text-zinc-500 hover:text-primary">
                         {categoria.nome}
                       </Link>
                     </li>
@@ -1076,49 +1203,13 @@ export default async function AdminOverviewPage({
                 </ul>
               </details>
             )}
-            {(categorias ?? []).length === 0 && (
-              <p className="px-4 py-3 text-sm text-zinc-500">Nenhuma competência cadastrada.</p>
-            )}
-          </div>
-          </div>
-
-          <div className="flex flex-col gap-3 rounded-xl bg-primary-soft/40 p-4">
-            <div>
-              <h3 className="text-sm font-medium">Treinamentos mais indicados</h3>
-              <p className="text-xs text-zinc-500">Ranking de todos os treinamentos, independente da competência.</p>
-            </div>
-            {rankingTreinamentos.length === 0 ? (
-              <p className="text-xs text-zinc-500">Nenhum treinamento indicado ainda.</p>
-            ) : (
-              <ol className="flex flex-col gap-2">
-                {rankingTreinamentos.map((t, i) => (
-                  <li key={i} className="flex flex-col gap-1 rounded-md bg-white px-3 py-2 text-xs">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-soft text-[10px] font-semibold text-primary">
-                          {i + 1}
-                        </span>
-                        <span className="truncate text-[13px] font-medium text-zinc-900">
-                          {t.nome}
-                          {t.cargo && <span className="font-normal text-zinc-400"> · {t.cargo}</span>}
-                        </span>
-                      </span>
-                      <span className="shrink-0 font-semibold tabular-nums text-primary">{t.total}</span>
-                    </div>
-                    <div className="flex items-center gap-2 pl-7">
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
-                        <div
-                          className="h-full rounded-full bg-primary"
-                          style={{ width: `${(t.total / rankingTreinamentos[0].total) * 100}%` }}
-                        />
-                      </div>
-                      <span className="w-40 shrink-0 truncate text-right text-[11px] text-zinc-500">{t.categoria}</span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
+          </QuadroRanking>
+          <QuadroRanking
+            titulo="Ranking de treinamentos indicados"
+            descricao="Quantos colaboradores foram indicados pra cada treinamento."
+            vazio="Nenhum treinamento indicado ainda."
+            linhas={rankingTreinamentos}
+          />
         </div>
       </div>
 
@@ -1126,6 +1217,104 @@ export default async function AdminOverviewPage({
       <Link href="/admin/colaboradores" className="w-fit text-sm text-primary underline underline-offset-2">
         Ver todos os colaboradores →
       </Link>
+    </div>
+  );
+}
+
+type PessoaIndicada = { id: string; nome: string; matricula: string | null; periodos: number[] };
+
+type LinhaRanking = {
+  chave: string;
+  titulo: string;
+  // Aparece clarinho ao lado do título (ex: cargo do treinamento).
+  detalheTitulo: string | null;
+  subtitulo: string | null;
+  // Página da competência (link "Ver competência" dentro da linha aberta).
+  href: string;
+  indicacoes: number;
+  pessoas: PessoaIndicada[];
+};
+
+// Quadro de ranking (competências ou treinamentos): posição, nome, subtítulo
+// e quantos colaboradores; clicar na linha abre quem foi indicado.
+function QuadroRanking({
+  titulo,
+  descricao,
+  vazio,
+  linhas,
+  children,
+}: {
+  titulo: string;
+  descricao: string;
+  vazio: string;
+  linhas: LinhaRanking[];
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-xl bg-primary-soft/40 p-4">
+      <div>
+        <h3 className="text-sm font-medium">{titulo}</h3>
+        <p className="text-xs text-zinc-500">{descricao}</p>
+      </div>
+      {linhas.length === 0 ? (
+        <p className="text-xs text-zinc-500">{vazio}</p>
+      ) : (
+        <ol className="flex flex-col divide-y divide-primary-border/50 rounded-md bg-white">
+          {linhas.map((linha, i) => (
+            <li key={linha.chave}>
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5 hover:bg-primary-soft/30">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-zinc-900">
+                      {linha.titulo}
+                      {linha.detalheTitulo && (
+                        <span className="font-normal text-zinc-400"> · {linha.detalheTitulo}</span>
+                      )}
+                    </span>
+                    {linha.subtitulo && (
+                      <span className="block truncate text-xs text-zinc-500">{linha.subtitulo}</span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-right leading-tight" title="Ver quem foi indicado">
+                    <span className="block text-base font-bold tabular-nums text-primary underline-offset-2 group-hover:underline">
+                      {linha.pessoas.length}
+                    </span>
+                    <span className="text-[11px] text-zinc-500">
+                      {linha.pessoas.length === 1 ? "colaborador" : "colaboradores"}
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-90" />
+                </summary>
+                <div className="flex flex-col gap-1 border-t border-primary-border/40 bg-primary-soft/20 px-3 py-2 pl-12 text-xs">
+                  <ul className="flex flex-col gap-1">
+                    {linha.pessoas.map((p) => (
+                      <li key={p.id} className="flex items-center justify-between gap-3">
+                        <Link
+                          href={`/admin/colaboradores/${p.id}`}
+                          className="min-w-0 truncate text-primary underline-offset-2 hover:underline"
+                        >
+                          {p.matricula && <span className="mr-1.5 text-zinc-500">{p.matricula}</span>}
+                          {p.nome}
+                        </Link>
+                        <span className="shrink-0 text-zinc-500">
+                          {[...p.periodos].sort((a, b) => a - b).map((m) => `${m} dias`).join(", ")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Link href={linha.href} className="mt-1 w-fit text-zinc-500 underline-offset-2 hover:text-primary hover:underline">
+                    Ver competência →
+                  </Link>
+                </div>
+              </details>
+            </li>
+          ))}
+        </ol>
+      )}
+      {children}
     </div>
   );
 }
@@ -1275,8 +1464,8 @@ function LegendaCor({ cor, label }: { cor: string; label: string }) {
 }
 
 // Cada card tem uma cor própria pra não repetir fundo lado a lado; o ícone
-// vai em cor sólida pra destacar. "neutral" só aparece quando alertaSoSeValor zera.
-type Tom = "neutral" | "brand" | "blue" | "amber" | "green" | "orange" | "red" | "teal";
+// vai em cor sólida pra destacar.
+type Tom = "neutral" | "brand" | "blue" | "amber" | "green" | "orange" | "red" | "teal" | "violet";
 
 const ESTILO_POR_TOM: Record<
   Tom,
@@ -1301,7 +1490,7 @@ const ESTILO_POR_TOM: Record<
     iconColor: "text-white",
     activeRing: "ring-blue-600",
   },
-  // Amarelo de alerta (notas críticas); ícone escuro porque branco some no amarelo.
+  // Amarelo: ícone escuro porque branco some no amarelo.
   amber: {
     cardBg: "bg-amber-50",
     iconBg: "bg-amber-400",
@@ -1332,6 +1521,13 @@ const ESTILO_POR_TOM: Record<
     iconColor: "text-white",
     activeRing: "ring-teal-500",
   },
+  // Treinamentos indicados: cor que nenhum status usa.
+  violet: {
+    cardBg: "bg-violet-50",
+    iconBg: "bg-violet-600",
+    iconColor: "text-white",
+    activeRing: "ring-violet-600",
+  },
 };
 
 function Card({
@@ -1341,7 +1537,8 @@ function Card({
   href,
   ativo,
   tone = "neutral",
-  alertaSoSeValor,
+  detalhe,
+  progresso,
 }: {
   icon: LucideIcon;
   label: string;
@@ -1349,27 +1546,43 @@ function Card({
   href?: string;
   ativo?: boolean;
   tone?: Tom;
-  // Só aplica a cor de alerta (vermelho) quando value > 0 — zero em algo
-  // ruim (ex: notas críticas) é uma boa notícia, não precisa chamar atenção.
-  alertaSoSeValor?: boolean;
+  // Linha pequena embaixo do número (ex: "25% do total").
+  detalhe?: string;
+  // 0 a 100: desenha a barra embaixo do detalhe, na cor do ícone.
+  progresso?: number;
 }) {
-  const tomEfetivo: Tom = alertaSoSeValor && value === 0 ? "neutral" : tone;
-  const estilo = ESTILO_POR_TOM[tomEfetivo];
+  const estilo = ESTILO_POR_TOM[tone];
   const conteudo = (
     <>
       <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${estilo.iconBg}`}>
         <Icon className={`h-4 w-4 ${estilo.iconColor}`} strokeWidth={2} />
       </span>
-      <div className="min-w-0">
-        <p className="text-xs font-medium leading-tight text-zinc-600">{label}</p>
+      <div className="w-full min-w-0 text-center">
+        {/* Nome sempre com altura de 2 linhas: quem cabe em uma fica
+            centralizado nesse espaço, e número/barra alinham entre os cards. */}
+        <p className="flex h-[30px] items-center justify-center text-xs font-medium leading-tight text-zinc-600">
+          {label}
+        </p>
         <p className="text-lg font-bold leading-tight tabular-nums text-zinc-900">{value}</p>
+        {detalhe && <p className="text-[11px] leading-tight text-zinc-500">{detalhe}</p>}
+        {progresso !== undefined && (
+          <div className="mx-auto mt-1 h-1.5 w-full max-w-28 overflow-hidden rounded-full bg-black/10">
+            <div
+              className={`h-full rounded-full ${estilo.iconBg}`}
+              style={{ width: `${Math.min(100, Math.max(0, progresso))}%` }}
+            />
+          </div>
+        )}
       </div>
     </>
   );
+  // Com 8 cards lado a lado cada um fica estreito: ícone em cima, pro texto
+  // usar a largura toda do card (e quebrar linha só se não couber).
+  const layout = "flex flex-col items-center gap-1.5 rounded-xl px-2 py-2.5";
 
   if (!href) {
     return (
-      <div className={`flex items-center gap-2.5 rounded-xl px-3 py-2 ${estilo.cardBg}`}>
+      <div className={`${layout} ${estilo.cardBg}`}>
         {conteudo}
       </div>
     );
@@ -1378,7 +1591,7 @@ function Card({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-2.5 rounded-xl px-3 py-2 transition-all ${estilo.cardBg} ${
+      className={`${layout} transition-all ${estilo.cardBg} ${
         ativo ? `ring-2 ${estilo.activeRing}` : "hover:brightness-[0.97]"
       }`}
     >

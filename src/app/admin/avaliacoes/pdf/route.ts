@@ -2,6 +2,12 @@ import JSZip from "jszip";
 import { requireStaff } from "@/lib/supabase/dal";
 import { createClient } from "@/lib/supabase/server";
 import { gerarPdfAvaliacao, nomeArquivoPdf, type AvaliacaoPdf } from "@/lib/pdf-avaliacao";
+import {
+  SELECT_TREINAMENTOS,
+  itensDeTreinamento,
+  treinamentosPendentes,
+  type RespostaComIndicacao,
+} from "@/lib/indicacoes";
 
 // Só avaliação finalizada vira PDF: respondida e com todos os treinamentos
 // indicados marcados como feitos (sem indicação conta como finalizada).
@@ -10,7 +16,7 @@ async function carregarFinalizadas(ids: string[]): Promise<AvaliacaoPdf[]> {
   const { data } = await supabase
     .from("avaliacoes")
     .select(
-      "id, marco, status, data_envio, data_resposta, colaboradores(matricula, nome, gestor_nome, tipo, cargos(nome)), respostas(nota, comentario, treinamento_realizado_em, perguntas(texto, ordem), categorias_treinamento:categoria_final_id(nome), treinamentos:treinamento_final_id(nome))"
+      `id, marco, status, data_envio, data_resposta, colaboradores(matricula, nome, gestor_nome, tipo, cargos(nome)), respostas(id, nota, comentario, treinamento_realizado_em, perguntas(texto, ordem), categorias_treinamento:categoria_final_id(nome), ${SELECT_TREINAMENTOS})`
     )
     .in("id", ids)
     .eq("status", "respondida");
@@ -23,16 +29,13 @@ async function carregarFinalizadas(ids: string[]): Promise<AvaliacaoPdf[]> {
       tipo: string;
       cargos: { nome: string } | null;
     } | null;
-    const respostas = (a.respostas as unknown as {
+    const respostas = (a.respostas as unknown as (RespostaComIndicacao & {
       nota: number;
       comentario: string | null;
-      treinamento_realizado_em: string | null;
       perguntas: { texto: string; ordem: number | null } | null;
-      categorias_treinamento: { nome: string } | null;
-      treinamentos: { nome: string } | null;
-    }[]).sort((x, y) => (x.perguntas?.ordem ?? 0) - (y.perguntas?.ordem ?? 0));
+    })[]).sort((x, y) => (x.perguntas?.ordem ?? 0) - (y.perguntas?.ordem ?? 0));
 
-    const finalizada = respostas.every((r) => !r.categorias_treinamento || r.treinamento_realizado_em);
+    const finalizada = treinamentosPendentes(respostas) === 0;
     if (!colaborador || !finalizada) return [];
 
     return [
@@ -49,9 +52,8 @@ async function carregarFinalizadas(ids: string[]): Promise<AvaliacaoPdf[]> {
           pergunta: r.perguntas?.texto ?? "",
           nota: r.nota,
           competencia: r.categorias_treinamento?.nome ?? null,
-          treinamento: r.treinamentos?.nome ?? null,
           comentario: r.comentario,
-          treinamentoRealizadoEm: r.treinamento_realizado_em,
+          treinamentos: itensDeTreinamento(r).map((i) => ({ nome: i.nome, realizadoEm: i.realizadoEm })),
         })),
       },
     ];

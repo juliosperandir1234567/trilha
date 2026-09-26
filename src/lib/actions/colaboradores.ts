@@ -6,6 +6,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, requireStaff } from "@/lib/supabase/dal";
+import { lerEstrutura, lerTurno } from "@/lib/turnos";
 
 export type ImportFormState =
   | { error?: string; inseridos?: number; ignorados?: number }
@@ -98,6 +99,8 @@ export async function createColaborador(
   const gestorEmail = String(formData.get("gestor_email") ?? "").trim();
   const cargoId = String(formData.get("cargo_id") ?? "").trim();
   const tipo = lerTipo(formData);
+  const estruturaMacro = lerEstrutura(String(formData.get("estrutura_macro") ?? ""));
+  const turno = lerTurno(String(formData.get("turno") ?? ""));
 
   if (!nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail) {
     return { error: "Preencha todos os campos." };
@@ -117,6 +120,8 @@ export async function createColaborador(
     gestor_email: gestorEmail,
     cargo_id: cargoId || null,
     tipo,
+    estrutura_macro: estruturaMacro,
+    turno,
   });
 
   if (error) {
@@ -140,6 +145,8 @@ export async function updateColaborador(
   const gestorEmail = String(formData.get("gestor_email") ?? "").trim();
   const cargoId = String(formData.get("cargo_id") ?? "").trim();
   const tipo = lerTipo(formData);
+  const estruturaMacro = lerEstrutura(String(formData.get("estrutura_macro") ?? ""));
+  const turno = lerTurno(String(formData.get("turno") ?? ""));
   const ativo = formData.get("ativo") === "on";
 
   if (!id || !nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail) {
@@ -162,6 +169,8 @@ export async function updateColaborador(
       gestor_email: gestorEmail,
       cargo_id: cargoId || null,
       tipo,
+      estrutura_macro: estruturaMacro,
+      turno,
       ativo,
     })
     .eq("id", id);
@@ -246,6 +255,8 @@ export async function importColaboradores(
     gestor_email: string;
     cargo_nome: string;
     tipo: string;
+    estrutura_macro: string | null;
+    turno: string | null;
   }[] = [];
   let ignorados = 0;
 
@@ -290,6 +301,8 @@ export async function importColaboradores(
     const cargoNome = (linha["cargo"] ?? "").trim();
     const tipoBruto = (linha["tipo"] ?? linha["novato ou capacitacao"] ?? "novato").trim().toLowerCase();
     const tipo = tipoBruto.startsWith("capacit") ? "capacitacao" : "novato";
+    const estruturaMacro = lerEstrutura(linha["estrutura_macro"] ?? linha["estrutura macro"] ?? linha["estrutura"]);
+    const turno = lerTurno(linha["turno"]);
 
     const dataAdmissao = dataBruta ? parseDataAdmissao(dataBruta) : null;
 
@@ -306,6 +319,8 @@ export async function importColaboradores(
       gestor_email: gestorEmail,
       cargo_nome: cargoNome,
       tipo,
+      estrutura_macro: estruturaMacro,
+      turno,
     });
   }
 

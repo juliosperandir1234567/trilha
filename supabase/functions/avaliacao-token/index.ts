@@ -122,6 +122,8 @@ Deno.serve(async (req: Request) => {
           nota: number | null;
           categoria_final_id?: string | null;
           treinamento_final_id?: string | null;
+          // Vários treinamentos (notas 1 a 3); o formato antigo manda só um.
+          treinamento_ids?: string[] | null;
           comentario?: string;
         }[]
       | undefined;
@@ -190,13 +192,31 @@ Deno.serve(async (req: Request) => {
 
     const [{ data: perguntasValidas }, { data: treinamentosValidos }] = await Promise.all([
       perguntasValidasQuery,
-      treinamentosDoCargo(cargoId, "id"),
+      treinamentosDoCargo(cargoId, "id, categoria_id"),
     ]);
 
     const perguntasPorId = new Map((perguntasValidas ?? []).map((p) => [p.id, p]));
-    const idsTreinamentosValidos = new Set(
-      ((treinamentosValidos ?? []) as unknown as { id: string }[]).map((t) => t.id)
+    // Treinamento válido: ativo, do cargo do colaborador (ou de todos) e da
+    // competência escolhida na resposta.
+    const categoriaDoTreinamento = new Map(
+      ((treinamentosValidos ?? []) as unknown as { id: string; categoria_id: string }[]).map((t) => [
+        t.id,
+        t.categoria_id,
+      ])
     );
+    function treinamentosDaResposta(
+      r: { treinamento_final_id?: string | null; treinamento_ids?: string[] | null },
+      categoriaId: string | null
+    ) {
+      const pedidos = Array.isArray(r.treinamento_ids)
+        ? r.treinamento_ids
+        : r.treinamento_final_id
+          ? [r.treinamento_final_id]
+          : [];
+      return [...new Set(pedidos)].filter(
+        (id) => typeof id === "string" && categoriaDoTreinamento.get(id) === categoriaId
+      );
+    }
 
     const notaValida = (nota: unknown) =>
       Number.isInteger(nota) && (nota as number) >= 1 && (nota as number) <= NOTA_MAXIMA;
@@ -206,16 +226,18 @@ Deno.serve(async (req: Request) => {
     if (ehRascunho) {
       const rascunho = respostas
         .filter((r) => perguntasPorId.has(r.pergunta_id))
-        .map((r) => ({
-          pergunta_id: r.pergunta_id,
-          nota: notaValida(r.nota) ? r.nota : null,
-          categoria_final_id: r.categoria_final_id ?? null,
-          treinamento_final_id:
-            r.treinamento_final_id && idsTreinamentosValidos.has(r.treinamento_final_id)
-              ? r.treinamento_final_id
-              : null,
-          comentario: typeof r.comentario === "string" ? r.comentario.slice(0, 2000) : null,
-        }));
+        .map((r) => {
+          const treinamentoIds = treinamentosDaResposta(r, r.categoria_final_id ?? null);
+          return {
+            pergunta_id: r.pergunta_id,
+            nota: notaValida(r.nota) ? r.nota : null,
+            categoria_final_id: r.categoria_final_id ?? null,
+            treinamento_ids: treinamentoIds,
+            // Formato antigo (um só), que a versão publicada do link lê.
+            treinamento_final_id: treinamentoIds[0] ?? null,
+            comentario: typeof r.comentario === "string" ? r.comentario.slice(0, 2000) : null,
+          };
+        });
       const salvoEm = new Date().toISOString();
       const { error: erroRascunho } = await supabase
         .from("avaliacoes")
@@ -236,6 +258,14 @@ Deno.serve(async (req: Request) => {
 
     // Indicação de treinamento só até NOTA_MAXIMA_INDICACAO (1 a 3). Nota
     // acima disso nunca grava categoria/treinamento, mesmo que o cliente mande.
+    const treinamentosEscolhidos = new Map<string, string[]>();
+    for (const resposta of respostas) {
+      const pergunta = perguntasPorId.get(resposta.pergunta_id)!;
+      if ((resposta.nota as number) > NOTA_MAXIMA_INDICACAO) continue;
+      const categoriaId = resposta.categoria_final_id ?? pergunta.categoria_sugerida_id ?? null;
+      treinamentosEscolhidos.set(resposta.pergunta_id, treinamentosDaResposta(resposta, categoriaId));
+    }
+
     const linhas = respostas.map((resposta) => {
       const pergunta = perguntasPorId.get(resposta.pergunta_id)!;
       const notaBaixa = (resposta.nota as number) <= NOTA_MAXIMA_INDICACAO;
@@ -247,17 +277,29 @@ Deno.serve(async (req: Request) => {
         categoria_final_id: notaBaixa
           ? resposta.categoria_final_id ?? pergunta.categoria_sugerida_id ?? null
           : null,
-        // Treinamento de outro cargo não é gravado.
-        treinamento_final_id:
-          notaBaixa && resposta.treinamento_final_id && idsTreinamentosValidos.has(resposta.treinamento_final_id)
-            ? resposta.treinamento_final_id
-            : null,
+        // Treinamento de outro cargo ou de outra competência não é gravado.
+        // O campo antigo guarda o primeiro, pra versão publicada do painel.
+        treinamento_final_id: treinamentosEscolhidos.get(resposta.pergunta_id)?.[0] ?? null,
         comentario: resposta.comentario || null,
       };
     });
 
-    const { error: erroRespostas } = await supabase.from("respostas").insert(linhas);
+    const { data: respostasGravadas, error: erroRespostas } = await supabase
+      .from("respostas")
+      .insert(linhas)
+      .select("id, pergunta_id");
     if (erroRespostas) return json({ error: "Não foi possível salvar as respostas." }, 500);
+
+    const linhasTreinamento = (respostasGravadas ?? []).flatMap((r) =>
+      (treinamentosEscolhidos.get(r.pergunta_id) ?? []).map((treinamentoId) => ({
+        resposta_id: r.id,
+        treinamento_id: treinamentoId,
+      }))
+    );
+    if (linhasTreinamento.length > 0) {
+      const { error: erroTreinamentos } = await supabase.from("resposta_treinamentos").insert(linhasTreinamento);
+      if (erroTreinamentos) return json({ error: "Não foi possível salvar os treinamentos indicados." }, 500);
+    }
 
     await supabase
       .from("avaliacoes")

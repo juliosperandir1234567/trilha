@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
 import { requireStaff } from "@/lib/supabase/dal";
 import { createClient } from "@/lib/supabase/server";
+import {
+  SELECT_TREINAMENTOS,
+  itensDeTreinamento,
+  type RespostaComIndicacao,
+} from "@/lib/indicacoes";
 
 function escapeCsv(valor: string | number | null | undefined) {
   const texto = String(valor ?? "");
   return `"${texto.replace(/"/g, '""')}"`;
 }
 
-export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   await requireStaff();
   const { id } = await params;
   const marco = new URL(request.url).searchParams.get("marco");
@@ -22,7 +30,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   let query = supabase
     .from("respostas")
     .select(
-      "nota, comentario, created_at, treinamentos:treinamento_final_id(nome), avaliacoes!inner(marco, colaboradores(nome, matricula, gestor_nome, gestor_email))"
+      `id, nota, comentario, created_at, categoria_final_id, treinamento_realizado_em, ${SELECT_TREINAMENTOS}, avaliacoes!inner(marco, colaboradores(nome, matricula, gestor_nome, gestor_email))`,
     )
     .eq("categoria_final_id", id)
     .order("created_at", { ascending: false });
@@ -32,7 +40,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const { data: respostas } = await query;
 
   const linhas = [
-    ["Matrícula", "Colaborador", "Período", "Nota", "Treinamento", "Comentário", "Gestor"]
+    [
+      "Matrícula",
+      "Colaborador",
+      "Período",
+      "Nota",
+      "Treinamento",
+      "Comentário",
+      "Gestor",
+    ]
       .map(escapeCsv)
       .join(";"),
   ];
@@ -48,21 +64,23 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       } | null;
     } | null;
     const colaborador = avaliacao?.colaboradores;
-    const treinamento = resposta.treinamentos as unknown as { nome: string } | null;
-
-    linhas.push(
-      [
-        colaborador?.matricula,
-        colaborador?.nome,
-        avaliacao ? `${avaliacao.marco} dias` : "",
-        resposta.nota,
-        treinamento?.nome,
-        resposta.comentario,
-        colaborador?.gestor_nome,
-      ]
-        .map(escapeCsv)
-        .join(";")
-    );
+    for (const item of itensDeTreinamento(
+      resposta as unknown as RespostaComIndicacao,
+    )) {
+      linhas.push(
+        [
+          colaborador?.matricula,
+          colaborador?.nome,
+          avaliacao ? `${avaliacao.marco} dias` : "",
+          resposta.nota,
+          item.nome,
+          resposta.comentario,
+          colaborador?.gestor_nome,
+        ]
+          .map(escapeCsv)
+          .join(";"),
+      );
+    }
   }
 
   const csv = "﻿" + linhas.join("\n");

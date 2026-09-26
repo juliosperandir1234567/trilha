@@ -99,8 +99,13 @@ Deno.serve(async (req: Request) => {
 
     const { data: respostasAnteriores } = await supabase
       .from("respostas")
-      .select("pergunta_id, nota, categoria_final_id, treinamento_final_id, comentario")
+      .select("pergunta_id, nota, categoria_final_id, treinamento_final_id, comentario, resposta_treinamentos(treinamento_id)")
       .eq("avaliacao_id", avaliacao.id);
+    // Rascunho no formato do link: lista de treinamentos por pergunta.
+    const rascunhoAnterior = (respostasAnteriores ?? []).map(({ resposta_treinamentos, ...r }) => ({
+      ...r,
+      treinamento_ids: ((resposta_treinamentos ?? []) as { treinamento_id: string }[]).map((t) => t.treinamento_id),
+    }));
 
     const { error: erroApagar } = await supabase.from("respostas").delete().eq("avaliacao_id", avaliacao.id);
     if (erroApagar) return json({ error: "Não foi possível reabrir a avaliação." }, 500);
@@ -110,8 +115,8 @@ Deno.serve(async (req: Request) => {
       .update({
         status: "pendente",
         data_resposta: null,
-        rascunho: respostasAnteriores?.length ? respostasAnteriores : null,
-        rascunho_salvo_em: respostasAnteriores?.length ? new Date().toISOString() : null,
+        rascunho: rascunhoAnterior.length ? rascunhoAnterior : null,
+        rascunho_salvo_em: rascunhoAnterior.length ? new Date().toISOString() : null,
         motivo_nao_avaliada: null,
         observacao_nao_avaliada: null,
         // Reaberta começa um ciclo novo de envio e lembretes.
