@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import { requireStaff } from "@/lib/supabase/dal";
 import { createClient } from "@/lib/supabase/server";
-import { gerarPdfAvaliacao, nomeArquivoPdf, type AvaliacaoPdf } from "@/lib/pdf-avaliacao";
+import { gerarPdfAvaliacao, lerLogo, nomeArquivoPdf, type AvaliacaoPdf, type LogoPdf } from "@/lib/pdf-avaliacao";
 import {
   SELECT_TREINAMENTOS,
   itensDeTreinamento,
@@ -61,6 +61,25 @@ async function carregarFinalizadas(ids: string[]): Promise<(AvaliacaoPdf & { id:
   });
 }
 
+// Logo da usina cadastrada em Configurações, baixada uma vez por pedido.
+// Sem logo, ou se não der pra baixar, o PDF sai sem ela.
+async function carregarLogo(): Promise<LogoPdf | null> {
+  const supabase = await createClient();
+  const { data: config } = await supabase
+    .from("configuracoes_sistema")
+    .select("logo_usina_url")
+    .eq("id", 1)
+    .single();
+  if (!config?.logo_usina_url) return null;
+  try {
+    const resposta = await fetch(config.logo_usina_url);
+    if (!resposta.ok) return null;
+    return lerLogo(new Uint8Array(await resposta.arrayBuffer()));
+  } catch {
+    return null;
+  }
+}
+
 // Guarda quando o PDF saiu pela primeira vez, pra separar os novos dos já
 // baixados no painel. Falha aqui não impede o download.
 async function marcarBaixados(ids: string[]) {
@@ -83,7 +102,7 @@ export async function GET(request: Request) {
   const [avaliacao] = await carregarFinalizadas([id]);
   if (!avaliacao) return new Response("Avaliação não encontrada ou ainda não finalizada.", { status: 404 });
 
-  const pdf = await gerarPdfAvaliacao(avaliacao);
+  const pdf = await gerarPdfAvaliacao(avaliacao, await carregarLogo());
   await marcarBaixados([avaliacao.id]);
   return new Response(Buffer.from(pdf), {
     headers: {
@@ -109,6 +128,7 @@ export async function POST(request: Request) {
     return new Response("Nenhuma avaliação finalizada nessa seleção.", { status: 404 });
   }
 
+  const logo = await carregarLogo();
   const zip = new JSZip();
   const nomesUsados = new Set<string>();
   for (const avaliacao of avaliacoes) {
@@ -116,7 +136,7 @@ export async function POST(request: Request) {
     // Dois arquivos com o mesmo nome no .zip se sobrescrevem.
     for (let n = 2; nomesUsados.has(nome); n++) nome = nomeArquivoPdf(avaliacao).replace(/\.pdf$/, ` (${n}).pdf`);
     nomesUsados.add(nome);
-    zip.file(nome, await gerarPdfAvaliacao(avaliacao));
+    zip.file(nome, await gerarPdfAvaliacao(avaliacao, logo));
   }
 
   const conteudo = await zip.generateAsync({ type: "uint8array" });

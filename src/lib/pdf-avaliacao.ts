@@ -1,7 +1,7 @@
 import "server-only";
 
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { nomeDaNota } from "@/lib/escala";
+import { NOTAS, nomeDaNota } from "@/lib/escala";
 
 export type RespostaPdf = {
   pergunta: string;
@@ -25,11 +25,33 @@ export type AvaliacaoPdf = {
   respostas: RespostaPdf[];
 };
 
+// Logo da usina (Configurações). O pdf-lib só embute PNG e JPG.
+export type LogoPdf = { bytes: Uint8Array; tipo: "png" | "jpg" };
+
+// Descobre o formato pelos primeiros bytes; outro formato fica sem logo.
+export function lerLogo(bytes: Uint8Array): LogoPdf | null {
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return { bytes, tipo: "png" };
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) return { bytes, tipo: "jpg" };
+  return null;
+}
+
+// Caixa onde a logo cabe no canto superior direito, mantendo a proporção.
+const LOGO_LARGURA_MAX = 110;
+const LOGO_ALTURA_MAX = 55;
+
 const MARGEM = 50;
 const LARGURA = 595.28; // A4
 const ALTURA = 841.89;
 const VERDE = rgb(0.13, 0.4, 0.2);
 const CINZA = rgb(0.4, 0.4, 0.4);
+
+// Cor da nota, a mesma da escala no sistema (hex #rrggbb -> rgb do pdf-lib).
+function corDaNota(nota: number) {
+  const hex = NOTAS.find((n) => n.valor === nota)?.cor;
+  if (!hex) return undefined;
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  return rgb(r, g, b);
+}
 
 function dataBR(iso: string | null) {
   if (!iso) return "-";
@@ -44,7 +66,7 @@ export function nomeArquivoPdf(avaliacao: AvaliacaoPdf) {
   return `${partes.join("-").replace(/[\\/:*?"<>|]/g, "").trim()}.pdf`;
 }
 
-export async function gerarPdfAvaliacao(avaliacao: AvaliacaoPdf): Promise<Uint8Array> {
+export async function gerarPdfAvaliacao(avaliacao: AvaliacaoPdf, logo?: LogoPdf | null): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`Avaliação de ${avaliacao.marco} dias — ${avaliacao.nome}`);
   const fonte = await pdf.embedFont(StandardFonts.Helvetica);
@@ -109,6 +131,25 @@ export async function gerarPdfAvaliacao(avaliacao: AvaliacaoPdf): Promise<Uint8A
     y -= opcoes.espaco ?? 0;
   }
 
+  // Logo no canto superior direito da primeira página. Se a imagem não
+  // abrir, o PDF sai sem logo.
+  if (logo) {
+    try {
+      const imagem = logo.tipo === "png" ? await pdf.embedPng(logo.bytes) : await pdf.embedJpg(logo.bytes);
+      const escala = Math.min(LOGO_LARGURA_MAX / imagem.width, LOGO_ALTURA_MAX / imagem.height, 1);
+      const largura = imagem.width * escala;
+      const altura = imagem.height * escala;
+      pagina.drawImage(imagem, {
+        x: LARGURA - MARGEM - largura,
+        y: ALTURA - MARGEM - altura,
+        width: largura,
+        height: altura,
+      });
+    } catch {
+      // imagem corrompida: segue sem logo
+    }
+  }
+
   // Cabeçalho: código, nome e gestor.
   escrever("Trilha Desenvolve+", { tamanho: 9, f: negrito, cor: VERDE, espaco: 2 });
   escrever(`Avaliação de ${avaliacao.marco} dias`, { tamanho: 16, f: negrito, espaco: 6 });
@@ -137,7 +178,11 @@ export async function gerarPdfAvaliacao(avaliacao: AvaliacaoPdf): Promise<Uint8A
   avaliacao.respostas.forEach((resposta, i) => {
     novaPaginaSePreciso(40);
     escrever(`${i + 1}. ${resposta.pergunta}`, { tamanho: 10, f: negrito, espaco: 1 });
-    escrever(`Nota: ${resposta.nota} — ${nomeDaNota(resposta.nota)}`, { recuo: 12 });
+    escrever(`Nota: ${resposta.nota} — ${nomeDaNota(resposta.nota)}`, {
+      recuo: 12,
+      f: negrito,
+      cor: corDaNota(resposta.nota),
+    });
     if (resposta.competencia) {
       escrever(`Indicação: ${resposta.competencia}`, { recuo: 12 });
       for (const treinamento of resposta.treinamentos) {
