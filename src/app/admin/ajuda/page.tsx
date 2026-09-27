@@ -345,7 +345,7 @@ const SECOES = [
             <li>
               <strong>Trajetória do colaborador</strong>: a jornada de cada colaborador pelos
               períodos do cargo (feito, aguardando, treinamento pendente, próximo com data).
-              Mostra 3 e o resto rola dentro do card; a busca fica ao lado do título.
+              Mostra 3 e o resto rola dentro do card; a lista de cargo fica ao lado do título.
             </li>
             <li>
               <strong>Colaboradores por estrutura</strong>: quantos em cada estrutura macro,

@@ -580,6 +580,7 @@ export default async function AdminOverviewPage({
       return {
         id: c.id,
         nome: c.nome,
+        cargo: cargo?.nome ?? null,
         detalhe: [cargo?.nome ?? "Sem cargo", c.estrutura_macro].filter(Boolean).join(" · "),
         periodos: periodos.map((marco): PeriodoTrajetoria => {
           const dataPeriodo = somarDiasISO(c.data_admissao, marco);

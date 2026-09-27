@@ -9,7 +9,6 @@ import {
   Hourglass,
   Mail,
   MailWarning,
-  Search,
   TrendingUp,
   User,
   XCircle,
@@ -37,6 +36,8 @@ export type PeriodoTrajetoria = {
 export type LinhaTrajetoria = {
   id: string;
   nome: string;
+  // Filtro de cargo do card; null = sem cargo cadastrado.
+  cargo: string | null;
   detalhe: string;
   periodos: PeriodoTrajetoria[];
 };
@@ -102,26 +103,30 @@ function dataCurta(iso: string) {
 
 const VISIVEIS = 3;
 
-export function TrajetoriaCard({ linhas, className = "" }: { linhas: LinhaTrajetoria[]; className?: string }) {
-  const [busca, setBusca] = useState("");
+// Valor do filtro pra quem não tem cargo cadastrado.
+const SEM_CARGO = "__sem_cargo__";
 
-  const termo = busca.trim().toLowerCase();
-  const filtradas = termo
-    ? linhas.filter((l) => l.nome.toLowerCase().includes(termo) || l.detalhe.toLowerCase().includes(termo))
-    : linhas;
+export function TrajetoriaCard({ linhas, className = "" }: { linhas: LinhaTrajetoria[]; className?: string }) {
+  const [cargo, setCargo] = useState("");
+
+  const filtradas = cargo ? linhas.filter((l) => (l.cargo ?? SEM_CARGO) === cargo) : linhas;
+  const cargos = [...new Set(linhas.map((l) => l.cargo).filter((c): c is string => !!c))].sort((a, b) =>
+    a.localeCompare(b, "pt-BR")
+  );
+  const temSemCargo = linhas.some((l) => !l.cargo);
 
   // A lista mostra VISIVEIS colaboradores; os demais ficam na barra de
-  // rolagem. A altura é medida sobre a lista completa (sem busca), pra o card
-  // não encolher enquanto se digita.
+  // rolagem. A altura é medida sobre a lista completa (sem filtro), pra o card
+  // não encolher ao escolher um cargo.
   const listaRef = useRef<HTMLUListElement>(null);
   const [alturaLista, setAlturaLista] = useState<number>();
   useLayoutEffect(() => {
     const itens = listaRef.current?.children;
-    if (termo || !itens || itens.length <= VISIVEIS) return;
+    if (cargo || !itens || itens.length <= VISIVEIS) return;
     const ultimo = itens[VISIVEIS - 1] as HTMLElement;
     // +12 = padding de baixo da lista (pb-3).
     setAlturaLista(ultimo.offsetTop + ultimo.offsetHeight + 12);
-  }, [termo, linhas]);
+  }, [cargo, linhas]);
 
   return (
     <div className={`flex h-full flex-col rounded-xl border border-primary-border bg-white ${className}`}>
@@ -135,20 +140,27 @@ export function TrajetoriaCard({ linhas, className = "" }: { linhas: LinhaTrajet
             <p className="text-xs text-zinc-500">Jornada de cada colaborador pelos períodos do cargo</p>
           </div>
         </div>
-        <div className="relative w-44 shrink-0 sm:w-56">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          <input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar colaborador..."
-            className="w-full rounded-md border border-black/15 py-1.5 pl-9 pr-3 text-sm outline-none focus:border-primary"
-          />
-        </div>
+        {linhas.length > 0 && (
+          <select
+            value={cargo}
+            onChange={(e) => setCargo(e.target.value)}
+            aria-label="Filtrar por cargo"
+            className="shrink-0 rounded-md border border-black/15 px-2.5 py-1 text-xs outline-none focus:border-primary"
+          >
+            <option value="">Todos os cargos</option>
+            {cargos.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+            {temSemCargo && <option value={SEM_CARGO}>Sem cargo</option>}
+          </select>
+        )}
       </div>
 
       {filtradas.length === 0 ? (
         <p className="px-4 pb-4 pt-2 text-center text-xs text-zinc-500">
-          {termo ? "Nenhum colaborador pra essa busca." : "Nenhum colaborador com esses filtros."}
+          {cargo ? "Nenhum colaborador desse cargo." : "Nenhum colaborador com esses filtros."}
         </p>
       ) : (
         <ul
