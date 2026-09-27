@@ -4,7 +4,7 @@ import { requireStaff } from "@/lib/supabase/dal";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/lib/actions/auth";
 import { AdminNav } from "./admin-nav";
-import { VEU_MENU } from "@/lib/menu";
+import { SOMBRA_TEXTO_MENU, VEU_MENU } from "@/lib/menu";
 
 export default async function AdminLayout({
   children,
@@ -25,7 +25,7 @@ export default async function AdminLayout({
         className="flex flex-row gap-1 overflow-x-auto bg-sidebar-bg bg-cover bg-center p-4 text-sidebar-fg md:w-56 md:flex-col md:overflow-visible"
         style={
           config?.imagem_menu_url
-            ? { backgroundImage: `${VEU_MENU}, url("${config.imagem_menu_url}")` }
+            ? { backgroundImage: `${VEU_MENU}, url("${config.imagem_menu_url}")`, textShadow: SOMBRA_TEXTO_MENU }
             : undefined
         }
       >

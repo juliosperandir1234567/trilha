@@ -40,7 +40,7 @@ export function AdminNav() {
             href={item.href}
             className={`flex shrink-0 items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors ${
               ativo
-                ? "bg-white font-medium text-primary"
+                ? "bg-white font-medium text-primary [text-shadow:none]"
                 : "text-sidebar-fg hover:bg-white/10"
             }`}
           >
