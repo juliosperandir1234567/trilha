@@ -41,7 +41,9 @@ const SECOES = [
       <ol className="list-decimal space-y-1 pl-5">
         <li>
           Admin ou analista cadastra o colaborador (individualmente ou importando uma
-          planilha CSV) com nome, matrícula, tipo e os dados do gestor responsável. O tipo
+          planilha .xlsx/.csv) com nome, matrícula, tipo e os dados do gestor responsável.
+          A <strong>matrícula</strong> identifica o colaborador: não existem duas pessoas
+          com a mesma matrícula no sistema. O tipo
           define de onde os períodos contam: <strong>Novato</strong> usa a data de
           admissão; <strong>Capacitação</strong> (mudança de cargo) usa a data em que ele
           mudou de cargo. É um calendário só no cadastro, e a Visão geral filtra por tipo.
@@ -103,7 +105,7 @@ const SECOES = [
             (&quot;Marcar como feito&quot;, ou &quot;Marcar todos&quot;). Sem indicação de
             treinamento, a avaliação já fica finalizada ao ser respondida. Avaliação
             finalizada tem PDF: um por vez na página do colaborador, ou em massa na Visão
-            geral (aba <strong>Respondidas</strong> → &quot;Exportar finalizadas em PDF&quot;,
+            geral (card <strong>Respondidas</strong> → botão &quot;PDF das finalizadas&quot;,
             que baixa um .zip com um arquivo por avaliação, nomeado Código-Nome-Avaliação
             X dias-data da resposta).
           </li>
@@ -220,9 +222,10 @@ const SECOES = [
             uma soma geral.
           </li>
           <li>
-            Os KPIs de &quot;Treinamentos indicados&quot; na Visão Geral contam quantas
-            respostas (perguntas) apontaram para cada competência, somando todos os períodos e
-            colaboradores.
+            Na Visão geral, o card &quot;Treinamentos indicados&quot; conta quantas respostas
+            (perguntas) geraram indicação, e em quantas competências. Já as barras
+            &quot;Colaboradores por treinamento&quot; contam <strong>pessoas</strong>: quem foi
+            indicado duas vezes no mesmo treinamento conta uma vez só.
           </li>
         </ul>
       </>
@@ -270,7 +273,7 @@ const SECOES = [
     conteudo: (
       <>
         <p>
-          Escala de 1 (insatisfatório) a 4 (excelente). Veja como ficaria uma avaliação
+          Escala de 1 (inaceitável) a 5 (acima do esperado). Veja como ficaria uma avaliação
           respondida pelo gestor de um colaborador fictício:
         </p>
         <div className="mt-2 flex flex-col gap-2 rounded-lg border border-primary-border/60 bg-primary-soft/40 p-4 not-italic">
@@ -326,14 +329,39 @@ const SECOES = [
         </p>
         <ul className="list-disc space-y-2 pl-5">
         <li>
-          <strong>Visão geral</strong>: cards no topo (Colaboradores ativos, Não enviadas,
-          Aguardando resposta, Respondidas, Expiradas, Treinamentos indicados, Tempo médio
-          de resposta) — os de status também são filtros, clique pra aplicar. Abaixo: a tabela <strong>Progresso por período</strong>{" "}
-          (clique em qualquer período — 30/45/60/90/120/180/270 dias — pra filtrar só aquele),{" "}
-          <strong>Treinamentos indicados</strong> (um card por competência, com a contagem de
-          respostas que apontaram pra ela — clique pra ver quem são e exportar em CSV), e a
-          tabela de <strong>Avaliações</strong> com os filtros aplicados, mais o botão{" "}
-          <strong>Exportar tudo</strong>.
+          <strong>Visão geral</strong>, de cima pra baixo:
+          <ul className="mt-1 list-[circle] space-y-1 pl-5">
+            <li>
+              <strong>Filtros</strong>: período (30/45/60/90/120/180/270 dias), tipo
+              (novato/capacitação) e datas de início. Valem pra página inteira.
+            </li>
+            <li>
+              <strong>Cards</strong>: Colaboradores ativos, Não enviadas, Aguardando resposta,
+              Respondidas, Expiradas, Treinamentos indicados e Tempo médio de resposta. Os de
+              status também filtram — clique pra aplicar.
+            </li>
+            <li>
+              <strong>Trajetória do colaborador</strong>: a jornada de cada colaborador pelos
+              períodos do cargo (feito, aguardando, treinamento pendente, próximo com data).
+              Mostra 3 e o resto rola dentro do card; a busca fica ao lado do título.
+            </li>
+            <li>
+              <strong>Colaboradores por estrutura</strong>: quantos em cada estrutura macro,
+              divididos por turno.
+            </li>
+            <li>
+              <strong>Avaliações</strong>: dois cards lado a lado — <strong>Em andamento</strong>{" "}
+              (com expiração e prazo; urgente em vermelho) e <strong>Respondidas</strong> (com
+              data da resposta, treinamentos feitos e PDF). Uma busca só (nome, matrícula ou
+              gestor) filtra os dois.
+            </li>
+            <li>
+              <strong>Treinamentos indicados</strong>: barras com quantos colaboradores foram
+              indicados pra cada treinamento — clique numa barra pra ver quem são. Os botões{" "}
+              <strong>Exportar só as novas (N)</strong> e <strong>Exportar tudo</strong> geram a
+              planilha; o &quot;só as novas&quot; some quando tudo já foi exportado.
+            </li>
+          </ul>
         </li>
         <li>
           <strong>Cargos</strong>: formulário pra criar cargo (nome + descrição) com
@@ -363,7 +391,14 @@ const SECOES = [
         </li>
         <li>
           <strong>Colaboradores</strong>: formulário de cadastro individual e outro pra
-          importar uma planilha em lote (aceita .xlsx direto do Excel ou .csv). A listagem
+          importar uma planilha em lote (aceita .xlsx direto do Excel ou .csv). Na
+          importação, a <strong>matrícula</strong> decide o que acontece: matrícula nova é
+          cadastrada; matrícula que já existe (com a mesma data de início) tem o cadastro
+          atualizado e <strong>continua a trajetória</strong> que já tinha — coluna opcional
+          vazia não apaga o que estava preenchido. Se a data de início vier diferente, o
+          colaborador <strong>não é alterado</strong> e aparece num aviso pra conferir (a
+          data muda de onde os períodos contam). Matrícula repetida na mesma planilha vale a
+          primeira linha. No fim aparece o resumo: novos, atualizados e ignorados. A listagem
           mostra matrícula, cargo, data de
           admissão, gestor responsável, status (ativo/inativo) e o próximo período pendente
           daquele colaborador, com o botão de forçar envio do e-mail. Clicar no nome abre o
@@ -376,8 +411,10 @@ const SECOES = [
           admin.
         </li>
         <li>
-          <strong>Configurações</strong>: logo da usina e imagem da tela de login (upload de
-          até 10&nbsp;MB cada), nome e e-mail do remetente dos e-mails de avaliação, e a
+          <strong>Configurações</strong>: logo da usina, imagem da tela de login e{" "}
+          <strong>imagem de fundo do menu lateral</strong> (com um tom verde por cima pra o
+          texto continuar legível; dá pra remover e voltar ao verde liso) — upload de até
+          10&nbsp;MB cada — nome e e-mail do remetente dos e-mails de avaliação, e a
           validade do link de avaliação em dias (depois desse prazo sem resposta, a
           avaliação passa pra &quot;Expirada&quot;).
         </li>
