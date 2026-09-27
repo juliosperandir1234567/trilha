@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Ban,
@@ -100,31 +100,42 @@ function dataCurta(iso: string) {
   return data.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
-const VISIVEIS = 5;
+const VISIVEIS = 3;
 
-export function TrajetoriaCard({ linhas }: { linhas: LinhaTrajetoria[] }) {
+export function TrajetoriaCard({ linhas, className = "" }: { linhas: LinhaTrajetoria[]; className?: string }) {
   const [busca, setBusca] = useState("");
-  const [todos, setTodos] = useState(false);
 
   const termo = busca.trim().toLowerCase();
   const filtradas = termo
     ? linhas.filter((l) => l.nome.toLowerCase().includes(termo) || l.detalhe.toLowerCase().includes(termo))
     : linhas;
-  const visiveis = todos || termo ? filtradas : filtradas.slice(0, VISIVEIS);
+
+  // A lista mostra VISIVEIS colaboradores; os demais ficam na barra de
+  // rolagem. A altura é medida sobre a lista completa (sem busca), pra o card
+  // não encolher enquanto se digita.
+  const listaRef = useRef<HTMLUListElement>(null);
+  const [alturaLista, setAlturaLista] = useState<number>();
+  useLayoutEffect(() => {
+    const itens = listaRef.current?.children;
+    if (termo || !itens || itens.length <= VISIVEIS) return;
+    const ultimo = itens[VISIVEIS - 1] as HTMLElement;
+    // +12 = padding de baixo da lista (pb-3).
+    setAlturaLista(ultimo.offsetTop + ultimo.offsetHeight + 12);
+  }, [termo, linhas]);
 
   return (
-    <div className="rounded-xl border border-primary-border bg-white">
-      <div className="flex flex-wrap items-start justify-between gap-3 p-4 pb-2">
-        <div className="flex items-center gap-3">
+    <div className={`flex h-full flex-col rounded-xl border border-primary-border bg-white ${className}`}>
+      <div className="flex items-center justify-between gap-3 p-4 pb-2">
+        <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <TrendingUp className="h-5 w-5" />
           </span>
-          <div>
+          <div className="min-w-0">
             <h2 className="font-semibold leading-tight">Trajetória do colaborador</h2>
             <p className="text-xs text-zinc-500">Jornada de cada colaborador pelos períodos do cargo</p>
           </div>
         </div>
-        <div className="relative w-full max-w-xs">
+        <div className="relative w-44 shrink-0 sm:w-56">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
           <input
             value={busca}
@@ -140,9 +151,13 @@ export function TrajetoriaCard({ linhas }: { linhas: LinhaTrajetoria[] }) {
           {termo ? "Nenhum colaborador pra essa busca." : "Nenhum colaborador com esses filtros."}
         </p>
       ) : (
-        <ul className="flex flex-col gap-2 px-3 pb-3 pt-1">
-          {visiveis.map((linha) => (
-            <li key={linha.id} className="rounded-lg border border-primary-border/60 p-3">
+        <ul
+          ref={listaRef}
+          style={alturaLista ? { maxHeight: alturaLista } : undefined}
+          className="relative flex flex-col gap-2 overflow-y-auto px-3 pb-3 pt-1"
+        >
+          {filtradas.map((linha) => (
+            <li key={linha.id} className="shrink-0 rounded-lg border border-primary-border/60 p-3">
               <Link
                 href={`/admin/colaboradores/${linha.id}`}
                 className="mb-2 flex w-fit items-center gap-2.5 hover:underline"
@@ -204,18 +219,6 @@ export function TrajetoriaCard({ linhas }: { linhas: LinhaTrajetoria[] }) {
             </li>
           ))}
         </ul>
-      )}
-
-      {!termo && filtradas.length > VISIVEIS && (
-        <div className="flex justify-end px-4 pb-3">
-          <button
-            type="button"
-            onClick={() => setTodos(!todos)}
-            className="text-sm font-medium text-primary underline underline-offset-2"
-          >
-            {todos ? "Ver menos" : `Ver todos (${filtradas.length}) →`}
-          </button>
-        </div>
       )}
     </div>
   );

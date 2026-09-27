@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, FileDown, Search } from "lucide-react";
+import { CheckCircle2, Clock, FileDown, Search, type LucideIcon } from "lucide-react";
 
 const STATUS_LABEL: Record<string, string> = {
   pendente: "Não enviada",
@@ -36,8 +36,6 @@ export type AvaliacaoLinha = {
   treinamentosFeitos?: number;
 };
 
-type Aba = "andamento" | "respondidas";
-
 // Respondidas e não avaliadas já saíram das mãos do gestor; o resto ainda
 // depende de alguém (envio, resposta).
 const ehRespondida = (a: AvaliacaoLinha) => a.status === "respondida" || a.status === "nao_avaliada";
@@ -49,16 +47,10 @@ const ehFinalizada = (a: AvaliacaoLinha) =>
 const dataHora = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
-export function AvaliacoesTable({
-  avaliacoes,
-  abaInicial = "andamento",
-}: {
-  avaliacoes: AvaliacaoLinha[];
-  abaInicial?: Aba;
-}) {
+// Dois cards lado a lado: em andamento (ainda com o gestor) e respondidas.
+// Uma busca só filtra os dois.
+export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }) {
   const [busca, setBusca] = useState("");
-  const [aba, setAba] = useState<Aba>(abaInicial);
-  const [expandida, setExpandida] = useState(false);
 
   const termo = busca.trim().toLowerCase();
   const buscadas = termo
@@ -71,111 +63,177 @@ export function AvaliacoesTable({
     : avaliacoes;
   const emAndamento = buscadas.filter((a) => !ehRespondida(a));
   const respondidas = buscadas.filter(ehRespondida);
-  const filtradas = aba === "andamento" ? emAndamento : respondidas;
   const finalizadas = respondidas.filter(ehFinalizada);
-
-  // Até 5 linhas a tabela já cabe inteira, sem rolagem.
-  const podeExpandir = filtradas.length > 5;
-
-  const abas: { chave: Aba; rotulo: string; total: number }[] = [
-    { chave: "andamento", rotulo: "Em andamento", total: emAndamento.length },
-    { chave: "respondidas", rotulo: "Respondidas", total: respondidas.length },
-  ];
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <div role="tablist" className="flex overflow-hidden rounded-lg border border-primary-border text-xs font-medium">
-          {abas.map((opcao) => (
-            <button
-              key={opcao.chave}
-              type="button"
-              role="tab"
-              aria-selected={aba === opcao.chave}
-              onClick={() => {
-                setAba(opcao.chave);
-                setExpandida(false);
-              }}
-              className={`flex items-center gap-1.5 border-r border-primary-border px-3 py-2 transition-colors last:border-r-0 ${
-                aba === opcao.chave ? "bg-primary text-primary-foreground" : "text-primary hover:bg-primary-soft"
-              }`}
-            >
-              {opcao.rotulo}
-              <span
-                className={`rounded-full px-1.5 text-[10px] tabular-nums ${
-                  aba === opcao.chave ? "bg-white/25" : "bg-primary-soft"
-                }`}
-              >
-                {opcao.total}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
-          <input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome, matrícula ou gestor..."
-            className="w-full rounded-md border border-black/15 py-1.5 pl-9 pr-3 text-sm outline-none focus:border-primary"
-          />
-        </div>
-
-        {/* PDF em massa: um arquivo por avaliação finalizada da lista atual
-            (filtros da página + busca), tudo num .zip. POST porque a lista
-            de ids pode ser grande demais pra URL. */}
-        {aba === "respondidas" && finalizadas.length > 0 && (
-          <form method="post" action="/admin/avaliacoes/pdf" className="ml-auto">
-            <input type="hidden" name="ids" value={finalizadas.map((a) => a.id).join(",")} />
-            <button
-              type="submit"
-              className="flex items-center gap-2 rounded-md border border-primary-border px-3 py-1.5 text-sm text-primary hover:bg-primary-soft"
-            >
-              <FileDown className="h-4 w-4" />
-              Exportar finalizadas em PDF ({finalizadas.length})
-            </button>
-          </form>
-        )}
+      <div className="relative w-full max-w-xs">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar por nome, matrícula ou gestor..."
+          className="w-full rounded-md border border-black/15 py-1.5 pl-9 pr-3 text-sm outline-none focus:border-primary"
+        />
       </div>
 
-      {/* ~5 linhas visíveis; a partir daí rola, com o cabeçalho fixo. Um
-          clique em qualquer lugar da tabela abre ela inteira. */}
-      <div
-        onClick={() => podeExpandir && setExpandida(true)}
-        className={`overflow-auto rounded-lg border border-primary-border ${
-          expandida ? "" : "max-h-[252px]"
-        } ${podeExpandir && !expandida ? "cursor-pointer" : ""}`}
-      >
+      <div className="grid gap-6 xl:grid-cols-2">
+        <CardAvaliacoes
+          titulo="Em andamento"
+          descricao="Aguardando envio ou resposta do gestor"
+          icone={Clock}
+          tomIcone="bg-orange-500"
+          linhas={emAndamento}
+          colunas={["Expira em", "Prazo"]}
+          vazio={termo ? "Nenhum resultado pra essa busca." : "Nenhuma avaliação em andamento."}
+          celulas={(avaliacao) => (
+            <>
+              <td className="whitespace-nowrap px-2.5 py-2 text-zinc-500">
+                {avaliacao.previstaPara
+                  ? `Período em ${new Date(avaliacao.previstaPara + "T00:00:00").toLocaleDateString("pt-BR")}`
+                  : avaliacao.expiraEm
+                    ? dataHora(avaliacao.expiraEm)
+                    : "-"}
+              </td>
+              <td className="whitespace-nowrap px-2.5 py-2">
+                {avaliacao.prazo ? (
+                  <span className={avaliacao.prazo.urgente ? "font-medium text-red-600" : "text-zinc-600"}>
+                    {avaliacao.prazo.texto}
+                  </span>
+                ) : (
+                  <span className="text-zinc-300">-</span>
+                )}
+              </td>
+            </>
+          )}
+        />
+
+        <CardAvaliacoes
+          titulo="Respondidas"
+          descricao="O gestor já respondeu ou informou afastamento"
+          icone={CheckCircle2}
+          tomIcone="bg-green-700"
+          linhas={respondidas}
+          colunas={["Respondida em", "Treinamentos"]}
+          vazio={termo ? "Nenhum resultado pra essa busca." : "Nenhuma avaliação respondida."}
+          acao={
+            // PDF em massa: um arquivo por avaliação finalizada da lista atual
+            // (filtros da página + busca), tudo num .zip. POST porque a lista
+            // de ids pode ser grande demais pra URL.
+            finalizadas.length > 0 && (
+              <form method="post" action="/admin/avaliacoes/pdf" className="shrink-0">
+                <input type="hidden" name="ids" value={finalizadas.map((a) => a.id).join(",")} />
+                <button
+                  type="submit"
+                  title="Exportar finalizadas em PDF"
+                  className="flex items-center gap-1.5 rounded-md border border-primary-border px-2.5 py-1 text-xs text-primary hover:bg-primary-soft"
+                >
+                  <FileDown className="h-3.5 w-3.5" />
+                  PDF das finalizadas ({finalizadas.length})
+                </button>
+              </form>
+            )
+          }
+          celulas={(avaliacao) => (
+            <>
+              <td className="whitespace-nowrap px-2.5 py-2 text-zinc-500">
+                {avaliacao.dataResposta ? dataHora(avaliacao.dataResposta) : "-"}
+              </td>
+              <td className="whitespace-nowrap px-2.5 py-2">
+                {avaliacao.status !== "respondida" ? (
+                  <span className="text-zinc-300">-</span>
+                ) : ehFinalizada(avaliacao) ? (
+                  <span className="flex items-center gap-2">
+                    <span className="flex items-center gap-1 font-medium text-green-700">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {avaliacao.treinamentosIndicados ? "Finalizada" : "Sem indicação"}
+                    </span>
+                    <a
+                      href={`/admin/avaliacoes/pdf?id=${avaliacao.id}`}
+                      title="Baixar PDF desta avaliação"
+                      className="text-primary hover:underline"
+                    >
+                      PDF
+                    </a>
+                  </span>
+                ) : (
+                  <Link
+                    href={`/admin/colaboradores/${avaliacao.colaboradorId}`}
+                    className="text-amber-700 hover:underline"
+                    title="Marcar os treinamentos feitos na página do colaborador"
+                  >
+                    {avaliacao.treinamentosFeitos ?? 0} de {avaliacao.treinamentosIndicados} feitos
+                  </Link>
+                )}
+              </td>
+            </>
+          )}
+        />
+      </div>
+    </div>
+  );
+}
+
+// Um dos dois cards: cabeçalho com ícone e total, e a tabela com ~5 linhas
+// visíveis; o resto rola com o cabeçalho da tabela fixo.
+function CardAvaliacoes({
+  titulo,
+  descricao,
+  icone: Icone,
+  tomIcone,
+  linhas,
+  colunas,
+  celulas,
+  vazio,
+  acao,
+}: {
+  titulo: string;
+  descricao: string;
+  icone: LucideIcon;
+  tomIcone: string;
+  linhas: AvaliacaoLinha[];
+  colunas: [string, string];
+  celulas: (avaliacao: AvaliacaoLinha) => React.ReactNode;
+  vazio: string;
+  acao?: React.ReactNode;
+}) {
+  return (
+    <div className="flex min-w-0 flex-col rounded-xl border border-primary-border bg-white">
+      <div className="flex items-center justify-between gap-3 p-4 pb-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white ${tomIcone}`}>
+            <Icone className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h3 className="flex items-center gap-2 font-semibold leading-tight">
+              {titulo}
+              <span className="rounded-full bg-primary-soft px-2 text-xs font-medium tabular-nums text-primary">
+                {linhas.length}
+              </span>
+            </h3>
+            <p className="truncate text-xs text-zinc-500">{descricao}</p>
+          </div>
+        </div>
+        {acao}
+      </div>
+
+      <div className="mx-3 mb-3 max-h-[300px] overflow-auto rounded-lg border border-primary-border/60">
         <table className="w-full text-left text-xs">
           <thead className="sticky top-0 z-10 bg-white">
             <tr className="border-b-2 border-primary-border bg-primary-soft/40 text-primary">
-              {/* Matrícula e Gestor saem no celular pra Status caber; a busca continua achando por eles. */}
-              <th className="hidden whitespace-nowrap px-2.5 py-2 sm:table-cell">Matrícula</th>
               <th className="px-2.5 py-2">Colaborador</th>
               <th className="whitespace-nowrap px-2.5 py-2">Período</th>
-              <th className="hidden px-2.5 py-2 sm:table-cell">Gestor</th>
               <th className="whitespace-nowrap px-2.5 py-2">Status</th>
-              {aba === "andamento" ? (
-                <>
-                  <th className="px-2.5 py-2">Expira em</th>
-                  <th className="whitespace-nowrap px-2.5 py-2">Prazo</th>
-                </>
-              ) : (
-                <>
-                  <th className="px-2.5 py-2">Respondida em</th>
-                  <th className="whitespace-nowrap px-2.5 py-2">Treinamentos</th>
-                </>
-              )}
+              <th className="whitespace-nowrap px-2.5 py-2">{colunas[0]}</th>
+              <th className="whitespace-nowrap px-2.5 py-2">{colunas[1]}</th>
             </tr>
           </thead>
           <tbody>
-            {filtradas.map((avaliacao) => (
+            {linhas.map((avaliacao) => (
               <tr
                 key={avaliacao.id}
                 className="border-b border-primary-border/40 last:border-b-0 hover:bg-primary-soft/20"
               >
-                <td className="hidden whitespace-nowrap px-2.5 py-2 text-zinc-500 sm:table-cell">{avaliacao.matricula}</td>
                 <td className="px-2.5 py-2">
                   <Link
                     href={`/admin/colaboradores/${avaliacao.colaboradorId}`}
@@ -183,22 +241,24 @@ export function AvaliacoesTable({
                   >
                     {avaliacao.colaboradorNome}
                   </Link>
-                  {avaliacao.cargo && (
-                    <span className="block text-[11px] text-zinc-500">{avaliacao.cargo}</span>
-                  )}
+                  {/* Matrícula, cargo e gestor numa linha só pra caber em meia tela. */}
+                  <span className="block text-[11px] text-zinc-500">
+                    {[avaliacao.matricula, avaliacao.cargo, avaliacao.gestorNome && `Gestor: ${avaliacao.gestorNome}`]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
                 </td>
                 <td className="whitespace-nowrap px-2.5 py-2">{avaliacao.marco} dias</td>
-                <td className="hidden px-2.5 py-2 text-zinc-500 sm:table-cell">{avaliacao.gestorNome}</td>
                 <td className="whitespace-nowrap px-2.5 py-2">
                   <span className={avaliacao.status === "expirada" ? "text-red-600" : ""}>
                     {STATUS_LABEL[avaliacao.status] ?? avaliacao.status}
                   </span>
                   {avaliacao.previstaPara && (
-                    <span className="block text-xs text-zinc-400">ainda não criada</span>
+                    <span className="block text-[11px] text-zinc-400">ainda não criada</span>
                   )}
                   {avaliacao.motivoNaoAvaliada && (
                     <span
-                      className="block text-xs text-zinc-500"
+                      className="block text-[11px] text-zinc-500"
                       title={avaliacao.observacaoNaoAvaliada ?? undefined}
                     >
                       {avaliacao.motivoNaoAvaliada === "desligado" ? "Desligado" : "Afastado"}
@@ -206,85 +266,19 @@ export function AvaliacoesTable({
                     </span>
                   )}
                 </td>
-                {aba === "andamento" ? (
-                  <>
-                    <td className="whitespace-nowrap px-2.5 py-2 text-zinc-500">
-                      {avaliacao.previstaPara
-                        ? `Período em ${new Date(avaliacao.previstaPara + "T00:00:00").toLocaleDateString("pt-BR")}`
-                        : avaliacao.expiraEm
-                          ? dataHora(avaliacao.expiraEm)
-                          : "-"}
-                    </td>
-                    <td className="whitespace-nowrap px-2.5 py-2">
-                      {avaliacao.prazo ? (
-                        <span className={avaliacao.prazo.urgente ? "font-medium text-red-600" : "text-zinc-600"}>
-                          {avaliacao.prazo.texto}
-                        </span>
-                      ) : (
-                        <span className="text-zinc-300">-</span>
-                      )}
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="whitespace-nowrap px-2.5 py-2 text-zinc-500">
-                      {avaliacao.dataResposta ? dataHora(avaliacao.dataResposta) : "-"}
-                    </td>
-                    <td className="whitespace-nowrap px-2.5 py-2">
-                      {avaliacao.status !== "respondida" ? (
-                        <span className="text-zinc-300">-</span>
-                      ) : ehFinalizada(avaliacao) ? (
-                        <span className="flex items-center gap-2">
-                          <span className="flex items-center gap-1 font-medium text-green-700">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            {avaliacao.treinamentosIndicados ? "Finalizada" : "Finalizada (sem indicação)"}
-                          </span>
-                          <a
-                            href={`/admin/avaliacoes/pdf?id=${avaliacao.id}`}
-                            onClick={(e) => e.stopPropagation()}
-                            title="Baixar PDF desta avaliação"
-                            className="text-primary hover:underline"
-                          >
-                            PDF
-                          </a>
-                        </span>
-                      ) : (
-                        <Link
-                          href={`/admin/colaboradores/${avaliacao.colaboradorId}`}
-                          className="text-amber-700 hover:underline"
-                          title="Marcar os treinamentos feitos na página do colaborador"
-                        >
-                          {avaliacao.treinamentosFeitos ?? 0} de {avaliacao.treinamentosIndicados} feitos
-                        </Link>
-                      )}
-                    </td>
-                  </>
-                )}
+                {celulas(avaliacao)}
               </tr>
             ))}
-            {filtradas.length === 0 && (
+            {linhas.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-zinc-500">
-                  {termo
-                    ? "Nenhum resultado pra essa busca."
-                    : aba === "andamento"
-                      ? "Nenhuma avaliação em andamento."
-                      : "Nenhuma avaliação respondida."}
+                <td colSpan={5} className="px-4 py-6 text-center text-zinc-500">
+                  {vazio}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-      {podeExpandir && (
-        <button
-          type="button"
-          onClick={() => setExpandida(!expandida)}
-          className="w-fit text-xs text-primary underline underline-offset-2"
-        >
-          {expandida ? "Recolher" : `Mostrar todas (${filtradas.length})`}
-        </button>
-      )}
     </div>
   );
 }

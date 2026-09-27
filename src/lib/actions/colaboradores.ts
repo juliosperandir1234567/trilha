@@ -8,8 +8,20 @@ import { createClient } from "@/lib/supabase/server";
 import { requireAdmin, requireStaff } from "@/lib/supabase/dal";
 import { lerEstrutura, lerTurno } from "@/lib/turnos";
 
+// Matrícula que já existe mas veio com outra data de início: não é mexida,
+// o admin confere e decide (a data muda de onde os períodos contam).
+export type ConflitoDeData = { matricula: string; nome: string; dataAtual: string; dataPlanilha: string };
+
 export type ImportFormState =
-  | { error?: string; inseridos?: number; ignorados?: number }
+  | {
+      error?: string;
+      inseridos?: number;
+      atualizados?: number;
+      ignorados?: number;
+      // Matrícula que aparece mais de uma vez na mesma planilha (vale a primeira).
+      repetidas?: string[];
+      conflitos?: ConflitoDeData[];
+    }
   | undefined;
 
 function normalizeHeader(header: string) {
@@ -348,20 +360,95 @@ export async function importColaboradores(
     (cargosExistentes ?? []).map((c) => [c.nome.trim().toLowerCase(), c.id])
   );
 
-  const paraInserir = registros.map(({ cargo_nome, ...registro }) => ({
-    ...registro,
-    gestor_id: idPorEmail.get(registro.gestor_email.toLowerCase()) ?? null,
-    cargo_id: cargo_nome ? idPorCargo.get(cargo_nome.toLowerCase()) ?? null : null,
-  }));
-
-  const { error } = await supabase.from("colaboradores").insert(paraInserir);
-
-  if (error) {
+  // A matrícula identifica o colaborador: se ela já existe, é a mesma pessoa
+  // e a trajetória (avaliações já feitas) continua. Só entra cadastro novo
+  // pra matrícula nova.
+  const matriculas = [...new Set(registros.map((r) => r.matricula))];
+  const { data: existentes, error: erroExistentes } = await supabase
+    .from("colaboradores")
+    .select("id, nome, matricula, data_admissao")
+    .in("matricula", matriculas);
+  if (erroExistentes) {
     return { error: "Não foi possível importar os colaboradores." };
+  }
+  const existentePorMatricula = new Map((existentes ?? []).map((c) => [c.matricula as string, c]));
+
+  const vistas = new Set<string>();
+  const repetidas: string[] = [];
+  const conflitos: ConflitoDeData[] = [];
+  const paraInserir = [];
+  const paraAtualizar = [];
+
+  for (const { cargo_nome, ...registro } of registros) {
+    if (vistas.has(registro.matricula)) {
+      if (!repetidas.includes(registro.matricula)) repetidas.push(registro.matricula);
+      continue;
+    }
+    vistas.add(registro.matricula);
+
+    const gestorId = idPorEmail.get(registro.gestor_email.toLowerCase()) ?? null;
+    const cargoId = cargo_nome ? idPorCargo.get(cargo_nome.toLowerCase()) ?? null : null;
+    const existente = existentePorMatricula.get(registro.matricula);
+
+    if (!existente) {
+      paraInserir.push({ ...registro, gestor_id: gestorId, cargo_id: cargoId });
+      continue;
+    }
+
+    if (existente.data_admissao !== registro.data_admissao) {
+      conflitos.push({
+        matricula: registro.matricula,
+        nome: existente.nome,
+        dataAtual: existente.data_admissao,
+        dataPlanilha: registro.data_admissao,
+      });
+      continue;
+    }
+
+    // Mesma pessoa, mesma data: atualiza o cadastro. Coluna opcional vazia
+    // na planilha não apaga o que já estava preenchido.
+    paraAtualizar.push({
+      id: existente.id,
+      campos: {
+        nome: registro.nome,
+        tipo: registro.tipo,
+        gestor_nome: registro.gestor_nome,
+        gestor_email: registro.gestor_email,
+        gestor_id: gestorId,
+        ...(registro.estrutura_macro ? { estrutura_macro: registro.estrutura_macro } : {}),
+        ...(registro.turno ? { turno: registro.turno } : {}),
+        ...(cargoId ? { cargo_id: cargoId } : {}),
+      },
+    });
+  }
+
+  if (paraInserir.length > 0) {
+    const { error } = await supabase.from("colaboradores").insert(paraInserir);
+    if (error) {
+      return { error: "Não foi possível importar os colaboradores." };
+    }
+  }
+
+  for (const { id, campos } of paraAtualizar) {
+    const { error } = await supabase.from("colaboradores").update(campos).eq("id", id);
+    if (error) {
+      return {
+        error: `Os novos foram cadastrados, mas não foi possível atualizar a matrícula ${
+          (existentes ?? []).find((c) => c.id === id)?.matricula
+        }.`,
+      };
+    }
   }
 
   revalidatePath("/admin/colaboradores");
-  return { inseridos: paraInserir.length, ignorados };
+  revalidatePath("/admin");
+  return {
+    inseridos: paraInserir.length,
+    atualizados: paraAtualizar.length,
+    ignorados,
+    repetidas,
+    conflitos,
+  };
 }
 
 export type DeleteColaboradoresFormState = { error?: string } | undefined;

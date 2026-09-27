@@ -70,131 +70,138 @@ export function ColaboradorForm({
           ))}
         </div>
       </fieldset>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="matricula" className="text-sm font-medium">
-            Matrícula do colaborador
-          </label>
-          <input
-            id="matricula"
-            name="matricula"
-            defaultValue={colaborador?.matricula ?? undefined}
-            required
-            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
-          />
+      {/* No desktop, duas linhas: campo curto (matrícula, data, estrutura,
+          turno, cargo) tem largura fixa e o nome/gestor/e-mail ocupam o resto.
+          Em tela menor, `contents` solta os campos na grade de 2 colunas. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:flex lg:flex-col">
+        <div className="contents lg:flex lg:items-end lg:gap-4">
+          <div className="flex flex-col gap-1.5 lg:w-28 lg:shrink-0">
+            <label htmlFor="matricula" className="text-sm font-medium">
+              Matrícula
+            </label>
+            <input
+              id="matricula"
+              name="matricula"
+              defaultValue={colaborador?.matricula ?? undefined}
+              required
+              className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5 lg:min-w-0 lg:flex-1">
+            <label htmlFor="nome" className="text-sm font-medium">
+              Nome do colaborador
+            </label>
+            <input
+              id="nome"
+              name="nome"
+              defaultValue={colaborador?.nome}
+              required
+              className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5 lg:w-40 lg:shrink-0">
+            {/* Um calendário só: é a data de onde os períodos começam a contar. */}
+            <label htmlFor="data_admissao" className="text-sm font-medium">
+              {tipo === "capacitacao" ? "Data de alteração de cargo" : "Data de admissão"}
+            </label>
+            <input
+              id="data_admissao"
+              name="data_admissao"
+              defaultValue={colaborador?.data_admissao}
+              type="date"
+              required
+              className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5 lg:w-32 lg:shrink-0">
+            <label htmlFor="estrutura_macro" className="text-sm font-medium">
+              Estrutura macro
+            </label>
+            {/* Texto livre com sugestão das já usadas; o servidor grava em maiúsculas. */}
+            <input
+              id="estrutura_macro"
+              name="estrutura_macro"
+              list="estruturas-cadastradas"
+              defaultValue={colaborador?.estrutura_macro ?? ""}
+              placeholder="Ex.: UTAG"
+              className="w-full rounded-md border border-black/15 px-3 py-2 text-sm uppercase outline-none focus:border-primary dark:border-white/20"
+            />
+            <datalist id="estruturas-cadastradas">
+              {estruturas.map((estrutura) => (
+                <option key={estrutura} value={estrutura} />
+              ))}
+            </datalist>
+          </div>
+
+          <div className="flex flex-col gap-1.5 lg:w-36 lg:shrink-0">
+            <label htmlFor="turno" className="text-sm font-medium">
+              Turno
+            </label>
+            <select
+              id="turno"
+              name="turno"
+              defaultValue={colaborador?.turno ?? ""}
+              className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+            >
+              <option value="">Não informado</option>
+              {TURNOS.map((turno) => (
+                <option key={turno.valor} value={turno.valor}>
+                  {turno.nome}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="nome" className="text-sm font-medium">
-            Nome do colaborador
-          </label>
-          <input
-            id="nome"
-            name="nome"
-            defaultValue={colaborador?.nome}
-            required
-            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
-          />
-        </div>
+        <div className="contents lg:flex lg:items-end lg:gap-4">
+          <div className="flex flex-col gap-1.5 lg:w-56 lg:shrink-0">
+            <label htmlFor="cargo_id" className="text-sm font-medium">
+              Cargo
+            </label>
+            <select
+              id="cargo_id"
+              name="cargo_id"
+              defaultValue={colaborador?.cargo_id ?? ""}
+              className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+            >
+              <option value="">Sem cargo específico</option>
+              {cargos.map((cargo) => (
+                <option key={cargo.id} value={cargo.id}>
+                  {cargo.nome}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          {/* Um calendário só: é a data de onde os períodos começam a contar. */}
-          <label htmlFor="data_admissao" className="text-sm font-medium">
-            {tipo === "capacitacao" ? "Data de alteração de cargo" : "Data de admissão"}
-          </label>
-          <input
-            id="data_admissao"
-            name="data_admissao"
-            defaultValue={colaborador?.data_admissao}
-            type="date"
-            required
-            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
-          />
-        </div>
+          <div className="flex flex-col gap-1.5 lg:min-w-0 lg:flex-1">
+            <label htmlFor="gestor_nome" className="text-sm font-medium">
+              Nome do gestor
+            </label>
+            <input
+              id="gestor_nome"
+              name="gestor_nome"
+              defaultValue={colaborador?.gestor_nome}
+              required
+              className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
+            />
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="estrutura_macro" className="text-sm font-medium">
-            Estrutura macro
-          </label>
-          {/* Texto livre com sugestão das já usadas; o servidor grava em maiúsculas. */}
-          <input
-            id="estrutura_macro"
-            name="estrutura_macro"
-            list="estruturas-cadastradas"
-            defaultValue={colaborador?.estrutura_macro ?? ""}
-            placeholder="Ex.: UTAG"
-            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm uppercase outline-none focus:border-primary dark:border-white/20"
-          />
-          <datalist id="estruturas-cadastradas">
-            {estruturas.map((estrutura) => (
-              <option key={estrutura} value={estrutura} />
-            ))}
-          </datalist>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="turno" className="text-sm font-medium">
-            Turno
-          </label>
-          <select
-            id="turno"
-            name="turno"
-            defaultValue={colaborador?.turno ?? ""}
-            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
-          >
-            <option value="">Não informado</option>
-            {TURNOS.map((turno) => (
-              <option key={turno.valor} value={turno.valor}>
-                {turno.nome}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="cargo_id" className="text-sm font-medium">
-            Cargo
-          </label>
-          <select
-            id="cargo_id"
-            name="cargo_id"
-            defaultValue={colaborador?.cargo_id ?? ""}
-            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm dark:border-white/20"
-          >
-            <option value="">Sem cargo específico</option>
-            {cargos.map((cargo) => (
-              <option key={cargo.id} value={cargo.id}>
-                {cargo.nome}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="gestor_nome" className="text-sm font-medium">
-            Nome do gestor
-          </label>
-          <input
-            id="gestor_nome"
-            name="gestor_nome"
-            defaultValue={colaborador?.gestor_nome}
-            required
-            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
-          />
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="gestor_email" className="text-sm font-medium">
-            E-mail do gestor
-          </label>
-          <input
-            id="gestor_email"
-            name="gestor_email"
-            defaultValue={colaborador?.gestor_email}
-            type="email"
-            required
-            className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
-          />
+          <div className="flex flex-col gap-1.5 lg:min-w-0 lg:flex-1">
+            <label htmlFor="gestor_email" className="text-sm font-medium">
+              E-mail do gestor
+            </label>
+            <input
+              id="gestor_email"
+              name="gestor_email"
+              defaultValue={colaborador?.gestor_email}
+              type="email"
+              required
+              className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
+            />
+          </div>
         </div>
       </div>
 

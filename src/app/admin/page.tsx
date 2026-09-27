@@ -24,12 +24,9 @@ import { trilhaConcluida, type AvaliacaoDaTrilha } from "@/lib/trilha";
 import {
   SELECT_TREINAMENTOS,
   itensDeTreinamento,
-  treinamentosPendentes,
   type RespostaComIndicacao,
 } from "@/lib/indicacoes";
-import { PERIODOS, PERIODOS_FILTRO } from "@/lib/periodos";
-
-const MARCOS = PERIODOS;
+import { PERIODOS_FILTRO } from "@/lib/periodos";
 
 // Mesmas regras da rotina diária (supabase/functions/avaliacoes-diarias):
 // marcos padrão pra quem não tem cargo e janela de recuperação de marco
@@ -53,18 +50,6 @@ function diferencaDias(deISO: string, ateISO: string): number {
       (24 * 60 * 60 * 1000)
   );
 }
-
-// Um status tem sempre o mesmo nome e a mesma cor em toda a página: card,
-// barras e tabela. Os hex batem com a cor do ícone do card de cada status
-// (green-700, orange-500, blue-600, red-500).
-const STATUS_VISUAL = [
-  { chave: "respondida", label: "Respondidas", cor: "#15803d" },
-  { chave: "enviada", label: "Aguardando resposta", cor: "#f97316" },
-  { chave: "pendente", label: "Não enviadas", cor: "#2563eb" },
-  { chave: "expirada", label: "Expiradas", cor: "#ef4444" },
-  // Gestor informou pelo link que o colaborador está afastado ou desligado.
-  { chave: "nao_avaliada", label: "Não avaliadas", cor: "#71717a" },
-] as const;
 
 // Até quantos dias antes do vencimento uma avaliação em aberto é urgente.
 const DIAS_URGENCIA = 2;
@@ -138,16 +123,6 @@ export default async function AdminOverviewPage({
     comAdmissao(params);
     const query = params.toString();
     return query ? `/admin?${query}` : "/admin";
-  }
-
-  // Clique num pedaço da barra: filtra por aquele status. Na linha de um
-  // período, filtra também pelo período; na linha "Total", por todos.
-  function hrefStatusNoPeriodo(chaveStatus: string, periodo?: number) {
-    const params = new URLSearchParams();
-    if (periodo) params.set("marco", String(periodo));
-    params.set("status", chaveStatus);
-    comAdmissao(params);
-    return `/admin?${params.toString()}`;
   }
 
   function hrefMarco(m: string) {
@@ -298,54 +273,11 @@ export default async function AdminOverviewPage({
   const totalTreinamentosIndicados = respostasDoMarco.length;
   const competenciasIndicadas = new Set(respostasDoMarco.map((r) => r.categoria_final_id)).size;
 
-  // Exportação: por avaliação (colaborador + período), quantas indicações
-  // ainda não saíram em nenhum arquivo. Avaliação com qualquer indicação
-  // pendente fica em "Falta exportar".
-  const exportacaoPorAvaliacao = new Map<
-    string,
-    { pendentes: number; ultimaExportacao: string | null; treinamentosAFazer: number }
-  >();
-  for (const resposta of respostasFiltradas) {
-    const atual = exportacaoPorAvaliacao.get(resposta.avaliacao_id) ?? {
-      pendentes: 0,
-      ultimaExportacao: null,
-      treinamentosAFazer: 0,
-    };
-    atual.treinamentosAFazer += treinamentosPendentes([resposta as unknown as RespostaComIndicacao]);
-    if (!resposta.exportado_em) atual.pendentes++;
-    else if (!atual.ultimaExportacao || resposta.exportado_em > atual.ultimaExportacao) {
-      atual.ultimaExportacao = resposta.exportado_em;
-    }
-    exportacaoPorAvaliacao.set(resposta.avaliacao_id, atual);
-  }
   const indicacoesPendentesExportacao = respostasFiltradas.filter((r) => !r.exportado_em).length;
-  const avaliacoesExportacao = avaliacoesFiltradas
-    .filter((a) => exportacaoPorAvaliacao.has(a.id))
-    .map((a) => {
-      const colaborador = a.colaboradores as unknown as { id: string; nome: string; matricula: string | null } | null;
-      return {
-        id: a.id,
-        colaboradorId: colaborador?.id ?? null,
-        nome: colaborador?.nome ?? "",
-        matricula: colaborador?.matricula ?? null,
-        marco: a.marco,
-        status: a.status,
-        ...exportacaoPorAvaliacao.get(a.id)!,
-      };
-    });
-  const faltaExportar = avaliacoesExportacao.filter((a) => a.pendentes > 0);
-  // Exportada e finalizada (todo treinamento feito) sai da lista: não tem
-  // mais nada a fazer com ela.
-  const jaExportadas = avaliacoesExportacao.filter(
-    (a) => a.pendentes === 0 && !(a.status === "respondida" && a.treinamentosAFazer === 0)
-  );
 
-  const contagemPorCategoria = new Map<string, number>();
   const treinamentosPorCategoria = new Map<string, Map<string, { nome: string; cargo: string | null; total: number }>>();
   for (const resposta of respostasFiltradas) {
     const categoriaId = resposta.categoria_final_id as string;
-    contagemPorCategoria.set(categoriaId, (contagemPorCategoria.get(categoriaId) ?? 0) + 1);
-
     for (const item of itensDeTreinamento(resposta as unknown as RespostaComIndicacao)) {
       if (!item.treinamentoId || !item.nome) continue;
       if (!treinamentosPorCategoria.has(categoriaId)) treinamentosPorCategoria.set(categoriaId, new Map());
@@ -360,12 +292,11 @@ export default async function AdminOverviewPage({
   }
 
   const nomeCategoria = new Map((categorias ?? []).map((c) => [c.id, c.nome]));
-  // Rankings contam colaboradores distintos (não indicações): a mesma pessoa
-  // indicada duas vezes no mesmo treinamento/competência conta uma vez. Cada
-  // linha guarda quem foi indicado, pra abrir a lista ao clicar no número.
+  // As barras contam colaboradores distintos (não indicações): a mesma pessoa
+  // indicada duas vezes no mesmo treinamento conta uma vez. Cada linha guarda
+  // quem foi indicado, pra abrir a lista ao clicar na barra.
   const avaliacaoPorId = new Map(listaBase.map((a) => [a.id, a]));
   const pessoasPorTreinamento = new Map<string, Map<string, PessoaIndicada>>();
-  const pessoasPorCompetencia = new Map<string, Map<string, PessoaIndicada>>();
   function anotarPessoa(mapa: Map<string, Map<string, PessoaIndicada>>, chave: string, avaliacaoId: string) {
     const avaliacao = avaliacaoPorId.get(avaliacaoId);
     const colaborador = avaliacao?.colaboradores as unknown as
@@ -385,7 +316,6 @@ export default async function AdminOverviewPage({
     mapa.set(chave, pessoas);
   }
   for (const resposta of respostasFiltradas) {
-    anotarPessoa(pessoasPorCompetencia, resposta.categoria_final_id as string, resposta.avaliacao_id);
     for (const item of itensDeTreinamento(resposta as unknown as RespostaComIndicacao)) {
       if (item.treinamentoId) anotarPessoa(pessoasPorTreinamento, item.treinamentoId, resposta.avaliacao_id);
     }
@@ -406,24 +336,6 @@ export default async function AdminOverviewPage({
         pessoas: listaDePessoas(pessoasPorTreinamento.get(treinamentoId)),
       }))
     )
-    .sort((a, b) => b.pessoas.length - a.pessoas.length || b.indicacoes - a.indicacoes)
-    .slice(0, 6);
-
-  const rankingCompetencias: LinhaRanking[] = [...pessoasPorCompetencia.entries()]
-    .map(([categoriaId, pessoas]) => ({
-      chave: categoriaId,
-      titulo: nomeCategoria.get(categoriaId) ?? "Competência",
-      detalheTitulo: null,
-      // Treinamentos específicos indicados dentro da competência.
-      subtitulo:
-        [...(treinamentosPorCategoria.get(categoriaId)?.values() ?? [])]
-          .sort((a, b) => b.total - a.total)
-          .map((t) => t.nome)
-          .join(", ") || null,
-      href: hrefCompetencia(categoriaId),
-      indicacoes: contagemPorCategoria.get(categoriaId) ?? 0,
-      pessoas: listaDePessoas(pessoas),
-    }))
     .sort((a, b) => b.pessoas.length - a.pessoas.length || b.indicacoes - a.indicacoes);
 
   // Server Component: roda uma vez por requisição, então ler o relógio aqui
@@ -534,39 +446,6 @@ export default async function AdminOverviewPage({
       ).size
     : colaboradoresAtivosTotal ?? 0;
 
-  const listaComFiltrosDosCards = aplicarFiltrosDosCards(lista);
-  const progressoPorMarco = MARCOS.map((m) => {
-    const doMarco = listaComFiltrosDosCards.filter((a) => a.marco === m);
-    const previstos = previstosVencidosDoMarco(m);
-    return {
-      marco: m,
-      total: doMarco.length + previstos,
-      porStatus: STATUS_VISUAL.map((st) => ({
-        ...st,
-        valor:
-          doMarco.filter((a) => a.status === st.chave).length + (st.chave === "pendente" ? previstos : 0),
-      })),
-    };
-  });
-
-  // Período sem nenhuma avaliação não entra no gráfico (vai aparecendo
-  // conforme surgem avaliações). Com um período escolhido nos botões lá em
-  // cima, o gráfico mostra só ele, mesmo zerado.
-  const periodosNoGrafico = marcoNum
-    ? progressoPorMarco.filter((l) => l.marco === marcoNum)
-    : progressoPorMarco.filter((l) => l.total > 0);
-
-  // Linha "Total" no topo das barras: soma de todos os períodos.
-  const progressoTotal = {
-    total: listaComFiltrosDosCards.length + previstosVencidos.length,
-    porStatus: STATUS_VISUAL.map((st) => ({
-      ...st,
-      valor:
-        listaComFiltrosDosCards.filter((a) => a.status === st.chave).length +
-        (st.chave === "pendente" ? previstosVencidos.length : 0),
-    })),
-  };
-
   // Prazo de resposta (antes ficava no card "Requer atenção", agora é uma
   // coluna da tabela). Só existe pra avaliação enviada ou expirada. Urgente =
   // já expirou ou vence em até DIAS_URGENCIA dias.
@@ -665,9 +544,6 @@ export default async function AdminOverviewPage({
     ...avaliacoesCriadasParaTabela,
   ];
 
-
-  // Competências sem nenhuma indicação ficam recolhidas embaixo do ranking.
-  const categoriasSemIndicacao = (categorias ?? []).filter((c) => !contagemPorCategoria.get(c.id));
 
   // Quantos colaboradores ativos (com os filtros de tipo/datas) já fecharam
   // todos os períodos do cargo — aparece embaixo do card "Colaboradores".
@@ -1016,39 +892,7 @@ export default async function AdminOverviewPage({
 
       <div className="grid gap-6 xl:grid-cols-2">
       <div className="min-w-0">
-        <h2 className="mb-3 font-medium">Status por período{sufixoFiltros}</h2>
-        <div className="flex flex-col gap-2 rounded-lg border border-primary-border p-4">
-          <div className="mb-1 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
-            {STATUS_VISUAL.map((st) => (
-              <LegendaCor key={st.chave} cor={st.cor} label={st.label} />
-            ))}
-            <span className="ml-auto text-zinc-400">Clique numa cor pra filtrar</span>
-          </div>
-          {/* Com um período só, a linha "Total" repetiria a dele. */}
-          {!marcoNum && (
-            <>
-              <BarraStatus
-                rotulo="Total"
-                linha={progressoTotal}
-                destaque
-                hrefSegmento={(chave) => hrefStatusNoPeriodo(chave)}
-              />
-              <div className="my-1 border-t border-primary-border/50" />
-            </>
-          )}
-          {periodosNoGrafico.length === 0 && (
-            <p className="py-2 text-center text-xs text-zinc-500">Nenhuma avaliação nos períodos com esses filtros.</p>
-          )}
-          {periodosNoGrafico.map((linha) => (
-            <BarraStatus
-              key={linha.marco}
-              rotulo={`${linha.marco} dias`}
-              linha={linha}
-              hrefRotulo={hrefMarco(String(linha.marco))}
-              hrefSegmento={(chave) => hrefStatusNoPeriodo(chave, linha.marco)}
-            />
-          ))}
-        </div>
+        <TrajetoriaCard linhas={trajetorias} />
       </div>
 
       <div className="min-w-0">
@@ -1122,8 +966,6 @@ export default async function AdminOverviewPage({
       )}
       </div>
 
-      <TrajetoriaCard linhas={trajetorias} />
-
       <div className="flex min-w-0 flex-col">
         <h2 className="mb-3 flex flex-wrap items-center gap-2 font-medium">
           <span>
@@ -1139,11 +981,7 @@ export default async function AdminOverviewPage({
             </span>
           )}
         </h2>
-        {/* Card "Respondidas" (ou filtro de não avaliadas) abre direto na aba Respondidas. */}
-        <AvaliacoesTable
-          avaliacoes={avaliacoesParaTabela}
-          abaInicial={status === "respondida" || status === "nao_avaliada" ? "respondidas" : "andamento"}
-        />
+        <AvaliacoesTable avaliacoes={avaliacoesParaTabela} />
       </div>
 
       <div id="treinamentos-indicados" className="scroll-mt-4">
@@ -1158,59 +996,10 @@ export default async function AdminOverviewPage({
             <ExportarLink href={hrefExportar()}>Exportar tudo</ExportarLink>
           </div>
         </div>
-        {avaliacoesExportacao.length > 0 && (
-          <div className="mb-4 grid gap-3 sm:grid-cols-2">
-            <ListaExportacao
-              titulo="Falta exportar"
-              itens={faltaExportar}
-              vazio="Tudo já foi exportado."
-              tom="pendente"
-            />
-            <ListaExportacao
-              titulo="Já exportadas"
-              itens={jaExportadas}
-              vazio="Nenhuma. As exportadas e já finalizadas saem desta lista."
-              tom="feito"
-            />
-          </div>
-        )}
-        <div className="grid gap-6 lg:grid-cols-2">
-          <QuadroRanking
-            titulo="Ranking de competências indicadas"
-            descricao={`${respostasFiltradas.length} indicaç${respostasFiltradas.length === 1 ? "ão" : "ões"} de treinamento · quantos colaboradores por competência.`}
-            vazio={
-              (categorias ?? []).length === 0
-                ? "Nenhuma competência cadastrada."
-                : "Nenhuma indicação de treinamento com esses filtros."
-            }
-            linhas={rankingCompetencias}
-          >
-            {categoriasSemIndicacao.length > 0 && (
-              <details className="group/sem px-1 text-xs">
-                <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs text-zinc-500 hover:text-primary">
-                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-open/sem:rotate-90" />
-                  {categoriasSemIndicacao.length} competência{categoriasSemIndicacao.length === 1 ? "" : "s"} sem
-                  indicação
-                </summary>
-                <ul className="mt-2 flex flex-col gap-1 pl-5">
-                  {categoriasSemIndicacao.map((categoria) => (
-                    <li key={categoria.id}>
-                      <Link href={hrefCompetencia(categoria.id)} className="text-zinc-500 hover:text-primary">
-                        {categoria.nome}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-          </QuadroRanking>
-          <QuadroRanking
-            titulo="Ranking de treinamentos indicados"
-            descricao="Quantos colaboradores foram indicados pra cada treinamento."
-            vazio="Nenhum treinamento indicado ainda."
-            linhas={rankingTreinamentos}
-          />
-        </div>
+        <BarrasTreinamentos
+          linhas={rankingTreinamentos}
+          vazio="Nenhum treinamento indicado com esses filtros."
+        />
       </div>
 
 
@@ -1235,231 +1024,82 @@ type LinhaRanking = {
   pessoas: PessoaIndicada[];
 };
 
-// Quadro de ranking (competências ou treinamentos): posição, nome, subtítulo
-// e quantos colaboradores; clicar na linha abre quem foi indicado.
-function QuadroRanking({
-  titulo,
-  descricao,
-  vazio,
-  linhas,
-  children,
-}: {
-  titulo: string;
-  descricao: string;
-  vazio: string;
-  linhas: LinhaRanking[];
-  children?: React.ReactNode;
-}) {
+// Gráfico de barras horizontais: uma barra por treinamento, do tamanho de
+// quantos colaboradores foram indicados. Clicar na linha abre quem foi.
+function BarrasTreinamentos({ linhas, vazio }: { linhas: LinhaRanking[]; vazio: string }) {
+  const maior = Math.max(1, ...linhas.map((l) => l.pessoas.length));
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-primary-soft/40 p-4">
+    <div className="flex flex-col gap-3 rounded-xl border border-primary-border bg-white p-4">
       <div>
-        <h3 className="text-sm font-medium">{titulo}</h3>
-        <p className="text-xs text-zinc-500">{descricao}</p>
+        <h3 className="text-sm font-medium">Colaboradores por treinamento</h3>
+        <p className="text-xs text-zinc-500">
+          {linhas.length} treinamento{linhas.length === 1 ? "" : "s"} indicado{linhas.length === 1 ? "" : "s"} ·
+          clique numa barra pra ver quem foi indicado.
+        </p>
       </div>
       {linhas.length === 0 ? (
-        <p className="text-xs text-zinc-500">{vazio}</p>
+        <p className="py-2 text-xs text-zinc-500">{vazio}</p>
       ) : (
-        <ol className="flex flex-col divide-y divide-primary-border/50 rounded-md bg-white">
-          {linhas.map((linha, i) => (
-            <li key={linha.chave}>
-              <details className="group">
-                <summary className="flex cursor-pointer list-none items-center gap-3 px-3 py-2.5 hover:bg-primary-soft/30">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-soft text-xs font-semibold text-primary">
-                    {i + 1}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-zinc-900">
-                      {linha.titulo}
-                      {linha.detalheTitulo && (
-                        <span className="font-normal text-zinc-400"> · {linha.detalheTitulo}</span>
+        <ol className="flex flex-col gap-1">
+          {linhas.map((linha) => {
+            const qtd = linha.pessoas.length;
+            return (
+              <li key={linha.chave}>
+                <details className="group">
+                  <summary
+                    className="grid cursor-pointer list-none grid-cols-[minmax(0,14rem)_1fr_auto] items-center gap-3 rounded-md px-2 py-1.5 hover:bg-primary-soft/30 sm:grid-cols-[minmax(0,18rem)_1fr_auto]"
+                    title={`${linha.titulo}: ${qtd} ${qtd === 1 ? "colaborador" : "colaboradores"}`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-medium text-zinc-900">
+                        {linha.titulo}
+                        {linha.detalheTitulo && (
+                          <span className="font-normal text-zinc-400"> · {linha.detalheTitulo}</span>
+                        )}
+                      </span>
+                      {linha.subtitulo && (
+                        <span className="block truncate text-[11px] text-zinc-500">{linha.subtitulo}</span>
                       )}
                     </span>
-                    {linha.subtitulo && (
-                      <span className="block truncate text-xs text-zinc-500">{linha.subtitulo}</span>
-                    )}
-                  </span>
-                  <span className="shrink-0 text-right leading-tight" title="Ver quem foi indicado">
-                    <span className="block text-base font-bold tabular-nums text-primary underline-offset-2 group-hover:underline">
-                      {linha.pessoas.length}
+                    <span className="h-3 rounded-r bg-primary-soft/40">
+                      <span
+                        className="block h-full rounded-r bg-primary transition-opacity group-hover:opacity-80"
+                        style={{ width: `${(qtd / maior) * 100}%` }}
+                      />
                     </span>
-                    <span className="text-[11px] text-zinc-500">
-                      {linha.pessoas.length === 1 ? "colaborador" : "colaboradores"}
+                    <span className="flex items-center gap-1 text-sm font-semibold tabular-nums text-zinc-900">
+                      {qtd}
+                      <ChevronRight className="h-4 w-4 text-zinc-400 transition-transform group-open:rotate-90" />
                     </span>
-                  </span>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400 transition-transform group-open:rotate-90" />
-                </summary>
-                <div className="flex flex-col gap-1 border-t border-primary-border/40 bg-primary-soft/20 px-3 py-2 pl-12 text-xs">
-                  <ul className="flex flex-col gap-1">
-                    {linha.pessoas.map((p) => (
-                      <li key={p.id} className="flex items-center justify-between gap-3">
-                        <Link
-                          href={`/admin/colaboradores/${p.id}`}
-                          className="min-w-0 truncate text-primary underline-offset-2 hover:underline"
-                        >
-                          {p.matricula && <span className="mr-1.5 text-zinc-500">{p.matricula}</span>}
-                          {p.nome}
-                        </Link>
-                        <span className="shrink-0 text-zinc-500">
-                          {[...p.periodos].sort((a, b) => a - b).map((m) => `${m} dias`).join(", ")}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link href={linha.href} className="mt-1 w-fit text-zinc-500 underline-offset-2 hover:text-primary hover:underline">
-                    Ver competência →
-                  </Link>
-                </div>
-              </details>
-            </li>
-          ))}
+                  </summary>
+                  <div className="mb-1 ml-2 flex flex-col gap-1 rounded-md bg-primary-soft/20 px-3 py-2 text-xs">
+                    <ul className="flex flex-col gap-1">
+                      {linha.pessoas.map((p) => (
+                        <li key={p.id} className="flex items-center justify-between gap-3">
+                          <Link
+                            href={`/admin/colaboradores/${p.id}`}
+                            className="min-w-0 truncate text-primary underline-offset-2 hover:underline"
+                          >
+                            {p.matricula && <span className="mr-1.5 text-zinc-500">{p.matricula}</span>}
+                            {p.nome}
+                          </Link>
+                          <span className="shrink-0 text-zinc-500">
+                            {[...p.periodos].sort((a, b) => a - b).map((m) => `${m} dias`).join(", ")}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link href={linha.href} className="mt-1 w-fit text-zinc-500 underline-offset-2 hover:text-primary hover:underline">
+                      Ver competência →
+                    </Link>
+                  </div>
+                </details>
+              </li>
+            );
+          })}
         </ol>
       )}
-      {children}
     </div>
-  );
-}
-
-// Uma linha do gráfico: barra dividida por status, com a porcentagem escrita
-// dentro de cada pedaço (só quando o pedaço é largo o bastante pro texto).
-// O nome do período filtra pelo período; cada pedaço filtra pelo status.
-function BarraStatus({
-  rotulo,
-  linha,
-  hrefRotulo,
-  hrefSegmento,
-  destaque,
-}: {
-  rotulo: string;
-  linha: { total: number; porStatus: readonly { chave: string; label: string; cor: string; valor: number }[] };
-  hrefRotulo?: string;
-  hrefSegmento?: (chaveStatus: string) => string;
-  destaque?: boolean;
-}) {
-  const pct = (n: number) => (linha.total ? (n / linha.total) * 100 : 0);
-  const visiveis = linha.porStatus.filter((st) => st.valor > 0);
-  const classeRotulo = `w-16 shrink-0 text-[13px] ${
-    destaque ? "font-semibold text-zinc-900" : "text-primary underline-offset-2 hover:underline"
-  }`;
-
-  return (
-    <div className="flex items-center gap-3 rounded-md px-1 py-0.5">
-      {hrefRotulo ? (
-        <Link href={hrefRotulo} className={classeRotulo}>
-          {rotulo}
-        </Link>
-      ) : (
-        <span className={classeRotulo}>{rotulo}</span>
-      )}
-      <div className="flex h-6 flex-1 overflow-hidden rounded-full bg-zinc-100">
-        {visiveis.map((st, i) => {
-          const estilo = {
-            width: `${pct(st.valor)}%`,
-            background: st.cor,
-            borderRight: i < visiveis.length - 1 ? "2px solid #fff" : undefined,
-          };
-          const classe =
-            "flex items-center justify-center overflow-hidden text-[11px] font-semibold text-white transition-[filter] hover:brightness-110";
-          // Pedaço estreito corta o número no celular: entre 8% e 15% ele só
-          // aparece a partir de sm (o valor fica no title).
-          const texto = pct(st.valor) >= 8 && (
-            <span className={pct(st.valor) < 15 ? "hidden sm:inline" : undefined}>
-              {Math.round(pct(st.valor))}%
-            </span>
-          );
-          return hrefSegmento ? (
-            <Link
-              key={st.chave}
-              href={hrefSegmento(st.chave)}
-              title={`${st.label}: ${st.valor} — clique pra filtrar`}
-              className={classe}
-              style={estilo}
-            >
-              {texto}
-            </Link>
-          ) : (
-            <div key={st.chave} title={`${st.label}: ${st.valor}`} className={classe} style={estilo}>
-              {texto}
-            </div>
-          );
-        })}
-      </div>
-      <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-zinc-500">{linha.total} total</span>
-    </div>
-  );
-}
-
-// Uma das duas metades da exportação: cada linha é uma avaliação (pessoa +
-// período) com indicação de treinamento.
-function ListaExportacao({
-  titulo,
-  itens,
-  vazio,
-  tom,
-}: {
-  titulo: string;
-  itens: {
-    id: string;
-    colaboradorId: string | null;
-    nome: string;
-    matricula: string | null;
-    marco: number;
-    pendentes: number;
-    ultimaExportacao: string | null;
-  }[];
-  vazio: string;
-  tom: "pendente" | "feito";
-}) {
-  const Icone = tom === "pendente" ? Clock : CheckCircle2;
-  return (
-    <div
-      className={`flex flex-col rounded-lg border ${
-        tom === "pendente" ? "border-orange-200 bg-orange-50/50" : "border-primary-border bg-primary-soft/20"
-      }`}
-    >
-      <h3
-        className={`flex items-center gap-1.5 px-3 pt-2 text-xs font-semibold uppercase tracking-wide ${
-          tom === "pendente" ? "text-orange-700" : "text-primary"
-        }`}
-      >
-        <Icone className="h-3.5 w-3.5" />
-        {titulo} ({itens.length})
-      </h3>
-      {itens.length === 0 ? (
-        <p className="px-3 py-2 text-xs text-zinc-500">{vazio}</p>
-      ) : (
-        <ul className="flex max-h-[180px] flex-col overflow-y-auto px-3 py-1.5">
-          {itens.map((item) => (
-            <li key={item.id} className="flex items-center justify-between gap-3 py-1 text-xs">
-              <span className="min-w-0 truncate">
-                {item.matricula && <span className="mr-1.5 text-zinc-500">{item.matricula}</span>}
-                <Link
-                  href={`/admin/colaboradores/${item.colaboradorId}`}
-                  className="font-medium text-zinc-900 hover:underline"
-                >
-                  {item.nome}
-                </Link>
-                <span className="text-zinc-500"> · {item.marco} dias</span>
-              </span>
-              <span className="shrink-0 text-[11px] text-zinc-500">
-                {tom === "pendente"
-                  ? `${item.pendentes} indicaç${item.pendentes === 1 ? "ão" : "ões"}`
-                  : item.ultimaExportacao &&
-                    `em ${new Date(item.ultimaExportacao).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function LegendaCor({ cor, label }: { cor: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="h-2.5 w-2.5 rounded-full" style={{ background: cor }} />
-      {label}
-    </span>
   );
 }
 
