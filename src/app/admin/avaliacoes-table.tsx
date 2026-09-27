@@ -44,6 +44,8 @@ const ehRespondida = (a: AvaliacaoLinha) => a.status === "respondida" || a.statu
 const ehFinalizada = (a: AvaliacaoLinha) =>
   a.status === "respondida" && (a.treinamentosFeitos ?? 0) >= (a.treinamentosIndicados ?? 0);
 
+type FiltroRespondidas = "pendentes" | "finalizadas";
+
 const dataHora = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
@@ -51,6 +53,7 @@ const dataHora = (iso: string) =>
 // Uma busca só filtra os dois.
 export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }) {
   const [busca, setBusca] = useState("");
+  const [filtroRespondidas, setFiltroRespondidas] = useState<FiltroRespondidas>("pendentes");
 
   const termo = busca.trim().toLowerCase();
   const buscadas = termo
@@ -64,6 +67,11 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
   const emAndamento = buscadas.filter((a) => !ehRespondida(a));
   const respondidas = buscadas.filter(ehRespondida);
   const finalizadas = respondidas.filter(ehFinalizada);
+  // "Respondidas" se divide em quem ainda tem treinamento a fazer (pede ação)
+  // e quem já encerrou: finalizada ou não avaliada (afastado/desligado).
+  const comTreinamentoPendente = respondidas.filter((a) => a.status === "respondida" && !ehFinalizada(a));
+  const encerradas = respondidas.filter((a) => !comTreinamentoPendente.includes(a));
+  const respondidasVisiveis = filtroRespondidas === "pendentes" ? comTreinamentoPendente : encerradas;
 
   return (
     <div className="flex flex-col gap-3">
@@ -113,13 +121,50 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
           descricao="O gestor já respondeu ou informou afastamento"
           icone={CheckCircle2}
           tomIcone="bg-green-700"
-          linhas={respondidas}
+          linhas={respondidasVisiveis}
+          total={respondidas.length}
           colunas={["Respondida em", "Treinamentos"]}
-          vazio={termo ? "Nenhum resultado pra essa busca." : "Nenhuma avaliação respondida."}
+          vazio={
+            termo
+              ? "Nenhum resultado pra essa busca."
+              : filtroRespondidas === "pendentes"
+                ? "Nenhum treinamento pendente."
+                : "Nenhuma avaliação finalizada."
+          }
+          filtro={
+            <div role="tablist" className="flex w-fit overflow-hidden rounded-lg border border-primary-border text-xs font-medium">
+              {(
+                [
+                  { chave: "pendentes", rotulo: "Treinamento pendente", total: comTreinamentoPendente.length },
+                  { chave: "finalizadas", rotulo: "Finalizadas", total: encerradas.length },
+                ] as const
+              ).map((opcao) => {
+                const ativo = filtroRespondidas === opcao.chave;
+                return (
+                  <button
+                    key={opcao.chave}
+                    type="button"
+                    role="tab"
+                    aria-selected={ativo}
+                    onClick={() => setFiltroRespondidas(opcao.chave)}
+                    className={`flex items-center gap-1.5 border-r border-primary-border px-3 py-1.5 transition-colors last:border-r-0 ${
+                      ativo ? "bg-primary text-primary-foreground" : "text-primary hover:bg-primary-soft"
+                    }`}
+                  >
+                    {opcao.rotulo}
+                    <span className={`rounded-full px-1.5 text-[10px] tabular-nums ${ativo ? "bg-white/25" : "bg-primary-soft"}`}>
+                      {opcao.total}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          }
           acao={
             // PDF em massa: um arquivo por avaliação finalizada da lista atual
             // (filtros da página + busca), tudo num .zip. POST porque a lista
-            // de ids pode ser grande demais pra URL.
+            // de ids pode ser grande demais pra URL. Só na aba Finalizadas.
+            filtroRespondidas === "finalizadas" &&
             finalizadas.length > 0 && (
               <form method="post" action="/admin/avaliacoes/pdf" className="shrink-0">
                 <input type="hidden" name="ids" value={finalizadas.map((a) => a.id).join(",")} />
@@ -186,6 +231,8 @@ function CardAvaliacoes({
   celulas,
   vazio,
   acao,
+  filtro,
+  total,
 }: {
   titulo: string;
   descricao: string;
@@ -196,6 +243,10 @@ function CardAvaliacoes({
   celulas: (avaliacao: AvaliacaoLinha) => React.ReactNode;
   vazio: string;
   acao?: React.ReactNode;
+  // Abas logo abaixo do cabeçalho (ex.: pendentes / finalizadas).
+  filtro?: React.ReactNode;
+  // Total do título quando a tabela mostra só parte das linhas.
+  total?: number;
 }) {
   return (
     <div className="flex min-w-0 flex-col rounded-xl border border-primary-border bg-white">
@@ -208,7 +259,7 @@ function CardAvaliacoes({
             <h3 className="flex items-center gap-2 font-semibold leading-tight">
               {titulo}
               <span className="rounded-full bg-primary-soft px-2 text-xs font-medium tabular-nums text-primary">
-                {linhas.length}
+                {total ?? linhas.length}
               </span>
             </h3>
             <p className="truncate text-xs text-zinc-500">{descricao}</p>
@@ -216,6 +267,7 @@ function CardAvaliacoes({
         </div>
         {acao}
       </div>
+      {filtro && <div className="px-4 pb-3">{filtro}</div>}
 
       <div className="mx-3 mb-3 max-h-[300px] overflow-auto rounded-lg border border-primary-border/60">
         <table className="w-full text-left text-xs">

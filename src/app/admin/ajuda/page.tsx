@@ -105,7 +105,7 @@ const SECOES = [
             (&quot;Marcar como feito&quot;, ou &quot;Marcar todos&quot;). Sem indicação de
             treinamento, a avaliação já fica finalizada ao ser respondida. Avaliação
             finalizada tem PDF: um por vez na página do colaborador, ou em massa na Visão
-            geral (card <strong>Respondidas</strong> → botão &quot;PDF das finalizadas&quot;,
+            geral (card <strong>Respondidas</strong> → aba <strong>Finalizadas</strong> → botão &quot;PDF das finalizadas&quot;,
             que baixa um .zip com um arquivo por avaliação, nomeado Código-Nome-Avaliação
             X dias-data da resposta).
           </li>
@@ -352,7 +352,8 @@ const SECOES = [
             <li>
               <strong>Avaliações</strong>: dois cards lado a lado — <strong>Em andamento</strong>{" "}
               (com expiração e prazo; urgente em vermelho) e <strong>Respondidas</strong> (com
-              data da resposta, treinamentos feitos e PDF). Uma busca só (nome, matrícula ou
+              data da resposta e treinamentos feitos; abas <strong>Treinamento pendente</strong>, que
+              abre primeiro, e <strong>Finalizadas</strong>, com o PDF). Uma busca só (nome, matrícula ou
               gestor) filtra os dois.
             </li>
             <li>
