@@ -986,20 +986,20 @@ export default async function AdminOverviewPage({
       </div>
 
       <div id="treinamentos-indicados" className="scroll-mt-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-medium">Treinamentos indicados{sufixoFiltros}</h2>
-          <div className="flex flex-wrap gap-2">
-            {indicacoesPendentesExportacao > 0 && (
-              <ExportarLink href={hrefExportar(true)} destaque>
-                Exportar só as novas ({indicacoesPendentesExportacao})
-              </ExportarLink>
-            )}
-            <ExportarLink href={hrefExportar()}>Exportar tudo</ExportarLink>
-          </div>
-        </div>
         <BarrasTreinamentos
+          titulo={`Treinamentos indicados${sufixoFiltros}`}
           linhas={rankingTreinamentos}
           vazio="Nenhum treinamento indicado com esses filtros."
+          acao={
+            <div className="flex shrink-0 flex-wrap justify-end gap-2">
+              {indicacoesPendentesExportacao > 0 && (
+                <ExportarLink href={hrefExportar(true)} destaque>
+                  Exportar só as novas ({indicacoesPendentesExportacao})
+                </ExportarLink>
+              )}
+              <ExportarLink href={hrefExportar()}>Exportar tudo</ExportarLink>
+            </div>
+          }
         />
       </div>
 
@@ -1027,16 +1027,38 @@ type LinhaRanking = {
 
 // Gráfico de barras horizontais: uma barra por treinamento, do tamanho de
 // quantos colaboradores foram indicados. Clicar na linha abre quem foi.
-function BarrasTreinamentos({ linhas, vazio }: { linhas: LinhaRanking[]; vazio: string }) {
+function BarrasTreinamentos({
+  titulo,
+  linhas,
+  vazio,
+  acao,
+}: {
+  titulo: string;
+  linhas: LinhaRanking[];
+  vazio: string;
+  acao?: React.ReactNode;
+}) {
   const maior = Math.max(1, ...linhas.map((l) => l.pessoas.length));
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-primary-border bg-white p-4">
-      <div>
-        <h3 className="text-sm font-medium">Colaboradores por treinamento</h3>
-        <p className="text-xs text-zinc-500">
-          {linhas.length} treinamento{linhas.length === 1 ? "" : "s"} indicado{linhas.length === 1 ? "" : "s"} ·
-          clique numa barra pra ver quem foi indicado.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <GraduationCap className="h-5 w-5" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 font-semibold leading-tight">
+              {titulo}
+              <span className="rounded-full bg-primary-soft px-2 text-xs font-medium tabular-nums text-primary">
+                {linhas.length}
+              </span>
+            </h2>
+            <p className="truncate text-xs text-zinc-500">
+              Colaboradores indicados por treinamento · clique numa barra pra ver quem são
+            </p>
+          </div>
+        </div>
+        {acao}
       </div>
       {linhas.length === 0 ? (
         <p className="py-2 text-xs text-zinc-500">{vazio}</p>

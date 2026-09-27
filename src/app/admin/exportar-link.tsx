@@ -20,13 +20,13 @@ export function ExportarLink({
     <a
       href={href}
       onClick={() => setTimeout(() => router.refresh(), 2000)}
-      className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm ${
+      className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs ${
         destaque
           ? "bg-primary font-medium text-primary-foreground hover:bg-primary-hover"
           : "border border-primary-border text-primary hover:bg-primary-soft"
       }`}
     >
-      <Download className="h-4 w-4" />
+      <Download className="h-3.5 w-3.5" />
       {children}
     </a>
   );
