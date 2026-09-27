@@ -967,22 +967,8 @@ export default async function AdminOverviewPage({
       )}
       </div>
 
-      <div className="flex min-w-0 flex-col">
-        <h2 className="mb-3 flex flex-wrap items-center gap-2 font-medium">
-          <span>
-            Avaliações{marco ? ` de ${marco} dias` : ""}
-            {status && STATUS_FILTRO_LABEL[status] ? ` — ${STATUS_FILTRO_LABEL[status]}` : ""}
-          </span>
-          {totalUrgentes > 0 && (
-            <span
-              title={`Expiradas ou vencendo em até ${DIAS_URGENCIA} dias`}
-              className="rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-medium text-white"
-            >
-              {totalUrgentes} urgente{totalUrgentes === 1 ? "" : "s"}
-            </span>
-          )}
-        </h2>
-        <AvaliacoesTable avaliacoes={avaliacoesParaTabela} />
+      <div className="min-w-0">
+        <AvaliacoesTable avaliacoes={avaliacoesParaTabela} urgentes={totalUrgentes} diasUrgencia={DIAS_URGENCIA} />
       </div>
 
       <div id="treinamentos-indicados" className="scroll-mt-4">
@@ -1063,7 +1049,7 @@ function BarrasTreinamentos({
       {linhas.length === 0 ? (
         <p className="py-2 text-xs text-zinc-500">{vazio}</p>
       ) : (
-        <ol className="flex flex-col gap-1">
+        <ol className="flex max-h-[300px] flex-col gap-1 overflow-y-auto pr-1">
           {linhas.map((linha) => {
             const qtd = linha.pessoas.length;
             return (

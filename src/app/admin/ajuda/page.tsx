@@ -355,8 +355,8 @@ const SECOES = [
               <strong>Avaliações</strong>: dois cards lado a lado — <strong>Em andamento</strong>{" "}
               (com expiração e prazo; urgente em vermelho) e <strong>Respondidas</strong> (com
               data da resposta e treinamentos feitos; abas <strong>Treinamento pendente</strong>, que
-              abre primeiro, e <strong>Finalizadas</strong>, com o PDF). Uma busca só (nome, matrícula ou
-              gestor) filtra os dois.
+              abre primeiro, e <strong>Finalizadas</strong>, com o PDF). Cada card tem uma lista de cargo ao lado do
+              título, e o que não cabe rola dentro do card.
             </li>
             <li>
               <strong>Treinamentos indicados</strong>: barras com quantos colaboradores foram
