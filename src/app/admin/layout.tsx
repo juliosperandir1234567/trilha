@@ -4,6 +4,7 @@ import { requireStaff } from "@/lib/supabase/dal";
 import { createClient } from "@/lib/supabase/server";
 import { logout } from "@/lib/actions/auth";
 import { AdminNav } from "./admin-nav";
+import { VEU_MENU } from "@/lib/menu";
 
 export default async function AdminLayout({
   children,
@@ -14,13 +15,20 @@ export default async function AdminLayout({
   const supabase = await createClient();
   const { data: config } = await supabase
     .from("configuracoes_sistema")
-    .select("logo_usina_url")
+    .select("logo_usina_url, imagem_menu_url")
     .eq("id", 1)
     .single();
 
   return (
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
-      <aside className="flex flex-row gap-1 overflow-x-auto bg-sidebar-bg p-4 text-sidebar-fg md:w-56 md:flex-col md:overflow-visible">
+      <aside
+        className="flex flex-row gap-1 overflow-x-auto bg-sidebar-bg bg-cover bg-center p-4 text-sidebar-fg md:w-56 md:flex-col md:overflow-visible"
+        style={
+          config?.imagem_menu_url
+            ? { backgroundImage: `${VEU_MENU}, url("${config.imagem_menu_url}")` }
+            : undefined
+        }
+      >
         <div className="mb-4 hidden items-center gap-2 md:flex">
           {config?.logo_usina_url ? (
             <Image

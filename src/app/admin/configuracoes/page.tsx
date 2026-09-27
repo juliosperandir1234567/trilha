@@ -5,7 +5,7 @@ export default async function ConfiguracoesPage() {
   const supabase = await createClient();
   const { data: config } = await supabase
     .from("configuracoes_sistema")
-    .select("imagem_login_url, logo_usina_url, email_remetente, nome_remetente, validade_link_horas")
+    .select("imagem_login_url, logo_usina_url, imagem_menu_url, email_remetente, nome_remetente, validade_link_horas")
     .eq("id", 1)
     .single();
 
@@ -17,6 +17,7 @@ export default async function ConfiguracoesPage() {
           config ?? {
             imagem_login_url: null,
             logo_usina_url: null,
+            imagem_menu_url: null,
             email_remetente: null,
             nome_remetente: null,
             validade_link_horas: 120,

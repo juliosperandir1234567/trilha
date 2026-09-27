@@ -3,10 +3,12 @@
 import { useActionState } from "react";
 import { Save } from "lucide-react";
 import { updateConfiguracoes } from "@/lib/actions/configuracoes";
+import { VEU_MENU } from "@/lib/menu";
 
 type Config = {
   imagem_login_url: string | null;
   logo_usina_url: string | null;
+  imagem_menu_url: string | null;
   email_remetente: string | null;
   nome_remetente: string | null;
   validade_link_horas: number;
@@ -37,6 +39,36 @@ export function ConfiguracoesForm({ config }: { config: Config }) {
           className="block text-sm text-zinc-500 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary-hover"
         />
         <p className="text-xs text-zinc-500">Aparece no menu do painel admin e na tela de login.</p>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label htmlFor="imagem_menu" className="text-sm font-medium">
+          Imagem de fundo do menu lateral
+        </label>
+        {config.imagem_menu_url && (
+          <div className="flex items-end gap-3">
+            {/* Prévia com o mesmo véu verde que o menu usa. */}
+            <div
+              className="h-28 w-16 rounded-md border border-primary-border bg-cover bg-center"
+              style={{ backgroundImage: `${VEU_MENU}, url("${config.imagem_menu_url}")` }}
+            />
+            <label className="flex items-center gap-1.5 text-xs text-zinc-600">
+              <input type="checkbox" name="remover_imagem_menu" className="h-3.5 w-3.5 accent-primary" />
+              Remover imagem (volta ao verde liso)
+            </label>
+          </div>
+        )}
+        <input
+          id="imagem_menu"
+          name="imagem_menu"
+          type="file"
+          accept="image/*"
+          className="block text-sm text-zinc-500 file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary-hover"
+        />
+        <p className="text-xs text-zinc-500">
+          Fica atrás dos itens do menu, com um tom verde por cima pra o texto continuar legível. Prefira
+          imagem em pé (vertical).
+        </p>
       </div>
 
       <div className="flex flex-col gap-1">

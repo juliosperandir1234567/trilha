@@ -10,7 +10,7 @@ export type ConfigFormState = { error?: string; success?: boolean } | undefined;
 async function enviarImagem(
   supabase: SupabaseClient,
   arquivo: File,
-  nomeBase: "login" | "logo"
+  nomeBase: "login" | "logo" | "menu"
 ): Promise<string | { error: string }> {
   const extensao = arquivo.name.split(".").pop() ?? "png";
   const caminho = `${nomeBase}.${extensao}`;
@@ -39,6 +39,8 @@ export async function updateConfiguracoes(
   const validadeDias = Number(formData.get("validade_link_dias") ?? 5);
   const imagem = formData.get("imagem_login") as File | null;
   const logo = formData.get("logo_usina") as File | null;
+  const imagemMenu = formData.get("imagem_menu") as File | null;
+  const removerImagemMenu = formData.get("remover_imagem_menu") === "on";
 
   const atualizacoes: Record<string, unknown> = {
     email_remetente: emailRemetente || null,
@@ -57,6 +59,14 @@ export async function updateConfiguracoes(
     const resultado = await enviarImagem(supabase, logo, "logo");
     if (typeof resultado === "object") return resultado;
     atualizacoes.logo_usina_url = resultado;
+  }
+
+  if (imagemMenu && imagemMenu.size > 0) {
+    const resultado = await enviarImagem(supabase, imagemMenu, "menu");
+    if (typeof resultado === "object") return resultado;
+    atualizacoes.imagem_menu_url = resultado;
+  } else if (removerImagemMenu) {
+    atualizacoes.imagem_menu_url = null;
   }
 
   const { error } = await supabase.from("configuracoes_sistema").update(atualizacoes).eq("id", 1);
