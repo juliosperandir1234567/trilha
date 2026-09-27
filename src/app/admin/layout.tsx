@@ -22,7 +22,7 @@ export default async function AdminLayout({
   return (
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
       <aside
-        className="flex flex-row gap-1 overflow-x-auto bg-sidebar-bg bg-cover bg-center p-4 text-sidebar-fg md:w-56 md:flex-col md:overflow-visible"
+        className="flex flex-row gap-1 overflow-x-auto bg-sidebar-bg bg-cover bg-center p-4 text-sidebar-fg md:sticky md:top-0 md:h-screen md:w-56 md:shrink-0 md:flex-col md:self-start md:overflow-y-auto"
         style={
           config?.imagem_menu_url
             ? { backgroundImage: `${VEU_MENU}, url("${config.imagem_menu_url}")`, textShadow: SOMBRA_TEXTO_MENU }
