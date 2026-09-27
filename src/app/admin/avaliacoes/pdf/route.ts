@@ -11,7 +11,7 @@ import {
 
 // Só avaliação finalizada vira PDF: respondida e com todos os treinamentos
 // indicados marcados como feitos (sem indicação conta como finalizada).
-async function carregarFinalizadas(ids: string[]): Promise<AvaliacaoPdf[]> {
+async function carregarFinalizadas(ids: string[]): Promise<(AvaliacaoPdf & { id: string })[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("avaliacoes")
@@ -40,6 +40,7 @@ async function carregarFinalizadas(ids: string[]): Promise<AvaliacaoPdf[]> {
 
     return [
       {
+        id: a.id,
         matricula: colaborador.matricula,
         nome: colaborador.nome,
         gestorNome: colaborador.gestor_nome,
@@ -60,6 +61,13 @@ async function carregarFinalizadas(ids: string[]): Promise<AvaliacaoPdf[]> {
   });
 }
 
+// Guarda quando o PDF saiu pela primeira vez, pra separar os novos dos já
+// baixados no painel. Falha aqui não impede o download.
+async function marcarBaixados(ids: string[]) {
+  const supabase = await createClient();
+  await supabase.rpc("marcar_pdfs_baixados", { ids });
+}
+
 // Nome com acento no download: filename simples + filename* em UTF-8.
 function contentDisposition(nome: string) {
   const simples = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\x20-\x7e]/g, "_");
@@ -76,6 +84,7 @@ export async function GET(request: Request) {
   if (!avaliacao) return new Response("Avaliação não encontrada ou ainda não finalizada.", { status: 404 });
 
   const pdf = await gerarPdfAvaliacao(avaliacao);
+  await marcarBaixados([avaliacao.id]);
   return new Response(Buffer.from(pdf), {
     headers: {
       "Content-Type": "application/pdf",
@@ -111,6 +120,7 @@ export async function POST(request: Request) {
   }
 
   const conteudo = await zip.generateAsync({ type: "uint8array" });
+  await marcarBaixados(avaliacoes.map((a) => a.id));
   const hoje = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" }).replace(/\//g, "-");
   return new Response(Buffer.from(conteudo), {
     headers: {

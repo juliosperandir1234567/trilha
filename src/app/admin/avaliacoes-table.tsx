@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle2, Clock, FileDown, Search, type LucideIcon } from "lucide-react";
 
@@ -34,6 +35,8 @@ export type AvaliacaoLinha = {
   // Treinamentos indicados pelo gestor e quantos o admin já marcou como feitos.
   treinamentosIndicados?: number;
   treinamentosFeitos?: number;
+  // Primeira vez que o PDF desta avaliação foi baixado.
+  pdfBaixadoEm?: string | null;
 };
 
 // Respondidas e não avaliadas já saíram das mãos do gestor; o resto ainda
@@ -52,6 +55,10 @@ const dataHora = (iso: string) =>
 // Dois cards lado a lado: em andamento (ainda com o gestor) e respondidas.
 // Uma busca só filtra os dois.
 export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }) {
+  const router = useRouter();
+  // O download não recarrega a página: atualiza depois pra os contadores de
+  // "novos" já refletirem o que acabou de sair.
+  const atualizarDepoisDoDownload = () => setTimeout(() => router.refresh(), 2500);
   const [busca, setBusca] = useState("");
   const [filtroRespondidas, setFiltroRespondidas] = useState<FiltroRespondidas>("pendentes");
 
@@ -67,6 +74,7 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
   const emAndamento = buscadas.filter((a) => !ehRespondida(a));
   const respondidas = buscadas.filter(ehRespondida);
   const finalizadas = respondidas.filter(ehFinalizada);
+  const finalizadasNovas = finalizadas.filter((a) => !a.pdfBaixadoEm);
   // "Respondidas" se divide em quem ainda tem treinamento a fazer (pede ação)
   // e quem já encerrou: finalizada ou não avaliada (afastado/desligado).
   const comTreinamentoPendente = respondidas.filter((a) => a.status === "respondida" && !ehFinalizada(a));
@@ -164,19 +172,36 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
             // PDF em massa: um arquivo por avaliação finalizada da lista atual
             // (filtros da página + busca), tudo num .zip. POST porque a lista
             // de ids pode ser grande demais pra URL. Só na aba Finalizadas.
+            // "Só dos novos" leva apenas os que nunca foram baixados, pra não
+            // misturar com os que já saíram antes.
             filtroRespondidas === "finalizadas" &&
             finalizadas.length > 0 && (
-              <form method="post" action="/admin/avaliacoes/pdf" className="shrink-0">
-                <input type="hidden" name="ids" value={finalizadas.map((a) => a.id).join(",")} />
-                <button
-                  type="submit"
-                  title="Exportar finalizadas em PDF"
-                  className="flex items-center gap-1.5 rounded-md border border-primary-border px-2.5 py-1 text-xs text-primary hover:bg-primary-soft"
-                >
-                  <FileDown className="h-3.5 w-3.5" />
-                  PDF das finalizadas ({finalizadas.length})
-                </button>
-              </form>
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                {finalizadasNovas.length > 0 && (
+                  <form method="post" action="/admin/avaliacoes/pdf" onSubmit={atualizarDepoisDoDownload}>
+                    <input type="hidden" name="ids" value={finalizadasNovas.map((a) => a.id).join(",")} />
+                    <button
+                      type="submit"
+                      title="Baixar em PDF só as finalizadas que ainda não foram baixadas"
+                      className="flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary-hover"
+                    >
+                      <FileDown className="h-3.5 w-3.5" />
+                      PDF só dos novos ({finalizadasNovas.length})
+                    </button>
+                  </form>
+                )}
+                <form method="post" action="/admin/avaliacoes/pdf" onSubmit={atualizarDepoisDoDownload}>
+                  <input type="hidden" name="ids" value={finalizadas.map((a) => a.id).join(",")} />
+                  <button
+                    type="submit"
+                    title="Baixar em PDF todas as finalizadas desta lista"
+                    className="flex items-center gap-1.5 rounded-md border border-primary-border px-2.5 py-1 text-xs text-primary hover:bg-primary-soft"
+                  >
+                    <FileDown className="h-3.5 w-3.5" />
+                    PDF de todos ({finalizadas.length})
+                  </button>
+                </form>
+              </div>
             )
           }
           celulas={(avaliacao) => (
@@ -195,10 +220,15 @@ export function AvaliacoesTable({ avaliacoes }: { avaliacoes: AvaliacaoLinha[] }
                     </span>
                     <a
                       href={`/admin/avaliacoes/pdf?id=${avaliacao.id}`}
-                      title="Baixar PDF desta avaliação"
-                      className="text-primary hover:underline"
+                      onClick={atualizarDepoisDoDownload}
+                      title={
+                        avaliacao.pdfBaixadoEm
+                          ? `PDF já baixado em ${dataHora(avaliacao.pdfBaixadoEm)}`
+                          : "Baixar PDF desta avaliação (ainda não baixado)"
+                      }
+                      className={avaliacao.pdfBaixadoEm ? "text-zinc-400 hover:underline" : "font-medium text-primary hover:underline"}
                     >
-                      PDF
+                      {avaliacao.pdfBaixadoEm ? "PDF ✓" : "PDF"}
                     </a>
                   </span>
                 ) : (

@@ -222,7 +222,7 @@ export default async function AdminOverviewPage({
     supabase
       .from("avaliacoes")
       .select(
-        "id, marco, status, data_envio, data_resposta, motivo_nao_avaliada, observacao_nao_avaliada, colaboradores(id, nome, matricula, data_admissao, tipo, ativo, gestor_nome, gestor_email, cargos(nome)), links_avaliacao(expira_em)"
+        "id, marco, status, data_envio, data_resposta, pdf_baixado_em, motivo_nao_avaliada, observacao_nao_avaliada, colaboradores(id, nome, matricula, data_admissao, tipo, ativo, gestor_nome, gestor_email, cargos(nome)), links_avaliacao(expira_em)"
       )
       .order("data_referencia", { ascending: false }),
     supabase.from("categorias_treinamento").select("id, nome").eq("ativo", true).order("nome"),
@@ -505,6 +505,7 @@ export default async function AdminOverviewPage({
       observacaoNaoAvaliada: a.observacao_nao_avaliada,
       treinamentosIndicados: treinamentos.indicados,
       treinamentosFeitos: treinamentos.feitos,
+      pdfBaixadoEm: a.pdf_baixado_em,
     };
   });
 

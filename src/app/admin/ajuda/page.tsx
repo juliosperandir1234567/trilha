@@ -105,7 +105,9 @@ const SECOES = [
             (&quot;Marcar como feito&quot;, ou &quot;Marcar todos&quot;). Sem indicação de
             treinamento, a avaliação já fica finalizada ao ser respondida. Avaliação
             finalizada tem PDF: um por vez na página do colaborador, ou em massa na Visão
-            geral (card <strong>Respondidas</strong> → aba <strong>Finalizadas</strong> → botão &quot;PDF das finalizadas&quot;,
+            geral (card <strong>Respondidas</strong> → aba <strong>Finalizadas</strong> → &quot;PDF só dos novos&quot;, que leva só os que
+            nunca foram baixados, ou &quot;PDF de todos&quot;; na linha, &quot;PDF ✓&quot; indica que
+            aquele já foi baixado,
             que baixa um .zip com um arquivo por avaliação, nomeado Código-Nome-Avaliação
             X dias-data da resposta).
           </li>
