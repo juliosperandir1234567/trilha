@@ -1,13 +1,28 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import JSZip from "jszip";
 import { Upload } from "lucide-react";
 import { importColaboradores } from "@/lib/actions/colaboradores";
 
 const dataBR = (iso: string) => new Date(iso + "T00:00:00").toLocaleDateString("pt-BR");
 
+// Nomes das abas de um .xlsx, lidos do xl/workbook.xml (o .xlsx é um zip).
+async function lerAbas(arquivo: File): Promise<string[]> {
+  try {
+    const zip = await JSZip.loadAsync(arquivo);
+    const xml = await zip.file("xl/workbook.xml")?.async("string");
+    if (!xml) return [];
+    const doc = new DOMParser().parseFromString(xml, "application/xml");
+    return [...doc.getElementsByTagName("sheet")].map((s) => s.getAttribute("name") ?? "").filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 export function ImportForm() {
   const [state, action, pending] = useActionState(importColaboradores, undefined);
+  const [abas, setAbas] = useState<string[]>([]);
 
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -21,7 +36,24 @@ export function ImportForm() {
           type="file"
           accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           className="text-sm"
+          onChange={async (e) => {
+            const arquivo = e.target.files?.[0];
+            setAbas(arquivo && arquivo.name.toLowerCase().endsWith(".xlsx") ? await lerAbas(arquivo) : []);
+          }}
         />
+        {abas.length > 1 && (
+          <label className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+            Aba da planilha:
+            <select name="aba" defaultValue="" className="rounded-md border border-black/15 px-2.5 py-1 text-sm">
+              <option value="">Detectar automaticamente</option>
+              {abas.map((aba) => (
+                <option key={aba} value={aba}>
+                  {aba}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <p className="text-xs text-zinc-500">
           Aceita a planilha do RH direto: <code>MATRICULA</code>, <code>NOME</code>,{" "}
           <code>SITUACAO</code>, <code>TURNO</code>, <code>DS_CARGO</code> (ou DS_CARGO_EXP; precisa bater com
@@ -49,6 +81,7 @@ export function ImportForm() {
       {state?.inseridos !== undefined && (
         <div className="flex flex-col gap-2 text-sm">
           <p className="text-green-700 dark:text-green-500">
+            {state.abaLida && <>Aba lida: <strong>{state.abaLida}</strong> · </>}
             {state.inseridos} novo(s) cadastrado(s) · {state.atualizados ?? 0} já existente(s) atualizado(s)
             {state.incompletas?.length ? ` · ${state.incompletas.length} linha(s) com dado faltando` : ""}.
           </p>

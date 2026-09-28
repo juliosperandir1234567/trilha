@@ -26,10 +26,29 @@ export type ImportFormState =
       // Cargo da planilha que não bate com nenhum cargo cadastrado: o
       // colaborador entra sem cargo (períodos padrão 30/60/90).
       cargosNaoEncontrados?: string[];
+      // Aba do Excel que foi lida (arquivo com várias abas).
+      abaLida?: string;
     }
   | undefined;
 
 export type LinhaIncompleta = { linha: number; matricula: string; nome: string; falta: string[] };
+
+// Cabeçalhos que indicam a aba certa do Excel (já normalizados).
+const CABECALHOS_CONHECIDOS = [
+  "matricula",
+  "nome",
+  "data_admissao",
+  "experiencia_ini",
+  "tipo_colaborador",
+  "ds_cargo",
+  "ds_cargo_exp",
+  "cargo",
+  "turno",
+  "nome_gestor",
+  "email_gestor",
+  "gestor",
+  "email do gestor",
+];
 
 function normalizeHeader(header: string) {
   return header
@@ -220,6 +239,7 @@ export async function importColaboradores(
   const ehExcel = nomeArquivo.endsWith(".xlsx");
 
   let linhas: Record<string, string>[];
+  let abaLida: string | undefined;
 
   if (ehExcel) {
     const workbook = new ExcelJS.Workbook();
@@ -228,15 +248,41 @@ export async function importColaboradores(
     } catch {
       return { error: "Não foi possível ler esse arquivo. Salve como .xlsx (Excel) ou .csv e tente de novo." };
     }
-    const planilha = workbook.worksheets[0];
-    if (!planilha) {
+    if (workbook.worksheets.length === 0) {
       return { error: "A planilha está vazia." };
     }
 
-    const cabecalhos: string[] = [];
-    planilha.getRow(1).eachCell({ includeEmpty: false }, (celula, coluna) => {
-      cabecalhos[coluna] = normalizeHeader(String(celula.value ?? ""));
-    });
+    const cabecalhosDa = (aba: ExcelJS.Worksheet) => {
+      const nomes: string[] = [];
+      aba.getRow(1).eachCell({ includeEmpty: false }, (celula, coluna) => {
+        nomes[coluna] = normalizeHeader(celulaParaTexto(celula.value));
+      });
+      return nomes;
+    };
+
+    // Aba escolhida na tela; sem escolha, a que tem mais cabeçalhos
+    // reconhecidos (empate: a primeira). O arquivo do RH costuma ter várias
+    // abas (base, filtros), e só a certa tem as colunas na linha 1.
+    const abaEscolhida = String(formData.get("aba") ?? "").trim();
+    let planilha: ExcelJS.Worksheet | undefined;
+    if (abaEscolhida) {
+      planilha = workbook.worksheets.find((aba) => aba.name === abaEscolhida);
+      if (!planilha) return { error: `A aba "${abaEscolhida}" não existe nesse arquivo.` };
+    } else {
+      let melhorPontuacao = -1;
+      for (const aba of workbook.worksheets) {
+        const presentes = new Set(cabecalhosDa(aba));
+        const pontuacao = CABECALHOS_CONHECIDOS.filter((c) => presentes.has(c)).length;
+        if (pontuacao > melhorPontuacao) {
+          melhorPontuacao = pontuacao;
+          planilha = aba;
+        }
+      }
+    }
+    if (!planilha) return { error: "A planilha está vazia." };
+    abaLida = planilha.name;
+
+    const cabecalhos = cabecalhosDa(planilha);
 
     linhas = [];
     planilha.eachRow((linhaExcel, numeroLinha) => {
@@ -490,6 +536,7 @@ export async function importColaboradores(
     conflitos,
     incompletas,
     cargosNaoEncontrados,
+    abaLida,
   };
 }
 
