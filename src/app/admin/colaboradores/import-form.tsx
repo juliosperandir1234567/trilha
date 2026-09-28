@@ -24,14 +24,14 @@ export function ImportForm() {
         />
         <p className="text-xs text-zinc-500">
           Aceita a planilha do RH direto: <code>MATRICULA</code>, <code>NOME</code>,{" "}
-          <code>SITUACAO</code>, <code>TURNO</code>, <code>DS_CARGO_EXP</code> (precisa bater com o nome
-          de um cargo em Cargos), <code>EXPERIENCIA_INI</code>, <code>EXPERIENCIA_FIM_1</code>,{" "}
+          <code>SITUACAO</code>, <code>TURNO</code>, <code>DS_CARGO</code> (ou DS_CARGO_EXP; precisa bater com
+          o nome de um cargo em Cargos), <code>ID_ESTRUTURA</code>, <code>ESTRUTURA</code>,{" "}
+          <code>EXPERIENCIA_INI</code>, <code>EXPERIENCIA_FIM</code> (ou EXPERIENCIA_FIM_1),{" "}
           <code>DATA_ADMISSAO</code>, <code>TIPO_COLABORADOR</code> (novato ou capacitação),{" "}
           <code>MATRICULA_GESTOR</code>, <code>NOME_GESTOR</code> e <code>EMAIL_GESTOR</code>. Os
           períodos contam da <strong>DATA_ADMISSAO</strong> pra novato e da{" "}
           <strong>EXPERIENCIA_INI</strong> pra capacitação. DIAS_EMPRESA, PROXIMA_AVALIACAO e
-          DATA_PROXIMA_AVALIACAO são ignoradas: o sistema calcula as dele. Opcional:{" "}
-          <code>ESTRUTURA_MACRO</code> (ex.: UTAG). Pode enviar o .xlsx ou um .csv. Matrícula já cadastrada não duplica: o
+          DATA_PROXIMA_AVALIACAO são ignoradas: o sistema calcula as dele. Pode enviar o .xlsx ou um .csv. Matrícula já cadastrada não duplica: o
           cadastro é atualizado e a trajetória continua.
         </p>
       </div>

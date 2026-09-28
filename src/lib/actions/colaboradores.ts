@@ -273,6 +273,7 @@ export async function importColaboradores(
     data_fim_experiencia: string | null;
     situacao: string | null;
     gestor_matricula: string | null;
+    estrutura_id: string | null;
     gestor_nome: string;
     gestor_email: string;
     cargo_nome: string;
@@ -309,7 +310,7 @@ export async function importColaboradores(
       "email",
       "e-mail"
     );
-    const cargoNome = campo("cargo", "ds_cargo_exp");
+    const cargoNome = campo("cargo", "ds_cargo", "ds_cargo_exp");
     const tipoBruto = campo("tipo", "tipo_colaborador", "novato ou capacitacao").toLowerCase();
     const tipo = tipoBruto.startsWith("capacit") ? "capacitacao" : "novato";
     const estruturaMacro = lerEstrutura(campo("estrutura_macro", "estrutura macro", "estrutura"));
@@ -331,6 +332,7 @@ export async function importColaboradores(
         : campo(...colunasAdmissao, ...colunasInicioCapacitacao);
     const dataAdmissao = dataBruta ? parseDataAdmissao(dataBruta) : null;
     const situacao = campo("situacao").toUpperCase() || null;
+    const estruturaId = campo("id_estrutura", "estrutura_id") || null;
     const gestorMatricula = campo("matricula_gestor", "gestor_matricula", "matricula do gestor") || null;
     const fimBruto = campo("experiencia_fim_1", "experiencia_fim", "fim da experiencia");
     const dataFim = fimBruto ? parseDataAdmissao(fimBruto) : null;
@@ -356,6 +358,7 @@ export async function importColaboradores(
       data_fim_experiencia: dataFim,
       situacao,
       gestor_matricula: gestorMatricula,
+      estrutura_id: estruturaId,
       gestor_nome: gestorNome,
       gestor_email: gestorEmail,
       cargo_nome: cargoNome,
@@ -454,6 +457,7 @@ export async function importColaboradores(
         ...(registro.data_fim_experiencia ? { data_fim_experiencia: registro.data_fim_experiencia } : {}),
         ...(registro.situacao ? { situacao: registro.situacao } : {}),
         ...(registro.gestor_matricula ? { gestor_matricula: registro.gestor_matricula } : {}),
+        ...(registro.estrutura_id ? { estrutura_id: registro.estrutura_id } : {}),
       },
     });
   }
