@@ -432,10 +432,13 @@ const SECOES = [
     titulo: "Retenção de dados (privacidade)",
     conteudo: (
       <p>
-        Seis meses após a data de admissão, o sistema remove automaticamente os dados
-        pessoais do colaborador e do gestor daquele registro (nome, matrícula, e-mail),
-        mantendo apenas o histórico de notas e treinamentos indicados para as
-        estatísticas continuarem corretas. Essa limpeza roda todo dia de madrugada.
+        <strong>365 dias</strong> após a data de início (admissão do novato ou início da
+        capacitação), o sistema remove automaticamente os dados pessoais do colaborador e do
+        gestor daquele registro (nome, matrícula, e-mail, situação), mantendo apenas o
+        histórico de notas e treinamentos indicados para as estatísticas continuarem
+        corretas. O prazo cobre todos os períodos (até 270 dias) com folga, e quem ainda tem
+        avaliação em andamento espera ela terminar antes de ser limpo. Essa limpeza roda todo
+        dia de madrugada.
       </p>
     ),
   },
