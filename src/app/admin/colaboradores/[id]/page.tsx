@@ -46,7 +46,7 @@ export default async function ColaboradorDetalhePage({
     supabase
       .from("colaboradores")
       .select(
-        "id, nome, matricula, email, data_admissao, tipo, estrutura_macro, turno, gestor_nome, gestor_email, ativo, cargo_id, cargos(nome, marcos)"
+        "id, nome, matricula, email, data_admissao, data_fim_experiencia, situacao, tipo, estrutura_macro, turno, gestor_nome, gestor_email, gestor_matricula, ativo, cargo_id, cargos(nome, marcos)"
       )
       .eq("id", id)
       .single(),
@@ -99,7 +99,16 @@ export default async function ColaboradorDetalhePage({
           {colaborador.turno ? <>Turno: {nomeDoTurno(colaborador.turno)} · </> : null}
           {colaborador.tipo === "capacitacao" ? "Mudou de cargo em" : "Admissão em"}{" "}
           {new Date(colaborador.data_admissao + "T00:00:00").toLocaleDateString("pt-BR")}
-          {" · "}Gestor: {colaborador.gestor_nome} ({colaborador.gestor_email})
+          {colaborador.data_fim_experiencia && (
+            <>
+              {" · "}
+              {colaborador.tipo === "capacitacao" ? "Fim da capacitação" : "Fim da experiência"}:{" "}
+              {new Date(colaborador.data_fim_experiencia + "T00:00:00").toLocaleDateString("pt-BR")}
+            </>
+          )}
+          {colaborador.situacao && <>{" · "}Situação: {colaborador.situacao}</>}
+          {" · "}Gestor: {colaborador.gestor_matricula ? `${colaborador.gestor_matricula} ` : ""}
+          {colaborador.gestor_nome} ({colaborador.gestor_email})
           {" · "}{colaborador.ativo ? "Ativo" : "Inativo"}
         </p>
       </div>

@@ -21,8 +21,15 @@ export type ImportFormState =
       // Matrícula que aparece mais de uma vez na mesma planilha (vale a primeira).
       repetidas?: string[];
       conflitos?: ConflitoDeData[];
+      // Linhas puladas por falta de dado obrigatório, com o que faltou.
+      incompletas?: LinhaIncompleta[];
+      // Cargo da planilha que não bate com nenhum cargo cadastrado: o
+      // colaborador entra sem cargo (períodos padrão 30/60/90).
+      cargosNaoEncontrados?: string[];
     }
   | undefined;
+
+export type LinhaIncompleta = { linha: number; matricula: string; nome: string; falta: string[] };
 
 function normalizeHeader(header: string) {
   return header
@@ -263,6 +270,9 @@ export async function importColaboradores(
     nome: string;
     matricula: string;
     data_admissao: string;
+    data_fim_experiencia: string | null;
+    situacao: string | null;
+    gestor_matricula: string | null;
     gestor_nome: string;
     gestor_email: string;
     cargo_nome: string;
@@ -271,62 +281,81 @@ export async function importColaboradores(
     turno: string | null;
   }[] = [];
   let ignorados = 0;
+  const incompletas: LinhaIncompleta[] = [];
 
-  for (const linha of linhas) {
-    const nome = (linha["nome"] ?? linha["colaborador"] ?? linha["nome do colaborador"] ?? "").trim();
-    const matricula = (
-      linha["matricula"] ??
-      linha["matrícula"] ??
-      linha["matricula do colaborador"] ??
-      ""
-    ).trim();
-    const dataBruta = (
-      linha["data_admissao"] ??
-      linha["data de admissao"] ??
-      linha["data admissao"] ??
-      linha["admissao"] ??
-      linha["data_alteracao_cargo"] ??
-      linha["data de alteracao de cargo"] ??
-      linha["data de inicio"] ??
-      ""
-    ).trim();
-    const gestorNome = (
-      linha["gestor"] ??
-      linha["gestor_nome"] ??
-      linha["nome do gestor"] ??
-      linha["analista"] ??
-      linha["responsavel"] ??
-      ""
-    ).trim();
-    const gestorEmail = (
-      linha["email do gestor"] ??
-      linha["e-mail do gestor"] ??
-      linha["email gestor"] ??
-      linha["e-mail gestor"] ??
-      linha["gestor_email"] ??
-      linha["email do analista"] ??
-      linha["e-mail do analista"] ??
-      linha["email"] ??
-      linha["e-mail"] ??
-      ""
-    ).trim();
-    const cargoNome = (linha["cargo"] ?? "").trim();
-    const tipoBruto = (linha["tipo"] ?? linha["novato ou capacitacao"] ?? "novato").trim().toLowerCase();
+  linhas.forEach((linha, indice) => {
+    // Primeira coluna preenchida entre os nomes aceitos (célula vazia do CSV
+    // vem como "", não como ausente).
+    const campo = (...chaves: string[]) => {
+      for (const chave of chaves) {
+        const valor = (linha[chave] ?? "").trim();
+        if (valor) return valor;
+      }
+      return "";
+    };
+
+    const nome = campo("nome", "colaborador", "nome do colaborador");
+    const matricula = campo("matricula", "matricula do colaborador");
+    const gestorNome = campo("gestor", "gestor_nome", "nome_gestor", "nome do gestor", "analista", "responsavel");
+    const gestorEmail = campo(
+      "email do gestor",
+      "e-mail do gestor",
+      "email gestor",
+      "e-mail gestor",
+      "gestor_email",
+      "email_gestor",
+      "email do analista",
+      "e-mail do analista",
+      "email",
+      "e-mail"
+    );
+    const cargoNome = campo("cargo", "ds_cargo_exp");
+    const tipoBruto = campo("tipo", "tipo_colaborador", "novato ou capacitacao").toLowerCase();
     const tipo = tipoBruto.startsWith("capacit") ? "capacitacao" : "novato";
-    const estruturaMacro = lerEstrutura(linha["estrutura_macro"] ?? linha["estrutura macro"] ?? linha["estrutura"]);
-    const turno = lerTurno(linha["turno"]);
+    const estruturaMacro = lerEstrutura(campo("estrutura_macro", "estrutura macro", "estrutura"));
+    const turno = lerTurno(campo("turno"));
 
+    // Planilha do RH: novato traz a DATA_ADMISSAO; capacitação traz a
+    // EXPERIENCIA_INI (início da capacitação) e a admissão vem vazia. Cada
+    // tipo olha primeiro a sua coluna e usa a outra se ela faltar.
+    const colunasAdmissao = ["data_admissao", "data de admissao", "data admissao", "admissao"];
+    const colunasInicioCapacitacao = [
+      "experiencia_ini",
+      "data_alteracao_cargo",
+      "data de alteracao de cargo",
+      "data de inicio",
+    ];
+    const dataBruta =
+      tipo === "capacitacao"
+        ? campo(...colunasInicioCapacitacao, ...colunasAdmissao)
+        : campo(...colunasAdmissao, ...colunasInicioCapacitacao);
     const dataAdmissao = dataBruta ? parseDataAdmissao(dataBruta) : null;
+    const situacao = campo("situacao").toUpperCase() || null;
+    const gestorMatricula = campo("matricula_gestor", "gestor_matricula", "matricula do gestor") || null;
+    const fimBruto = campo("experiencia_fim_1", "experiencia_fim", "fim da experiencia");
+    const dataFim = fimBruto ? parseDataAdmissao(fimBruto) : null;
 
-    if (!nome || !matricula || !dataAdmissao || !gestorNome || !gestorEmail) {
+    const falta = [
+      !matricula && "matrícula",
+      !nome && "nome",
+      !dataAdmissao && (tipo === "capacitacao" ? "data de início (EXPERIENCIA_INI)" : "data de admissão"),
+      !gestorNome && "nome do gestor",
+      !gestorEmail && "e-mail do gestor",
+    ].filter((f): f is string => !!f);
+    if (falta.length > 0) {
       ignorados += 1;
-      continue;
+      // Linha totalmente vazia (fim da planilha) não entra no aviso.
+      if (nome || matricula) incompletas.push({ linha: indice + 2, matricula, nome, falta });
+      return;
     }
 
     registros.push({
       nome,
       matricula,
-      data_admissao: dataAdmissao,
+      data_admissao: dataAdmissao!,
+      data_fim_experiencia: dataFim,
+      situacao,
+      gestor_matricula: gestorMatricula,
       gestor_nome: gestorNome,
       gestor_email: gestorEmail,
       cargo_nome: cargoNome,
@@ -334,12 +363,12 @@ export async function importColaboradores(
       estrutura_macro: estruturaMacro,
       turno,
     });
-  }
+  });
 
   if (registros.length === 0) {
     return {
       error:
-        "Nenhuma linha válida encontrada. Confira as colunas: nome, matricula, data_admissao, gestor, email do gestor.",
+        "Nenhuma linha válida encontrada. Confira as colunas: MATRICULA, NOME, DATA_ADMISSAO (novato) ou EXPERIENCIA_INI (capacitação), NOME_GESTOR e EMAIL_GESTOR.",
     };
   }
 
@@ -372,6 +401,10 @@ export async function importColaboradores(
     return { error: "Não foi possível importar os colaboradores." };
   }
   const existentePorMatricula = new Map((existentes ?? []).map((c) => [c.matricula as string, c]));
+
+  const cargosNaoEncontrados = [
+    ...new Set(registros.map((r) => r.cargo_nome).filter((c) => c && !idPorCargo.has(c.toLowerCase()))),
+  ].sort((a, b) => a.localeCompare(b, "pt-BR"));
 
   const vistas = new Set<string>();
   const repetidas: string[] = [];
@@ -418,6 +451,9 @@ export async function importColaboradores(
         ...(registro.estrutura_macro ? { estrutura_macro: registro.estrutura_macro } : {}),
         ...(registro.turno ? { turno: registro.turno } : {}),
         ...(cargoId ? { cargo_id: cargoId } : {}),
+        ...(registro.data_fim_experiencia ? { data_fim_experiencia: registro.data_fim_experiencia } : {}),
+        ...(registro.situacao ? { situacao: registro.situacao } : {}),
+        ...(registro.gestor_matricula ? { gestor_matricula: registro.gestor_matricula } : {}),
       },
     });
   }
@@ -448,6 +484,8 @@ export async function importColaboradores(
     ignorados,
     repetidas,
     conflitos,
+    incompletas,
+    cargosNaoEncontrados,
   };
 }
 
