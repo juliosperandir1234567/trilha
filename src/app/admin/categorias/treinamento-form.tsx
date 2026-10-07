@@ -4,8 +4,21 @@ import { useActionState } from "react";
 import { Plus } from "lucide-react";
 import { createTreinamento } from "@/lib/actions/treinamentos";
 
+import { ORIGENS_SUGERIDAS } from "@/lib/origem-treinamento";
+
 type Categoria = { id: string; nome: string };
 type Cargo = { id: string; nome: string };
+
+// Sugestões dos campos "Origem" (cadastro e edição); vai uma vez na página.
+export function OrigensDatalist() {
+  return (
+    <datalist id="origens-treinamento">
+      {ORIGENS_SUGERIDAS.map((origem) => (
+        <option key={origem} value={origem} />
+      ))}
+    </datalist>
+  );
+}
 
 export function TreinamentoForm({ categorias, cargos }: { categorias: Categoria[]; cargos: Cargo[] }) {
   const [state, action, pending] = useActionState(createTreinamento, undefined);
@@ -42,6 +55,19 @@ export function TreinamentoForm({ categorias, cargos }: { categorias: Categoria[
           id="nome_treinamento"
           name="nome"
           required
+          className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5 sm:w-[140px]">
+        <label htmlFor="origem_treinamento" className="text-sm font-medium">
+          Origem
+        </label>
+        <input
+          id="origem_treinamento"
+          name="origem"
+          list="origens-treinamento"
+          placeholder="UAM, Gupy..."
           className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
         />
       </div>

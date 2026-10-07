@@ -8,7 +8,7 @@ import {
   deleteTreinamento,
 } from "@/lib/actions/treinamentos";
 import { AcoesMenu } from "@/components/acoes-menu";
-
+import { nomeComOrigem } from "@/lib/origem-treinamento";
 type Categoria = { id: string; nome: string };
 type Cargo = { id: string; nome: string };
 type Treinamento = {
@@ -16,6 +16,7 @@ type Treinamento = {
   categoria_id: string;
   cargo_id: string | null;
   nome: string;
+  origem: string | null;
   ativo: boolean;
 };
 
@@ -87,6 +88,16 @@ export function TreinamentoRow({
                 className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
               />
             </div>
+            <div className="flex flex-col gap-1.5 sm:w-[120px]">
+              <label className="text-xs font-medium">Origem</label>
+              <input
+                name="origem"
+                list="origens-treinamento"
+                defaultValue={treinamento.origem ?? ""}
+                placeholder="UAM, Gupy..."
+                className="w-full rounded-md border border-black/15 px-3 py-2 text-sm outline-none focus:border-primary dark:border-white/20"
+              />
+            </div>
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -112,7 +123,7 @@ export function TreinamentoRow({
 
   return (
     <tr className="border-b border-primary-border/40 align-top last:border-b-0 hover:bg-primary-soft/20">
-      <td className="px-4 py-3">{treinamento.nome}</td>
+      <td className="px-4 py-3">{nomeComOrigem(treinamento.nome, treinamento.origem)}</td>
       <td className="whitespace-nowrap px-4 py-3">{treinamento.ativo ? "Ativo" : "Inativo"}</td>
       <td className="px-4 py-3 text-right">
         <AcoesMenu label="Ações do treinamento" onClose={() => setConfirmandoExclusao(false)}>

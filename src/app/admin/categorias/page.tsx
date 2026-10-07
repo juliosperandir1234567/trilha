@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { getUsuarioAtual } from "@/lib/supabase/dal";
 import { CategoriaForm } from "./categoria-form";
-import { TreinamentoForm } from "./treinamento-form";
+import { OrigensDatalist, TreinamentoForm } from "./treinamento-form";
 import { CategoriaCard } from "./categoria-card";
 import { TreinamentoRow } from "./treinamento-row";
 
@@ -13,7 +13,7 @@ export default async function CategoriasPage() {
     supabase.from("categorias_treinamento").select("id, nome, descricao, ativo").order("nome"),
     supabase
       .from("treinamentos")
-      .select("id, categoria_id, cargo_id, nome, ativo")
+      .select("id, categoria_id, cargo_id, nome, origem, ativo")
       .order("nome"),
     supabase.from("cargos").select("id, nome, ativo").order("nome"),
   ]);
@@ -23,6 +23,7 @@ export default async function CategoriasPage() {
     categoria_id: string;
     cargo_id: string | null;
     nome: string;
+    origem: string | null;
     ativo: boolean;
   };
 
@@ -55,6 +56,7 @@ export default async function CategoriasPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <OrigensDatalist />
       <div>
         <h1 className="text-xl font-semibold">Competências</h1>
         <p className="text-sm text-zinc-500">

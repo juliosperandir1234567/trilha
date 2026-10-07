@@ -15,6 +15,7 @@ export async function createTreinamento(
 
   const categoriaId = String(formData.get("categoria_id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
+  const origem = String(formData.get("origem") ?? "").trim() || null;
   // Um treinamento por cargo marcado; nenhum marcado = um só, pra todos os cargos.
   const cargoIds = formData.getAll("cargo_ids").map(String).filter(Boolean);
 
@@ -31,6 +32,7 @@ export async function createTreinamento(
       categoria_id: categoriaId,
       cargo_id: cargoId,
       nome,
+      origem,
     }))
   );
 
@@ -69,6 +71,7 @@ export async function updateTreinamento(
   const id = String(formData.get("id") ?? "");
   const categoriaId = String(formData.get("categoria_id") ?? "");
   const nome = String(formData.get("nome") ?? "").trim();
+  const origem = String(formData.get("origem") ?? "").trim() || null;
   // Vazio = "Todos os cargos".
   const cargoId = String(formData.get("cargo_id") ?? "") || null;
 
@@ -82,7 +85,7 @@ export async function updateTreinamento(
   const supabase = await createClient();
   const { error } = await supabase
     .from("treinamentos")
-    .update({ categoria_id: categoriaId, cargo_id: cargoId, nome })
+    .update({ categoria_id: categoriaId, cargo_id: cargoId, nome, origem })
     .eq("id", id);
 
   if (error) {

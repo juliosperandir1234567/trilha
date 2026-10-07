@@ -3,11 +3,13 @@
 // treinamento como feito; indicação só de competência (sem treinamento) é
 // marcada na própria resposta (respostas.treinamento_realizado_em).
 
+import { nomeComOrigem } from "./origem-treinamento";
+
 export type TreinamentoDaResposta = {
   id: string;
   treinamento_id: string;
   realizado_em: string | null;
-  treinamentos: { nome: string; cargos: { nome: string } | null } | null;
+  treinamentos: { nome: string; origem: string | null; cargos: { nome: string } | null } | null;
 };
 
 export type RespostaComIndicacao = {
@@ -34,7 +36,7 @@ export type ItemDeTreinamento = {
 // Select do Supabase com o que as funções abaixo precisam (colar dentro do
 // select de respostas).
 export const SELECT_TREINAMENTOS =
-  "resposta_treinamentos(id, treinamento_id, realizado_em, treinamentos(nome, cargos(nome)))";
+  "resposta_treinamentos(id, treinamento_id, realizado_em, treinamentos(nome, origem, cargos(nome)))";
 
 function temIndicacao(r: RespostaComIndicacao) {
   return !!(r.categoria_final_id || r.categorias_treinamento);
@@ -61,7 +63,7 @@ export function itensDeTreinamento(r: RespostaComIndicacao): ItemDeTreinamento[]
     respostaId: r.id,
     respostaTreinamentoId: t.id,
     treinamentoId: t.treinamento_id,
-    nome: t.treinamentos?.nome ?? null,
+    nome: t.treinamentos ? nomeComOrigem(t.treinamentos.nome, t.treinamentos.origem) : null,
     cargo: t.treinamentos?.cargos?.nome ?? null,
     realizadoEm: t.realizado_em,
   }));

@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, ChevronRight, Save, Send, UserX } from "lucide-react";
 import { NOTAS, NOTA_MAXIMA_INDICACAO } from "@/lib/escala";
+import { nomeComOrigem } from "@/lib/origem-treinamento";
 
 type Pergunta = { id: string; texto: string; categoria_sugerida_id: string | null };
 type Categoria = { id: string; nome: string };
-type Treinamento = { id: string; categoria_id: string; nome: string };
+type Treinamento = { id: string; categoria_id: string; nome: string; origem?: string | null };
 type RespostaEnviada = {
   pergunta_id: string;
   nota: number | null;
@@ -240,7 +241,10 @@ export function AvaliacaoClient({ token }: { token: string }) {
   if (!dados) return null;
 
   const nomeCategoria = (id: string) => dados.categorias.find((c) => c.id === id)?.nome;
-  const nomeTreinamento = (id: string) => dados.treinamentos.find((t) => t.id === id)?.nome;
+  const nomeTreinamento = (id: string) => {
+    const treinamento = dados.treinamentos.find((t) => t.id === id);
+    return treinamento && nomeComOrigem(treinamento.nome, treinamento.origem);
+  };
 
   const cabecalho = (
     <div className="text-center">
@@ -523,7 +527,7 @@ export function AvaliacaoClient({ token }: { token: string }) {
                                 onChange={() => alternarTreinamento(pergunta.id, treinamento.id)}
                                 className="h-4 w-4 accent-primary"
                               />
-                              {treinamento.nome}
+                              {nomeComOrigem(treinamento.nome, treinamento.origem)}
                             </label>
                           ))}
                         </div>

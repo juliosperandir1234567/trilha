@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
         .select("id, nome")
         .eq("ativo", true)
         .order("nome"),
-      treinamentosDoCargo(cargoId, "id, categoria_id, nome"),
+      treinamentosDoCargo(cargoId, "id, categoria_id, nome, origem"),
     ]);
 
     return json({
